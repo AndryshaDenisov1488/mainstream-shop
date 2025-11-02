@@ -411,17 +411,54 @@
 <script>
 // Define sendVideoLinks function first to avoid ReferenceError
 function sendVideoLinks() {
-    const form = document.getElementById('sendLinksForm');
-    const formData = new FormData(form);
+    // Ищем форму внутри модального окна
+    const modal = document.getElementById('sendLinksModal');
+    const form = modal ? modal.querySelector('#sendLinksForm') : document.getElementById('sendLinksForm');
     
+    if (!form) {
+        alert('Ошибка: форма не найдена');
+        console.error('Form not found');
+        return;
+    }
+    
+    const formData = new FormData(form);
+    const orderId = formData.get('order_id') || document.getElementById('modalOrderId')?.value;
+    
+    if (!orderId) {
+        alert('Ошибка: не найден ID заказа');
+        console.error('Order ID not found');
+        return;
+    }
+    
+    // Ищем поля ссылок как в модальном окне, так и на странице
     const videoLinks = {};
-    const videoLinkInputs = form.querySelectorAll('input[name^="video_links["]');
-    videoLinkInputs.forEach(input => {
-        const match = input.name.match(/video_links\[(.+)\]/);
-        if (match && input.value.trim()) {
-            videoLinks[match[1]] = input.value.trim();
-        }
-    });
+    
+    // Сначала ищем в модальном окне
+    const videoLinksContainer = document.getElementById('videoLinksContainer');
+    if (videoLinksContainer) {
+        const videoLinkInputs = videoLinksContainer.querySelectorAll('input[name^="video_links["]');
+        videoLinkInputs.forEach(input => {
+            const match = input.name.match(/video_links\[(.+)\]/);
+            const value = input.value.trim();
+            if (match && value) {
+                videoLinks[match[1]] = value;
+            }
+        });
+    }
+    
+    // Если не нашли в модальном окне, ищем в форме на странице
+    if (Object.keys(videoLinks).length === 0) {
+        const videoLinkInputs = form.querySelectorAll('input[name^="video_links["]');
+        videoLinkInputs.forEach(input => {
+            const match = input.name.match(/video_links\[(.+)\]/);
+            const value = input.value.trim();
+            if (match && value) {
+                videoLinks[match[1]] = value;
+            }
+        });
+    }
+    
+    console.log('Found video links:', videoLinks);
     
     // Check if at least one link is provided
     if (Object.keys(videoLinks).length === 0) {
@@ -429,17 +466,17 @@ function sendVideoLinks() {
         return;
     }
     
-    // Get refund data from the comments section
-    const refundStatusCheckbox = document.getElementById('refundStatusCheckbox');
-    const partialRefund = refundStatusCheckbox ? refundStatusCheckbox.checked : false;
+    // Get refund data from the modal
+    const partialRefundCheckbox = document.getElementById('partialRefundCheckbox') || modal?.querySelector('#partialRefundCheckbox');
+    const partialRefund = partialRefundCheckbox ? partialRefundCheckbox.checked : false;
     
     // Get operator comment from the input field
-    const operatorCommentInput = document.getElementById('operatorCommentInput');
-    const message = operatorCommentInput ? operatorCommentInput.value.trim() : '';
+    const messageInput = document.getElementById('message') || form.querySelector('#message');
+    const message = messageInput ? messageInput.value.trim() : '';
     
     // Get refund reason from the input field
-    const refundReasonInput = document.getElementById('refundReasonInput');
-    const refundComment = refundReasonInput ? refundReasonInput.value.trim() : '';
+    const refundCommentInput = document.getElementById('refundComment') || modal?.querySelector('#refundComment');
+    const refundComment = refundCommentInput ? refundCommentInput.value.trim() : '';
     
     // If it's a refund case but no refund reason provided
     if (partialRefund && !refundComment.trim()) {
@@ -458,7 +495,7 @@ function sendVideoLinks() {
     
     console.log('Sending video links:', requestData);
     
-    fetch('/api/order/' + formData.get('order_id') + '/send-links', {
+    fetch('/api/order/' + orderId + '/send-links', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
