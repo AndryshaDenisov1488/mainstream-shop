@@ -43,16 +43,31 @@ def run_bot_in_thread(app: Flask):
                     logger.info("✅ Telegram bot initialized successfully")
                     
                     # Start polling in the event loop (without signal handlers for sub-thread)
-                    # Use start_polling() and idle() instead of run_polling() for thread compatibility
+                    # We need to manually start polling and keep the loop running
                     async def run_bot():
-                        await bot_manager.application.initialize()
-                        await bot_manager.application.start()
-                        await bot_manager.application.updater.start_polling(
-                            drop_pending_updates=True,
-                            allowed_updates=None
-                        )
-                        # Keep running until stopped
-                        await bot_manager.application.updater.stop()
+                        try:
+                            await bot_manager.application.initialize()
+                            await bot_manager.application.start()
+                            await bot_manager.application.updater.start_polling(
+                                drop_pending_updates=True,
+                                allowed_updates=None
+                            )
+                            logger.info("✅ Telegram bot polling started successfully")
+                            
+                            # Keep the bot running - idle() will block until stop() is called
+                            await bot_manager.application.updater.idle()
+                            
+                        except Exception as run_error:
+                            logger.error(f"Error in bot run loop: {run_error}", exc_info=True)
+                            raise
+                        finally:
+                            # Cleanup
+                            try:
+                                await bot_manager.application.updater.stop()
+                                await bot_manager.application.stop()
+                                await bot_manager.application.shutdown()
+                            except Exception as cleanup_error:
+                                logger.warning(f"Error during bot cleanup: {cleanup_error}")
                     
                     # Run the bot in the event loop
                     loop.run_until_complete(run_bot())
@@ -64,15 +79,6 @@ def run_bot_in_thread(app: Flask):
                     import traceback
                     logger.error(f"Traceback: {traceback.format_exc()}")
                 finally:
-                    try:
-                        # Cleanup if needed
-                        if 'bot_manager' in locals():
-                            async def cleanup():
-                                await bot_manager.application.stop()
-                                await bot_manager.application.shutdown()
-                            loop.run_until_complete(cleanup())
-                    except:
-                        pass
                     loop.close()
                     logger.info("🔌 Telegram bot event loop closed")
                     
