@@ -207,6 +207,46 @@ def register_payment_routes(bp):
             flash('Произошла ошибка при обработке заказа', 'error')
             return redirect(url_for('main.checkout'))
     
+    @bp.route('/payment/<int:order_id>', methods=['GET'])
+    def payment_page(order_id):
+        """Display payment page for an order (for Telegram bot links)"""
+        try:
+            order = Order.query.get_or_404(order_id)
+            
+            # Check if order is in valid status for payment
+            if order.status not in ['checkout_initiated', 'awaiting_payment']:
+                flash('Этот заказ уже обработан или отменен.', 'error')
+                return redirect(url_for('main.index'))
+            
+            # Check if user has access (if authenticated)
+            if current_user.is_authenticated:
+                if current_user.role not in ['ADMIN', 'MOM', 'OPERATOR']:
+                    if order.customer_id != current_user.id:
+                        flash('У вас нет прав на просмотр этого заказа', 'error')
+                        return redirect(url_for('main.index'))
+            
+            # Create payment widget data
+            cp_api = CloudPaymentsAPI()
+            payment_method = order.payment_method or 'card'
+            payment_data = cp_api.create_payment_widget_data(order, payment_method)
+            
+            if not payment_data:
+                flash('Ошибка создания платежных данных. Попробуйте позже.', 'error')
+                return redirect(url_for('main.index'))
+            
+            # Get video types for display
+            video_types_dict = {}
+            if order.video_types:
+                video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
+                video_types_dict = {vt.id: vt for vt in video_types}
+            
+            return render_template('main/payment.html', payment_data=payment_data, order=order, video_types=video_types_dict)
+            
+        except Exception as e:
+            logger.error(f'Error displaying payment page: {str(e)}', exc_info=True)
+            flash('Произошла ошибка при загрузке страницы оплаты.', 'error')
+            return redirect(url_for('main.index'))
+    
     @bp.route('/payment/success')
     def payment_success():
         """Handle successful payment"""

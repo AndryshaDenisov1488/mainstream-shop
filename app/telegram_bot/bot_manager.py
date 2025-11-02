@@ -57,7 +57,8 @@ class TelegramBotManager:
                 ],
                 SELECTING_ATHLETE: [
                     CallbackQueryHandler(self.handle_athlete_selection, pattern='^athlete_'),
-                    CallbackQueryHandler(self.handle_category_selection, pattern='^back_to_categories$')
+                    CallbackQueryHandler(self.handle_category_selection, pattern='^back_to_categories$'),
+                    CallbackQueryHandler(self.handle_show_more_athletes, pattern='^show_more_athletes$')
                 ],
                 SELECTING_VIDEO_TYPE: [
                     CallbackQueryHandler(self.handle_video_type_selection, pattern='^video_'),
@@ -516,11 +517,25 @@ class TelegramBotManager:
             return SELECTING_EVENT
         
         elif query.data.startswith("event_"):
-            event_id = int(query.data.split("_")[1])
+            try:
+                event_id = int(query.data.split("_")[1])
+            except (ValueError, IndexError):
+                await query.edit_message_text("❌ Ошибка: неверный формат данных события.")
+                return ConversationHandler.END
+            
+            # Validate event exists
+            event = Event.query.get(event_id)
+            if not event:
+                await query.edit_message_text("❌ Турнир не найден.")
+                return ConversationHandler.END
+            
+            if not event.is_active:
+                await query.edit_message_text("❌ Этот турнир недоступен.")
+                return ConversationHandler.END
+            
             context.user_data['event_id'] = event_id
             
             # Show categories for selected event from database
-            event = Event.query.get(event_id)
             categories = Category.query.filter_by(event_id=event_id).all()
             
             if not categories:
@@ -555,11 +570,26 @@ class TelegramBotManager:
         await query.answer()
         
         if query.data.startswith("category_"):
-            category_id = int(query.data.split("_")[1])
+            try:
+                category_id = int(query.data.split("_")[1])
+            except (ValueError, IndexError):
+                await query.edit_message_text("❌ Ошибка: неверный формат данных категории.")
+                return ConversationHandler.END
+            
+            # Validate category exists and belongs to selected event
+            category = Category.query.get(category_id)
+            if not category:
+                await query.edit_message_text("❌ Категория не найдена.")
+                return ConversationHandler.END
+            
+            event_id = context.user_data.get('event_id')
+            if event_id and category.event_id != event_id:
+                await query.edit_message_text("❌ Категория не принадлежит выбранному турниру.")
+                return ConversationHandler.END
+            
             context.user_data['category_id'] = category_id
             
             # Show athletes for selected category from database
-            category = Category.query.get(category_id)
             athletes = Athlete.query.filter_by(category_id=category_id).all()
             
             if not athletes:
@@ -606,7 +636,23 @@ class TelegramBotManager:
         await query.answer()
         
         if query.data.startswith("athlete_"):
-            athlete_id = int(query.data.split("_")[1])
+            try:
+                athlete_id = int(query.data.split("_")[1])
+            except (ValueError, IndexError):
+                await query.edit_message_text("❌ Ошибка: неверный формат данных спортсмена.")
+                return ConversationHandler.END
+            
+            # Validate athlete exists and belongs to selected category
+            athlete = Athlete.query.get(athlete_id)
+            if not athlete:
+                await query.edit_message_text("❌ Спортсмен не найден.")
+                return ConversationHandler.END
+            
+            category_id = context.user_data.get('category_id')
+            if category_id and athlete.category_id != category_id:
+                await query.edit_message_text("❌ Спортсмен не принадлежит выбранной категории.")
+                return ConversationHandler.END
+            
             context.user_data['athlete_id'] = athlete_id
             
             # Show video types from database
@@ -617,8 +663,6 @@ class TelegramBotManager:
                     "❌ Нет доступных типов видео."
                 )
                 return ConversationHandler.END
-            
-            athlete = Athlete.query.get(athlete_id)
             
             keyboard = []
             for video_type in video_types:
@@ -644,6 +688,55 @@ class TelegramBotManager:
         elif query.data == "back_to_athletes":
             # Go back to categories
             return await self.handle_category_selection(update, context)
+        
+        else:
+            # Unknown callback - ignore
+            return SELECTING_ATHLETE
+    
+    async def handle_show_more_athletes(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle show more athletes callback"""
+        query = update.callback_query
+        await query.answer()
+        
+        # Show all remaining athletes
+        category_id = context.user_data.get('category_id')
+        if not category_id:
+            await query.edit_message_text("❌ Ошибка: не выбрана категория.")
+            return ConversationHandler.END
+        
+        category = Category.query.get(category_id)
+        if not category:
+            await query.edit_message_text("❌ Ошибка: категория не найдена.")
+            return ConversationHandler.END
+        
+        athletes = Athlete.query.filter_by(category_id=category_id).all()
+        
+        if not athletes:
+            await query.edit_message_text(
+                f"❌ В категории '{category.name}' нет спортсменов."
+            )
+            return ConversationHandler.END
+        
+        # Show all athletes (not limited to 20)
+        keyboard = []
+        for athlete in athletes:
+            keyboard.append([
+                InlineKeyboardButton(
+                    athlete.name,
+                    callback_data=f"athlete_{athlete.id}"
+                )
+            ])
+        
+        keyboard.append([InlineKeyboardButton("⬅️ Назад", callback_data="back_to_categories")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            f"🏆 {category.event.name}\n"
+            f"📂 {category.name}\n\n"
+            f"👤 Все спортсмены ({len(athletes)}):",
+            reply_markup=reply_markup
+        )
+        return SELECTING_ATHLETE
     
     async def handle_video_type_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle video type selection"""
@@ -651,14 +744,45 @@ class TelegramBotManager:
         await query.answer()
         
         if query.data.startswith("video_"):
-            video_type_id = int(query.data.split("_")[1])
+            try:
+                video_type_id = int(query.data.split("_")[1])
+            except (ValueError, IndexError):
+                await query.edit_message_text("❌ Ошибка: неверный формат данных типа видео.")
+                return ConversationHandler.END
+            
+            # Validate video type exists and is active
+            video_type = VideoType.query.get(video_type_id)
+            if not video_type:
+                await query.edit_message_text("❌ Тип видео не найден.")
+                return ConversationHandler.END
+            
+            if not video_type.is_active:
+                await query.edit_message_text("❌ Этот тип видео недоступен.")
+                return ConversationHandler.END
+            
+            if not video_type.price or video_type.price <= 0:
+                await query.edit_message_text("❌ Ошибка: некорректная цена для типа видео.")
+                return ConversationHandler.END
+            
             context.user_data['video_type_id'] = video_type_id
             
+            # Validate all previous selections
+            event_id = context.user_data.get('event_id')
+            category_id = context.user_data.get('category_id')
+            athlete_id = context.user_data.get('athlete_id')
+            
+            if not all([event_id, category_id, athlete_id]):
+                await query.edit_message_text("❌ Ошибка: неполные данные заказа. Начните заново.")
+                return ConversationHandler.END
+            
             # Show order confirmation
-            event = Event.query.get(context.user_data['event_id'])
-            category = Category.query.get(context.user_data['category_id'])
-            athlete = Athlete.query.get(context.user_data['athlete_id'])
-            video_type = VideoType.query.get(video_type_id)
+            event = Event.query.get(event_id)
+            category = Category.query.get(category_id)
+            athlete = Athlete.query.get(athlete_id)
+            
+            if not all([event, category, athlete]):
+                await query.edit_message_text("❌ Ошибка: данные заказа не найдены. Начните заново.")
+                return ConversationHandler.END
             
             keyboard = [
                 [InlineKeyboardButton("✅ Подтвердить заказ", callback_data="confirm_order")],
@@ -689,10 +813,50 @@ class TelegramBotManager:
         
         if query.data == "confirm_order":
             try:
+                # Validate all required data
+                event_id = context.user_data.get('event_id')
+                category_id = context.user_data.get('category_id')
+                athlete_id = context.user_data.get('athlete_id')
+                video_type_id = context.user_data.get('video_type_id')
+                
+                if not all([event_id, category_id, athlete_id, video_type_id]):
+                    await query.edit_message_text("❌ Ошибка: неполные данные заказа. Начните заново.")
+                    return ConversationHandler.END
+                
+                # Validate data exists in database
+                event = Event.query.get(event_id)
+                category = Category.query.get(category_id)
+                athlete = Athlete.query.get(athlete_id)
+                video_type = VideoType.query.get(video_type_id)
+                
+                if not all([event, category, athlete, video_type]):
+                    await query.edit_message_text("❌ Ошибка: данные заказа не найдены. Начните заново.")
+                    return ConversationHandler.END
+                
+                if not event.is_active:
+                    await query.edit_message_text("❌ Этот турнир недоступен.")
+                    return ConversationHandler.END
+                
+                if not video_type.is_active:
+                    await query.edit_message_text("❌ Этот тип видео недоступен.")
+                    return ConversationHandler.END
+                
+                if not video_type.price or video_type.price <= 0:
+                    await query.edit_message_text("❌ Ошибка: некорректная цена для типа видео.")
+                    return ConversationHandler.END
+                
                 # Get user from database
                 user = User.query.filter_by(telegram_id=str(update.effective_user.id)).first()
                 if not user:
                     await query.edit_message_text("❌ Пользователь не найден.")
+                    return ConversationHandler.END
+                
+                if not user.email:
+                    await query.edit_message_text("❌ У вас не указан email. Обратитесь в поддержку.")
+                    return ConversationHandler.END
+                
+                if not user.phone:
+                    await query.edit_message_text("❌ У вас не указан номер телефона. Обратитесь в поддержку.")
                     return ConversationHandler.END
                 
                 # Create order in database
@@ -700,11 +864,11 @@ class TelegramBotManager:
                     order_number=Order.generate_order_number(),
                     generated_order_number=Order.generate_human_order_number(),
                     customer_id=user.id,
-                    event_id=context.user_data['event_id'],
-                    category_id=context.user_data['category_id'],
-                    athlete_id=context.user_data['athlete_id'],
-                    video_types=[context.user_data['video_type_id']],
-                    total_amount=VideoType.query.get(context.user_data['video_type_id']).price,
+                    event_id=event_id,
+                    category_id=category_id,
+                    athlete_id=athlete_id,
+                    video_types=[video_type_id],
+                    total_amount=video_type.price,
                     status='awaiting_payment',
                     contact_email=user.email,
                     contact_phone=user.phone,
@@ -715,11 +879,11 @@ class TelegramBotManager:
                 db.session.add(order)
                 db.session.commit()
                 
-                # Create payment URL using CloudPayments
-                cloudpayments = CloudPaymentsAPI()
-                payment_data = cloudpayments.create_payment_widget_data(order, 'card')
-                # For Telegram bot, we'll create a simple payment link
-                payment_url = f"https://mainstreamfs.ru/payment/process?order_id={order.id}&method=card"
+                # Create payment URL - use order payment page
+                import os
+                site_url = os.environ.get('SITE_URL', 'https://mainstreamfs.ru')
+                # Use payment page with order ID
+                payment_url = f"{site_url}/payment/{order.id}"
                 
                 keyboard = [
                     [InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)],
