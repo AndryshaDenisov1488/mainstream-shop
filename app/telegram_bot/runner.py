@@ -54,8 +54,14 @@ def run_bot_in_thread(app: Flask):
                             )
                             logger.info("✅ Telegram bot polling started successfully")
                             
-                            # Keep the bot running - idle() will block until stop() is called
-                            await bot_manager.application.updater.idle()
+                            # Keep the bot running with an infinite loop
+                            # The updater will continue polling until stop() is called
+                            import asyncio
+                            while bot_manager.application.updater.running:
+                                await asyncio.sleep(1)
+                                # Check if still running, if not break
+                                if not bot_manager.application.updater.running:
+                                    break
                             
                         except Exception as run_error:
                             logger.error(f"Error in bot run loop: {run_error}", exc_info=True)
@@ -63,7 +69,8 @@ def run_bot_in_thread(app: Flask):
                         finally:
                             # Cleanup
                             try:
-                                await bot_manager.application.updater.stop()
+                                if bot_manager.application.updater.running:
+                                    await bot_manager.application.updater.stop()
                                 await bot_manager.application.stop()
                                 await bot_manager.application.shutdown()
                             except Exception as cleanup_error:
