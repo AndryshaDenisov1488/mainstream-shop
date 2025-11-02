@@ -85,8 +85,12 @@ def cancel_expired_orders():
         
     except Exception as e:
         logger.error(f'Error in cancel_expired_orders task: {str(e)}')
-        db.session.rollback()
-        raise
+        try:
+            db.session.rollback()
+        except Exception:
+            pass  # Если нет активной сессии, просто пропускаем
+        import traceback
+        logger.error(traceback.format_exc())
 
 def cleanup_old_audit_logs():
     """
