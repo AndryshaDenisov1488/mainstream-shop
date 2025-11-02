@@ -591,33 +591,37 @@ def assign_operator_api(order_id):
             return jsonify({'success': False, 'error': 'Недостаточно прав'}), 403
         
         # ✅ ИСПОЛЬЗУЕМ SELECT FOR UPDATE для блокировки строки
+        # Flask автоматически создает транзакцию для каждого request, поэтому
+        # не используем db.session.begin() - это вызовет ошибку "transaction already begun"
         try:
-            with db.session.begin():
-                # Блокируем строку заказа для обновления (защита от race condition)
-                stmt = select(Order).where(
-                    Order.id == order_id,
-                    Order.status == 'paid',
-                    Order.operator_id.is_(None)  # ✅ Проверяем, что оператор еще не назначен
-                ).with_for_update()
-                
-                order = db.session.scalar(stmt)
-                
-                if not order:
-                    return jsonify({
-                        'success': False, 
-                        'error': 'Заказ недоступен (уже взят другим оператором или не оплачен)'
-                    }), 409
-                
-                # Проверка прав уже сделана выше
-                # Назначаем оператора
-                order.operator_id = current_user.id
-                order.status = 'processing'
-                order.processed_at = db.func.now()
-                
-                # Коммит произойдет автоматически при выходе из with db.session.begin()
+            # Блокируем строку заказа для обновления (защита от race condition)
+            stmt = select(Order).where(
+                Order.id == order_id,
+                Order.status == 'paid',
+                Order.operator_id.is_(None)  # ✅ Проверяем, что оператор еще не назначен
+            ).with_for_update()
+            
+            order = db.session.scalar(stmt)
+            
+            if not order:
+                db.session.rollback()
+                return jsonify({
+                    'success': False, 
+                    'error': 'Заказ недоступен (уже взят другим оператором или не оплачен)'
+                }), 409
+            
+            # Проверка прав уже сделана выше
+            # Назначаем оператора
+            order.operator_id = current_user.id
+            order.status = 'processing'
+            order.processed_at = db.func.now()
+            
+            # Коммитим транзакцию (Flask автоматически создал её для этого request)
+            db.session.commit()
                 
         except OperationalError as e:
             # Если произошла ошибка блокировки (редко, но возможно)
+            db.session.rollback()
             logger.error(f'Database lock error assigning operator: {str(e)}')
             return jsonify({'success': False, 'error': 'Заказ уже обрабатывается другим оператором'}), 409
         

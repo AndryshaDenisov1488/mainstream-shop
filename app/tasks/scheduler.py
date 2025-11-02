@@ -65,8 +65,13 @@ def init_scheduler(app):
     )
     
     # Start scheduler
-    scheduler.start()
-    logger.info('Background scheduler started')
+    try:
+        scheduler.start()
+        logger.info('Background scheduler started successfully')
+        logger.info(f'Scheduler jobs: {[job.id for job in scheduler.get_jobs()]}')
+    except Exception as e:
+        logger.error(f'Failed to start scheduler: {str(e)}')
+        raise
     
     # Store scheduler in app context for shutdown
     app.scheduler = scheduler

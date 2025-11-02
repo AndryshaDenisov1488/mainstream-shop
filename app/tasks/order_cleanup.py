@@ -17,16 +17,18 @@ def cancel_expired_orders_with_context():
     # Получаем app из глобальной переменной scheduler
     from app.tasks.scheduler import _app_instance
     if _app_instance:
+        logger.debug('Using _app_instance for cancel_expired_orders')
         with _app_instance.app_context():
             cancel_expired_orders()
     else:
         # Fallback: пытаемся использовать current_app если доступен
         try:
             from flask import current_app
+            logger.debug('Using current_app for cancel_expired_orders')
             with current_app.app_context():
                 cancel_expired_orders()
-        except RuntimeError:
-            logger.error('No application context available for cancel_expired_orders')
+        except RuntimeError as e:
+            logger.error(f'No application context available for cancel_expired_orders: {str(e)}')
 
 def cancel_expired_orders():
     """
@@ -34,10 +36,30 @@ def cancel_expired_orders():
     Runs every minute via APScheduler
     """
     try:
+        logger.info('Starting cancel_expired_orders task')
+        
         # Find orders with expired payment deadlines
+        # Проверяем как заказы с payment_expires_at, так и старые заказы без него (созданные более 15 минут назад)
+        current_time = datetime.utcnow()
+        expired_threshold = current_time - timedelta(minutes=15)
+        
+        logger.debug(f'Checking for expired orders (current_time={current_time}, expired_threshold={expired_threshold})')
+        
         expired_orders = Order.query.filter(
-            Order.status == 'awaiting_payment',
-            Order.payment_expires_at < datetime.utcnow()
+            Order.status == 'awaiting_payment'
+        ).filter(
+            db.or_(
+                # Либо payment_expires_at установлен и истек
+                db.and_(
+                    Order.payment_expires_at.isnot(None),
+                    Order.payment_expires_at < current_time
+                ),
+                # Либо payment_expires_at не установлен, но заказ старше 15 минут
+                db.and_(
+                    Order.payment_expires_at.is_(None),
+                    Order.created_at < expired_threshold
+                )
+            )
         ).all()
         
         if not expired_orders:
@@ -50,45 +72,45 @@ def cancel_expired_orders():
         
         for order in expired_orders:
             try:
-                # ✅ Использовать транзакцию для каждого заказа
-                with db.session.begin():
-                    # Update order status
-                    order.status = 'cancelled_unpaid'
-                    order.cancellation_reason = 'timeout'
+                # ✅ Обновляем статус заказа (Flask уже создал транзакцию для app context)
+                # Update order status
+                order.status = 'cancelled_unpaid'
+                order.cancellation_reason = 'timeout'
+                
+                # Try to void payment if it exists and is authorized
+                if order.payment_intent_id:
+                    payment = order.payments.filter_by(
+                        cp_transaction_id=order.payment_intent_id,
+                        status='authorized'
+                    ).first()
                     
-                    # Try to void payment if it exists and is authorized
-                    if order.payment_intent_id:
-                        payment = order.payments.filter_by(
-                            cp_transaction_id=order.payment_intent_id,
-                            status='authorized'
-                        ).first()
-                        
-                        if payment:
-                            # Void the authorized payment
-                            void_result = cp_api.void_payment(order.payment_intent_id)
-                            if void_result.get('success'):
-                                payment.status = 'voided'
-                                logger.info(f'Payment {order.payment_intent_id} voided for expired order {order.id}')
-                            else:
-                                logger.warning(f'Failed to void payment {order.payment_intent_id}: {void_result.get("error")}')
-                    
-                    # ✅ Log the cancellation БЕЗ отдельного коммита
-                    AuditLog.create_log(
-                        user_id=None,  # System action
-                        action='ORDER_AUTO_CANCELLED_TIMEOUT',
-                        resource_type='Order',
-                        resource_id=str(order.id),
-                        details={
-                            'order_number': order.order_number,
-                            'expired_at': order.payment_expires_at.isoformat(),
-                            'payment_intent_id': order.payment_intent_id
-                        },
-                        ip_address=None,
-                        user_agent='System Task',
-                        commit=False  # ✅ Не коммитить отдельно
-                    )
-                    
-                    # Коммит произойдет автоматически при выходе из with db.session.begin()
+                    if payment:
+                        # Void the authorized payment
+                        void_result = cp_api.void_payment(order.payment_intent_id)
+                        if void_result.get('success'):
+                            payment.status = 'voided'
+                            logger.info(f'Payment {order.payment_intent_id} voided for expired order {order.id}')
+                        else:
+                            logger.warning(f'Failed to void payment {order.payment_intent_id}: {void_result.get("error")}')
+                
+                # ✅ Log the cancellation
+                AuditLog.create_log(
+                    user_id=None,  # System action
+                    action='ORDER_AUTO_CANCELLED_TIMEOUT',
+                    resource_type='Order',
+                    resource_id=str(order.id),
+                    details={
+                        'order_number': order.order_number,
+                        'expired_at': order.payment_expires_at.isoformat() if order.payment_expires_at else None,
+                        'payment_intent_id': order.payment_intent_id
+                    },
+                    ip_address=None,
+                    user_agent='System Task',
+                    commit=False  # ✅ Коммитим вместе с заказом
+                )
+                
+                # Коммитим транзакцию
+                db.session.commit()
                 
                 logger.info(f'Order {order.id} ({order.order_number}) cancelled due to payment timeout')
                 
