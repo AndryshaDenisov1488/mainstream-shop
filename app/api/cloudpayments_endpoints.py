@@ -310,6 +310,14 @@ def handle_pay_notification(data):
         except Exception as e:
             logger.error(f'Failed to send payment success email: {e}')
         
+        # Send Telegram notification about order creation (if user has telegram_id)
+        try:
+            from app.utils.telegram_notifier import send_order_created_notification
+            send_order_created_notification(order)
+        except Exception as e:
+            logger.warning(f'Failed to send Telegram notification for order creation: {e}')
+            # Don't fail the whole operation if Telegram notification fails
+        
         logger.info(f'Payment authorized for order {order.generated_order_number}, transaction {transaction_id}')
         return jsonify({'code': 0, 'message': 'OK'}), 200
         

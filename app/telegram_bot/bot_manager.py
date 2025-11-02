@@ -1338,7 +1338,9 @@ class TelegramBotManager:
             video_types_dict = {}
             if order.video_types:
                 video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
+                # Store with both int and str keys for compatibility
                 video_types_dict = {vt.id: vt for vt in video_types}
+                video_types_dict.update({str(vt.id): vt for vt in video_types})
             
             # Prepare message
             message = f"✅ Ваш заказ #{order.generated_order_number} создан!\n\n"
@@ -1349,7 +1351,12 @@ class TelegramBotManager:
             if order.video_types and video_types_dict:
                 message += "🎬 Типы видео:\n"
                 for video_type_id in order.video_types:
-                    video_type = video_types_dict.get(video_type_id)
+                    # Try both int and str lookup
+                    video_type = None
+                    if isinstance(video_type_id, (str, int)):
+                        video_type = (video_types_dict.get(video_type_id) or 
+                                     video_types_dict.get(str(video_type_id)) or 
+                                     video_types_dict.get(int(video_type_id)))
                     if video_type:
                         message += f"• {video_type.name}\n"
                 message += "\n"
@@ -1407,7 +1414,9 @@ class TelegramBotManager:
             video_types_dict = {}
             if order.video_types:
                 video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
+                # Store with both int and str keys for compatibility
                 video_types_dict = {vt.id: vt for vt in video_types}
+                video_types_dict.update({str(vt.id): vt for vt in video_types})
             
             # Prepare message
             message = f"🎉 Ваш заказ #{order.generated_order_number} готов!\n\n"
@@ -1415,7 +1424,14 @@ class TelegramBotManager:
             
             if order.video_links:
                 for video_type_id, link in order.video_links.items():
-                    video_type = video_types_dict.get(video_type_id) or VideoType.query.get(video_type_id)
+                    # Try both int and str lookup
+                    video_type = None
+                    if isinstance(video_type_id, (str, int)):
+                        video_type = (video_types_dict.get(video_type_id) or 
+                                     video_types_dict.get(str(video_type_id)) or 
+                                     video_types_dict.get(int(video_type_id)))
+                    if not video_type:
+                        video_type = VideoType.query.get(video_type_id)
                     if video_type:
                         message += f"• {video_type.name}:\n{link}\n\n"
                     else:
