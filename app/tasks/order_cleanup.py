@@ -36,6 +36,8 @@ def cancel_expired_orders():
     Runs every minute via APScheduler
     """
     try:
+        # Выводим в stdout для systemd journal
+        print('Starting cancel_expired_orders task', flush=True)
         logger.info('Starting cancel_expired_orders task')
         
         # Find orders with expired payment deadlines

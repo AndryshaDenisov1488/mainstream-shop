@@ -67,10 +67,17 @@ def init_scheduler(app):
     # Start scheduler
     try:
         scheduler.start()
+        # Выводим в stdout для systemd journal
+        print('Background scheduler started successfully', flush=True)
         logger.info('Background scheduler started successfully')
-        logger.info(f'Scheduler jobs: {[job.id for job in scheduler.get_jobs()]}')
+        jobs = scheduler.get_jobs()
+        job_ids = [job.id for job in jobs]
+        print(f'Scheduler jobs: {job_ids}', flush=True)
+        logger.info(f'Scheduler jobs: {job_ids}')
     except Exception as e:
-        logger.error(f'Failed to start scheduler: {str(e)}')
+        error_msg = f'Failed to start scheduler: {str(e)}'
+        print(error_msg, flush=True)
+        logger.error(error_msg)
         raise
     
     # Store scheduler in app context for shutdown
