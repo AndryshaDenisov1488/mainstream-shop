@@ -39,7 +39,10 @@ class TelegramBotManager:
             entry_points=[CommandHandler('start', self.start_command)],
             states={
                 REGISTRATION: [
-                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_registration)
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_registration),
+                    # Handle commands that should interrupt registration
+                    CommandHandler('cancel', self.cancel_command),
+                    CommandHandler('start', self.start_command),
                 ],
                 SELECTING_EVENT: [
                     CallbackQueryHandler(self.handle_event_selection, pattern='^event_')
@@ -61,10 +64,37 @@ class TelegramBotManager:
                     CallbackQueryHandler(self.handle_video_type_selection, pattern='^back_to_video_types$')
                 ]
             },
-            fallbacks=[CommandHandler('cancel', self.cancel_command)]
+            fallbacks=[
+                CommandHandler('cancel', self.cancel_command),
+                CommandHandler('start', self.start_command),  # Allow /start to reset conversation
+                CommandHandler('menu', self.reset_to_menu),  # Allow /menu to reset conversation
+            ]
         )
         
         self.application.add_handler(conv_handler)
+        
+        # Callback handlers for menu buttons (outside ConversationHandler)
+        # These must be added BEFORE regular command handlers to catch callbacks
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_start_order_callback,
+            pattern='^start_order$'
+        ))
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_view_orders_callback,
+            pattern='^view_orders$'
+        ))
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_view_profile_callback,
+            pattern='^view_profile$'
+        ))
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_support_callback_menu,
+            pattern='^support$'
+        ))
+        self.application.add_handler(CallbackQueryHandler(
+            self.handle_back_to_menu_callback,
+            pattern='^back_to_menu$'
+        ))
         
         # Regular command handlers
         self.application.add_handler(CommandHandler('menu', self.menu_command))
@@ -73,49 +103,74 @@ class TelegramBotManager:
         self.application.add_handler(CommandHandler('help', self.help_command))
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle /start command"""
+        """Handle /start command - resets conversation and starts fresh"""
         user_id = update.effective_user.id
         
-        # Check if user exists in database by telegram_id
-        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        # Clear any existing conversation data
+        context.user_data.clear()
         
-        if user:
-            # Existing user - already linked with Telegram
-            keyboard = [
-                [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
-                [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
-                [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
-                [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
+        try:
+            # Check if user exists in database by telegram_id
+            user = User.query.filter_by(telegram_id=str(user_id)).first()
             
+            if user:
+                # Existing user - already linked with Telegram
+                keyboard = [
+                    [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                    [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                    [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
+                    [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(
+                    f"Добро пожаловать, {user.full_name}!\n\n"
+                    "Выберите действие:",
+                    reply_markup=reply_markup
+                )
+                return ConversationHandler.END
+            else:
+                # New user or existing user without telegram_id - ask for email first
+                await update.message.reply_text(
+                    "👋 Добро пожаловать в MainStream Shop!\n\n"
+                    "Для работы с ботом нам нужен ваш email адрес.\n"
+                    "Введите ваш email:"
+                )
+                return REGISTRATION
+        except Exception as e:
+            logger.error(f"Error in start_command: {e}", exc_info=True)
             await update.message.reply_text(
-                f"Добро пожаловать, {user.full_name}!\n\n"
-                "Выберите действие:",
-                reply_markup=reply_markup
+                "❌ Произошла ошибка. Пожалуйста, попробуйте еще раз."
             )
-        else:
-            # New user or existing user without telegram_id - ask for email first
-            await update.message.reply_text(
-                "👋 Добро пожаловать в MainStream Shop!\n\n"
-                "Для работы с ботом нам нужен ваш email адрес.\n"
-                "Введите ваш email:"
-            )
-            return REGISTRATION
+            return ConversationHandler.END
     
     async def handle_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle user registration process - starts with email check"""
-        text = update.message.text.strip()
-        user_data = context.user_data
-        
-        # First step: check email
-        if 'email' not in user_data:
-            # Validate email format
-            if '@' not in text or '.' not in text.split('@')[-1]:
+        try:
+            # Check if it's a command (shouldn't happen due to filters, but safety check)
+            if update.message.text and update.message.text.startswith('/'):
+                # Command was sent - let ConversationHandler handle it via fallback
+                return REGISTRATION
+            
+            text = update.message.text.strip() if update.message.text else ""
+            
+            if not text:
                 await update.message.reply_text(
-                    "❌ Некорректный формат email. Пожалуйста, введите правильный email адрес:"
+                    "❌ Пожалуйста, введите текст. Для отмены используйте /cancel"
                 )
                 return REGISTRATION
+            
+            user_data = context.user_data
+            
+            # First step: check email
+            if 'email' not in user_data:
+                # Validate email format
+                if '@' not in text or '.' not in text.split('@')[-1]:
+                    await update.message.reply_text(
+                        "❌ Некорректный формат email. Пожалуйста, введите правильный email адрес:\n"
+                        "(Для отмены используйте /cancel)"
+                    )
+                    return REGISTRATION
             
             email = text.lower()
             user_data['email'] = email
@@ -198,10 +253,27 @@ class TelegramBotManager:
                     context.user_data.clear()
                     return ConversationHandler.END
             
+            # Validate full name (should not be empty and should not be a command)
+            if not text or len(text.strip()) < 2:
+                await update.message.reply_text(
+                    "❌ ФИО должно содержать хотя бы 2 символа. Пожалуйста, введите ваше ФИО:\n"
+                    "(Для отмены используйте /cancel)"
+                )
+                return REGISTRATION
+            
+            # Validate that it's not a command
+            if text.startswith('/'):
+                await update.message.reply_text(
+                    "❌ Пожалуйста, введите ваше ФИО текстом, а не команду.\n"
+                    "(Для отмены используйте /cancel)"
+                )
+                return REGISTRATION
+            
             # Store full name for new user
-            user_data['full_name'] = text
+            user_data['full_name'] = text.strip()
             await update.message.reply_text(
-                "📱 Введите ваш номер телефона (например: +7 999 123 45 67):"
+                "📱 Введите ваш номер телефона (например: +7 999 123 45 67):\n"
+                "(Или отправьте /skip чтобы пропустить, /cancel для отмены)"
             )
             return REGISTRATION
         
@@ -229,8 +301,16 @@ class TelegramBotManager:
                     context.user_data.clear()
                     return ConversationHandler.END
             
+            # Validate phone (basic validation)
+            if not text or len(text.strip()) < 5:
+                await update.message.reply_text(
+                    "❌ Номер телефона слишком короткий. Пожалуйста, введите корректный номер:\n"
+                    "(Или отправьте /skip чтобы пропустить, /cancel для отмены)"
+                )
+                return REGISTRATION
+            
             # Store phone for new user or update existing user's phone
-            user_data['phone'] = text
+            user_data['phone'] = text.strip()
             
             try:
                 # Check again if user exists (maybe was created between steps)
@@ -299,10 +379,18 @@ class TelegramBotManager:
             except Exception as e:
                 logger.error(f"Registration error: {e}", exc_info=True)
                 await update.message.reply_text(
-                    "❌ Произошла ошибка при регистрации. Попробуйте еще раз или обратитесь в поддержку."
+                    "❌ Произошла ошибка при регистрации. Попробуйте еще раз или используйте /cancel для отмены."
                 )
-                context.user_data.clear()
-                return ConversationHandler.END
+                # Don't clear user_data - allow user to continue from where they left off
+                return REGISTRATION
+        
+        except Exception as e:
+            logger.error(f"Error in handle_registration: {e}", exc_info=True)
+            await update.message.reply_text(
+                "❌ Произошла ошибка при регистрации. Попробуйте еще раз или используйте /cancel для отмены."
+            )
+            # Don't clear user_data - allow user to continue from where they left off
+            return REGISTRATION
         
         return REGISTRATION
     
@@ -529,7 +617,7 @@ class TelegramBotManager:
                     athlete_id=context.user_data['athlete_id'],
                     video_types=[context.user_data['video_type_id']],
                     total_amount=VideoType.query.get(context.user_data['video_type_id']).price,
-                    status='pending_payment',
+                    status='awaiting_payment',
                     contact_email=user.email,
                     contact_phone=user.phone,
                     contact_first_name=user.full_name.split(' ')[0] if user.full_name else '',
@@ -545,13 +633,20 @@ class TelegramBotManager:
                 # For Telegram bot, we'll create a simple payment link
                 payment_url = f"https://mainstreamfs.ru/payment/process?order_id={order.id}&method=card"
                 
+                keyboard = [
+                    [InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)],
+                    [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                    [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
                 await query.edit_message_text(
                     f"✅ Заказ создан!\n\n"
-                    f"📋 Номер заказа: {order.order_number}\n"
+                    f"📋 Номер заказа: {order.generated_order_number}\n"
                     f"💰 Сумма: {int(order.total_amount)} ₽\n\n"
-                    f"Для завершения заказа перейдите по ссылке:\n"
-                    f"{payment_url}\n\n"
-                    f"После оплаты видео будет готово в течение 3-4 дней."
+                    f"Нажмите кнопку ниже для оплаты заказа.\n"
+                    f"После оплаты видео будет готово в течение 3-4 дней.",
+                    reply_markup=reply_markup
                 )
                 
                 # Clear user data
@@ -583,24 +678,56 @@ class TelegramBotManager:
         orders = Order.query.filter_by(customer_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
         
         if not orders:
-            await update.message.reply_text("У вас пока нет заказов.")
+            await update.message.reply_text(
+                "У вас пока нет заказов.\n\nИспользуйте кнопку 'Заказать видео' для создания первого заказа.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                    [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+                ])
+            )
             return
         
         message = "📋 Ваши заказы:\n\n"
         for order in orders:
             status_emoji = {
-                'pending': '⏳',
+                'awaiting_payment': '⏳',
+                'paid': '💰',
                 'processing': '🔄',
+                'links_sent': '📹',
                 'completed': '✅',
-                'cancelled': '❌'
+                'cancelled_unpaid': '❌',
+                'cancelled_manual': '❌',
+                'refund_required': '💰',
+                'completed_partial_refund': '✅',
+                'refunded_full': '❌'
             }.get(order.status, '❓')
             
-            message += f"{status_emoji} {order.order_number}\n"
-            message += f"   {order.event.name}\n"
-            message += f"   {order.athlete.name}\n"
-            message += f"   {int(order.total_amount)} ₽\n\n"
+            status_text = {
+                'awaiting_payment': 'Ожидает оплаты',
+                'paid': 'Оплачен',
+                'processing': 'В обработке',
+                'links_sent': 'Ссылки отправлены',
+                'completed': 'Выполнен',
+                'cancelled_unpaid': 'Отменен',
+                'cancelled_manual': 'Отменен',
+                'refund_required': 'Требует возврата',
+                'completed_partial_refund': 'Выполнен',
+                'refunded_full': 'Возвращен'
+            }.get(order.status, 'Неизвестно')
+            
+            message += f"{status_emoji} <b>{order.generated_order_number}</b>\n"
+            message += f"   🏆 {order.event.name}\n"
+            message += f"   👤 {order.athlete.name}\n"
+            message += f"   💰 {int(order.total_amount)} ₽\n"
+            message += f"   📊 {status_text}\n\n"
         
-        await update.message.reply_text(message)
+        keyboard = [
+            [InlineKeyboardButton("📹 Новый заказ", callback_data="start_order")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
     
     async def menu_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /menu command"""
@@ -630,8 +757,41 @@ class TelegramBotManager:
     async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Cancel conversation"""
         context.user_data.clear()
-        await update.message.reply_text("❌ Операция отменена.")
+        
+        # Show menu after cancellation if user is registered
+        try:
+            user_id = update.effective_user.id
+            user = User.query.filter_by(telegram_id=str(user_id)).first()
+            
+            if user:
+                keyboard = [
+                    [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                    [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                    [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
+                    [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                
+                await update.message.reply_text(
+                    "❌ Операция отменена.\n\n"
+                    "Выберите действие:",
+                    reply_markup=reply_markup
+                )
+            else:
+                await update.message.reply_text(
+                    "❌ Операция отменена.\n\n"
+                    "Используйте /start для начала работы."
+                )
+        except Exception as e:
+            logger.error(f"Error in cancel_command: {e}", exc_info=True)
+            await update.message.reply_text("❌ Операция отменена.")
+        
         return ConversationHandler.END
+    
+    async def reset_to_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Reset conversation and show menu"""
+        context.user_data.clear()
+        return await self.menu_command(update, context)
     
     async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /profile command"""
@@ -693,6 +853,172 @@ class TelegramBotManager:
         await update.message.reply_text(
             message,
             parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup
+        )
+    
+    async def handle_start_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle start_order callback from menu"""
+        query = update.callback_query
+        await query.answer()
+        # Переходим к выбору турнира через существующий метод
+        context.user_data.clear()  # Очищаем предыдущие данные
+        return await self.handle_event_selection(update, context)
+    
+    async def handle_view_orders_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle view_orders callback button"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        
+        if not user:
+            await query.edit_message_text(
+                "Для просмотра заказов необходимо зарегистрироваться.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")
+                ]])
+            )
+            return
+        
+        orders = Order.query.filter_by(customer_id=user.id).order_by(Order.created_at.desc()).limit(10).all()
+        
+        if not orders:
+            await query.edit_message_text(
+                "У вас пока нет заказов.\n\nИспользуйте кнопку 'Заказать видео' для создания первого заказа.",
+                reply_markup=InlineKeyboardMarkup([
+                    [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                    [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+                ])
+            )
+            return
+        
+        message = "📋 Ваши заказы:\n\n"
+        for order in orders:
+            status_emoji = {
+                'awaiting_payment': '⏳',
+                'paid': '💰',
+                'processing': '🔄',
+                'links_sent': '📹',
+                'completed': '✅',
+                'cancelled_unpaid': '❌',
+                'cancelled_manual': '❌',
+                'refund_required': '💰',
+                'completed_partial_refund': '✅',
+                'refunded_full': '❌'
+            }.get(order.status, '❓')
+            
+            status_text = {
+                'awaiting_payment': 'Ожидает оплаты',
+                'paid': 'Оплачен',
+                'processing': 'В обработке',
+                'links_sent': 'Ссылки отправлены',
+                'completed': 'Выполнен',
+                'cancelled_unpaid': 'Отменен',
+                'cancelled_manual': 'Отменен',
+                'refund_required': 'Требует возврата',
+                'completed_partial_refund': 'Выполнен',
+                'refunded_full': 'Возвращен'
+            }.get(order.status, 'Неизвестно')
+            
+            message += f"{status_emoji} <b>{order.generated_order_number}</b>\n"
+            message += f"   🏆 {order.event.name}\n"
+            message += f"   👤 {order.athlete.name}\n"
+            message += f"   💰 {int(order.total_amount)} ₽\n"
+            message += f"   📊 {status_text}\n\n"
+        
+        keyboard = [
+            [InlineKeyboardButton("📹 Новый заказ", callback_data="start_order")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+    
+    async def handle_view_profile_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle view_profile callback button"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        
+        if not user:
+            await query.edit_message_text(
+                "Для просмотра профиля необходимо зарегистрироваться.",
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")
+                ]])
+            )
+            return
+        
+        message = f"👤 <b>Ваш профиль:</b>\n\n"
+        message += f"📝 <b>Имя:</b> {user.full_name}\n"
+        message += f"📧 <b>Email:</b> {user.email}\n"
+        message += f"📱 <b>Телефон:</b> {user.phone or 'Не указан'}\n"
+        message += f"📅 <b>Дата регистрации:</b> {user.created_at.strftime('%d.%m.%Y')}\n"
+        if user.last_login:
+            message += f"🕐 <b>Последний вход:</b> {user.last_login.strftime('%d.%m.%Y %H:%M')}\n"
+        message += f"\nДля изменения данных обращайтесь в поддержку."
+        
+        keyboard = [
+            [InlineKeyboardButton("📞 Поддержка", callback_data="support")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+    
+    async def handle_support_callback_menu(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle support callback button"""
+        query = update.callback_query
+        await query.answer()
+        
+        message = (
+            "📞 <b>Поддержка MainStream Shop</b>\n\n"
+            "🆘 <b>Нужна помощь?</b>\n"
+            "Обращайтесь к нам любым удобным способом:\n\n"
+            "📧 <b>Email:</b> support@mainstreamfs.ru\n"
+            "🌐 <b>Сайт:</b> https://mainstreamfs.ru\n"
+            "📱 <b>Telegram:</b> @mainstream_support\n\n"
+            "⏰ <b>Время работы:</b>\n"
+            "Пн-Пт: 9:00 - 18:00\n"
+            "Сб-Вс: 10:00 - 16:00\n\n"
+            "💬 Мы отвечаем в течение рабочего дня!"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(message, parse_mode=ParseMode.HTML, reply_markup=reply_markup)
+    
+    async def handle_back_to_menu_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle back_to_menu callback button"""
+        query = update.callback_query
+        await query.answer()
+        # Показываем меню, адаптируя menu_command для callback
+        user_id = update.effective_user.id
+        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        
+        if not user:
+            await query.edit_message_text(
+                "Для использования бота необходимо зарегистрироваться. Используйте команду /start"
+            )
+            return
+        
+        keyboard = [
+            [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+            [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+            [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
+            [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            f"👋 Добро пожаловать, {user.full_name}!\n\n"
+            "Выберите действие:",
             reply_markup=reply_markup
         )
     

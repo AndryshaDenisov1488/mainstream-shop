@@ -54,14 +54,18 @@ def run_bot_in_thread(app: Flask):
                             )
                             logger.info("✅ Telegram bot polling started successfully")
                             
-                            # Keep the bot running with an infinite loop
-                            # The updater will continue polling until stop() is called
+                            # Keep the bot running
+                            # The updater will handle polling, we just need to keep the loop alive
                             import asyncio
-                            while bot_manager.application.updater.running:
-                                await asyncio.sleep(1)
-                                # Check if still running, if not break
-                                if not bot_manager.application.updater.running:
-                                    break
+                            # Create a stop event that will be set when we need to stop
+                            stop_event = asyncio.Event()
+                            
+                            # Wait forever until stop_event is set
+                            # This keeps the event loop running while updater handles polling
+                            try:
+                                await stop_event.wait()
+                            except asyncio.CancelledError:
+                                logger.info("Bot loop cancelled")
                             
                         except Exception as run_error:
                             logger.error(f"Error in bot run loop: {run_error}", exc_info=True)
@@ -69,8 +73,11 @@ def run_bot_in_thread(app: Flask):
                         finally:
                             # Cleanup
                             try:
-                                if bot_manager.application.updater.running:
+                                # Stop updater if it's running
+                                try:
                                     await bot_manager.application.updater.stop()
+                                except:
+                                    pass
                                 await bot_manager.application.stop()
                                 await bot_manager.application.shutdown()
                             except Exception as cleanup_error:
