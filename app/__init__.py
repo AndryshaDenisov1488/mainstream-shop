@@ -87,8 +87,6 @@ def create_app(config_class=Config):
                     logger.warning("⚠️ Telegram bot initialization returned None (token may be missing)")
             except Exception as e:
                 # Если БД еще не создана или токен не настроен, бот не критичен
-                import logging
-                logger = logging.getLogger(__name__)
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
                     logger.warning(f"Telegram bot initialization skipped: {e}")
                 else:
