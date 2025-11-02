@@ -12,10 +12,21 @@ from app.utils.cloudpayments import CloudPaymentsAPI
 
 logger = logging.getLogger(__name__)
 
-def cancel_expired_orders_with_context(app):
+def cancel_expired_orders_with_context():
     """Wrapper that creates app context for cancel_expired_orders"""
-    with app.app_context():
-        cancel_expired_orders()
+    # Получаем app из глобальной переменной scheduler
+    from app.tasks.scheduler import _app_instance
+    if _app_instance:
+        with _app_instance.app_context():
+            cancel_expired_orders()
+    else:
+        # Fallback: пытаемся использовать current_app если доступен
+        try:
+            from flask import current_app
+            with current_app.app_context():
+                cancel_expired_orders()
+        except RuntimeError:
+            logger.error('No application context available for cancel_expired_orders')
 
 def cancel_expired_orders():
     """
@@ -97,10 +108,21 @@ def cancel_expired_orders():
         import traceback
         logger.error(traceback.format_exc())
 
-def cleanup_old_audit_logs_with_context(app):
+def cleanup_old_audit_logs_with_context():
     """Wrapper that creates app context for cleanup_old_audit_logs"""
-    with app.app_context():
-        cleanup_old_audit_logs()
+    # Получаем app из глобальной переменной scheduler
+    from app.tasks.scheduler import _app_instance
+    if _app_instance:
+        with _app_instance.app_context():
+            cleanup_old_audit_logs()
+    else:
+        # Fallback: пытаемся использовать current_app если доступен
+        try:
+            from flask import current_app
+            with current_app.app_context():
+                cleanup_old_audit_logs()
+        except RuntimeError:
+            logger.error('No application context available for cleanup_old_audit_logs')
 
 def cleanup_old_audit_logs():
     """

@@ -12,24 +12,21 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
+# Глобальная переменная для хранения app (для scheduler задач)
+_app_instance = None
+
 def init_scheduler(app):
     """Initialize APScheduler with background tasks"""
+    global _app_instance
     
-    # Store app reference for job execution
-    # APScheduler может сериализовать только строковые ссылки на функции
-    # Но нам нужен app context, поэтому используем другой подход
+    # Сохраняем app в глобальной переменной для использования в задачах
+    _app_instance = app
     
-    # Configure job stores - используем memory store если SQLAlchemy вызывает проблемы
-    try:
-        jobstores = {
-            'default': SQLAlchemyJobStore(url=app.config['SQLALCHEMY_DATABASE_URI'])
-        }
-    except Exception as e:
-        logger.warning(f'Failed to use SQLAlchemy jobstore, using memory: {str(e)}')
-        from apscheduler.jobstores.memory import MemoryJobStore
-        jobstores = {
-            'default': MemoryJobStore()
-        }
+    # Configure job stores - используем memory store (SQLAlchemy jobstore вызывает проблемы с сериализацией)
+    from apscheduler.jobstores.memory import MemoryJobStore
+    jobstores = {
+        'default': MemoryJobStore()
+    }
     
     executors = {
         'default': ThreadPoolExecutor(20),
@@ -48,9 +45,6 @@ def init_scheduler(app):
         timezone='Europe/Moscow'
     )
     
-    # Store app in scheduler for context creation
-    scheduler._app = app
-    
     # Add jobs using string references (APScheduler can serialize these)
     # Cancel expired orders every minute
     scheduler.add_job(
@@ -58,8 +52,7 @@ def init_scheduler(app):
         trigger=IntervalTrigger(minutes=1),
         id='cancel_expired_orders',
         name='Cancel expired orders',
-        replace_existing=True,
-        args=[app]  # Pass app as argument
+        replace_existing=True
     )
     
     # Clean up old audit logs daily at 3 AM
@@ -68,8 +61,7 @@ def init_scheduler(app):
         trigger=CronTrigger(hour=3, minute=0),
         id='cleanup_old_audit_logs',
         name='Clean up old audit logs',
-        replace_existing=True,
-        args=[app]  # Pass app as argument
+        replace_existing=True
     )
     
     # Start scheduler
