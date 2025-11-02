@@ -64,7 +64,13 @@
                         <div class="dropdown">
                             <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
                                 <i class="fas fa-user me-1"></i>
-                                {% if current_user.full_name and current_user.full_name != current_user.email.split('@')[0] %}
+                                {% if current_user.role == 'MOM' %}
+                                    Мама
+                                {% elif current_user.role == 'ADMIN' %}
+                                    Администратор
+                                {% elif current_user.role == 'OPERATOR' %}
+                                    Оператор
+                                {% elif current_user.full_name and current_user.full_name != current_user.email.split('@')[0] %}
                                     {{ current_user.full_name }}
                                 {% else %}
                                     {{ current_user.email.split('@')[0] }}

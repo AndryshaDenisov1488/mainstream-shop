@@ -835,6 +835,7 @@ function openConfirmPaymentModal(orderId, orderNumber, orderAmount) {
     
     const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
     confirmPaymentSubmitBtn.setAttribute('data-order-id', orderId);
+    confirmPaymentSubmitBtn.setAttribute('data-order-amount', orderAmount);
     
     // Reset checkbox and button state
     const confirmPaymentCheckbox = document.getElementById('confirmPaymentCheckbox');
@@ -863,14 +864,19 @@ function openProcessRefundModal(orderId, orderNumber, orderAmount) {
 // Function to confirm payment
 function confirmPayment(orderId) {
     const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    const orderAmount = confirmPaymentSubmitBtn.getAttribute('data-order-amount') || document.getElementById('confirmPaymentAmount')?.textContent.replace(' ₽', '').replace(/\s/g, '') || '';
+    
     confirmPaymentSubmitBtn.disabled = true;
     confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Подтверждение...';
     
-    fetch(`/api/order/${orderId}/confirm-payment`, {
+    fetch(`/api/order/${orderId}/capture`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+            amount: parseFloat(orderAmount) || null
+        })
     })
     .then(response => response.json())
     .then(data => {
