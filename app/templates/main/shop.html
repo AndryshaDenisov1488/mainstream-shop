@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Магазин - MainStream Shop{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-5 fw-bold mb-3">Магазин</h1>
+                <p class="lead text-muted">Выберите турнир и закажите видео выступления вашего спортсмена</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Tournaments Grid -->
+<section class="py-5">
+    <div class="container">
+        {% if events.items %}
+        <div class="row">
+            {% for event in events.items %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card tournament-card h-100">
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <i class="fas fa-trophy fa-3x text-white"></i>
+                    </div>
+                    <div class="card-body">
+                        <div class="tournament-date mb-2">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ event.start_date.strftime('%d.%m.%Y') }} - {{ event.end_date.strftime('%d.%m.%Y') }}
+                        </div>
+                        <h5 class="tournament-title">{{ event.name }}</h5>
+                        {% if event.place %}
+                        <p class="tournament-place mb-3">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ event.place }}
+                        </p>
+                        {% endif %}
+                        
+                        <!-- Categories count -->
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-users me-1"></i>
+                                {{ event.categories.count() }} категорий
+                            </small>
+                        </div>
+                        
+                        <a href="{{ url_for('main.tournament', event_id=event.id) }}" class="btn btn-primary w-100">
+                            <i class="fas fa-eye me-2"></i>Выбрать спортсмена
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if events.pages > 1 %}
+        <nav aria-label="Tournaments pagination">
+            <ul class="pagination justify-content-center">
+                {% if events.has_prev %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.shop', page=events.prev_num) }}">
+                        <i class="fas fa-chevron-left"></i>
+                    </a>
+                </li>
+                {% endif %}
+                
+                {% for page_num in events.iter_pages() %}
+                    {% if page_num %}
+                        {% if page_num != events.page %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('main.shop', page=page_num) }}">{{ page_num }}</a>
+                        </li>
+                        {% else %}
+                        <li class="page-item active">
+                            <span class="page-link">{{ page_num }}</span>
+                        </li>
+                        {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if events.has_next %}
+                <li class="page-item">
+                    <a class="page-link" href="{{ url_for('main.shop', page=events.next_num) }}">
+                        <i class="fas fa-chevron-right"></i>
+                    </a>
+                </li>
+                {% endif %}
+            </ul>
+        </nav>
+        {% endif %}
+        
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-calendar-times fa-5x text-muted"></i>
+            </div>
+            <h3 class="fw-bold mb-3">Турниры не найдены</h3>
+            <p class="text-muted mb-4">
+                В данный момент нет доступных турниров для заказа видео.
+                <br>Следите за обновлениями!
+            </p>
+            <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                <i class="fas fa-home me-2"></i>На главную
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Video Types Info -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Типы видео</h2>
+                <p class="lead text-muted">Выберите подходящий формат видео</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for video_type in video_types %}
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-{% if 'спорт' in video_type.name.lower() %}video{% else %}tv{% endif %} fa-2x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{{ video_type.name }}</h4>
+                        {% if video_type.description %}
+                        <p class="text-muted mb-3">{{ video_type.description }}</p>
+                        {% endif %}
+                        <div class="video-type-price text-primary fw-bold fs-4">{{ "{:,.0f}".format(video_type.price) }} ₽</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- How to Order Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Как сделать заказ</h2>
+                <p class="lead text-muted">Простая инструкция по оформлению заказа</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">1</span>
+                    </div>
+                    <h5>Выберите турнир</h5>
+                    <p class="text-muted">Найдите нужный турнир в списке выше</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">2</span>
+                    </div>
+                    <h5>Выберите категорию</h5>
+                    <p class="text-muted">Укажите разряд и пол спортсмена</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">3</span>
+                    </div>
+                    <h5>Выберите спортсмена</h5>
+                    <p class="text-muted">Найдите вашего ребенка в списке</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">4</span>
+                    </div>
+                    <h5>Оформите заказ</h5>
+                    <p class="text-muted">Выберите тип видео и оплатите заказ</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>На главную
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Add hover effects to tournament cards
+    $('.tournament-card').hover(
+        function() {
+            $(this).find('.card-img-top').css('transform', 'scale(1.05)');
+        },
+        function() {
+            $(this).find('.card-img-top').css('transform', 'scale(1)');
+        }
+    );
+    
+    // Add animation classes on scroll
+    $(window).scroll(function() {
+        $('.tournament-card').each(function() {
+            const elementTop = $(this).offset().top;
+            const viewportBottom = $(window).scrollTop() + $(window).height();
+            
+            if (elementTop < viewportBottom - 100) {
+                $(this).addClass('fade-in');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

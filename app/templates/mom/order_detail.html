@@ -1,0 +1,1277 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ #{{ order.generated_order_number }} - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <div>
+            <h1 class="h2">Заказ #{{ order.generated_order_number }}</h1>
+            <p class="text-muted mb-0">Создан {{ order.created_at.strftime('%d.%m.%Y в %H:%M') if order.created_at else 'Дата не указана' }}</p>
+        </div>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('mom.orders') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к заказам
+            </a>
+        </div>
+    </div>
+
+    <!-- Order Status Alert -->
+    <div class="alert alert-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }} alert-dismissible fade show" role="alert">
+        <h5 class="alert-heading mb-2">
+            <i class="fas fa-{{ 'check-circle' if order.status == 'completed' else 'credit-card' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'cog' if order.status == 'processing' else 'paper-plane' if order.status == 'links_sent' else 'exclamation-triangle' if order.status == 'refund_required' else 'times-circle' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'question-circle' }}"></i>
+            {{ order.get_status_display() }}
+        </h5>
+        {% if order.operator_comment %}
+            <hr>
+            <div class="alert {% if order.status == 'refund_required' %}alert-warning{% else %}alert-info{% endif %} mb-0">
+                <div class="d-flex align-items-start">
+                    <i class="fas {% if order.status == 'refund_required' %}fa-exclamation-triangle{% else %}fa-comment{% endif %} me-2 mt-1"></i>
+                    <div>
+                        <strong>{% if order.status == 'refund_required' %}Требуется возврат:{% else %}Комментарий оператора:{% endif %}</strong>
+                        <p class="mb-0 mt-1">{{ order.operator_comment }}</p>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <!-- Main Order Information -->
+        <div class="col-lg-8">
+            <!-- Tabs Navigation -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="orderTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="order-info-tab" data-bs-toggle="tab" data-bs-target="#order-info" type="button" role="tab">
+                                <i class="fas fa-info-circle me-1"></i>Информация о заказе
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat" type="button" role="tab">
+                                <i class="fas fa-comments me-1"></i>Чат
+                                <span class="badge bg-danger ms-1" id="chatUnreadCount" style="display: none;">0</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="orderTabsContent">
+                        <!-- Order Info Tab -->
+                        <div class="tab-pane fade show active" id="order-info" role="tabpanel">
+            <!-- Customer Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-user me-2"></i>Информация о клиенте</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Контактные данные:</h6>
+                            <p class="mb-1"><strong>Имя:</strong> 
+                                {% if order.contact_first_name and order.contact_last_name %}
+                                    {{ order.contact_last_name }} {{ order.contact_first_name }}
+                                {% elif order.customer %}
+                                    {{ order.customer.full_name }}
+                                {% else %}
+                                    Не указано
+                                {% endif %}
+                            </p>
+                            <p class="mb-1"><strong>Email:</strong> {{ order.contact_email or 'Не указан' }}</p>
+                            <p class="mb-0">
+                                <strong>Телефон:</strong> {{ order.contact_phone or 'Не указан' }}
+                                {% if order.contact_phone %}
+                                    <a href="https://wa.me/{{ order.contact_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') }}" 
+                                       target="_blank" 
+                                       class="btn btn-success btn-sm ms-2" 
+                                       title="Написать в WhatsApp">
+                                        <i class="fab fa-whatsapp"></i> WhatsApp
+                                    </a>
+                                {% endif %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Аккаунт:</h6>
+                            {% if order.customer %}
+                                <p class="mb-1"><strong>Пользователь:</strong> {{ order.customer.full_name }}</p>
+                                <p class="mb-1"><strong>Email:</strong> {{ order.customer.email }}</p>
+                                <p class="mb-0"><strong>Роль:</strong> {{ order.customer.role }}</p>
+                            {% else %}
+                                <p class="text-muted mb-0">Гостевой заказ (аккаунт не создан)</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Order Details -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Детали заказа</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Турнир и спортсмен:</h6>
+                            <p class="mb-1"><strong>Турнир:</strong> {{ order.event.name if order.event else 'Неизвестный турнир' }}</p>
+                            <p class="mb-0"><strong>Спортсмен:</strong> {{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Оператор:</h6>
+                            {% if order.operator %}
+                                <p class="mb-1"><strong>Назначен:</strong> {{ order.operator.full_name }}</p>
+                                <p class="mb-0"><strong>Email:</strong> {{ order.operator.email }}</p>
+                            {% else %}
+                                <p class="text-muted mb-0">Оператор не назначен</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Comments Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-comments me-2"></i>Комментарии и примечания</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Customer Comment -->
+                    {% if order.comment %}
+                    <div class="mb-3">
+                        <h6 class="text-primary"><i class="fas fa-user me-1"></i>Комментарий клиента:</h6>
+                        <div class="alert alert-info">
+                            <p class="mb-0">{{ order.comment }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Operator Comment -->
+                    {% if order.operator_comment %}
+                    <div class="mb-3">
+                        <h6 class="text-warning"><i class="fas fa-user-cog me-1"></i>Комментарий оператора:</h6>
+                        <div class="alert alert-warning">
+                            <p class="mb-0">{{ order.operator_comment }}</p>
+                            {% if order.operator %}
+                                <small class="text-muted">Добавлено оператором: {{ order.operator.full_name }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    
+                    {% if not order.comment and not order.operator_comment %}
+                        <p class="text-muted mb-0">Комментарии отсутствуют</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Video Types -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-video me-2"></i>Заказанные видео</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.video_types %}
+                        <div class="row">
+                            {% for video_type_id in order.video_types %}
+                                {% if video_type_id %}
+                                    {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <h6>{{ video_type.name if video_type else 'Неизвестный тип' }}</h6>
+                                            {% if video_type %}
+                                                <p class="text-muted mb-2">{{ video_type.description }}</p>
+                                                <p class="mb-0"><strong>Цена: {{ "%.0f"|format(video_type.price) }} ₽</strong></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Типы видео не указаны</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Video Links -->
+            {% if order.video_links and order.status in ['ready', 'completed'] %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h5>
+                </div>
+                <div class="card-body">
+                    {% for video_type_id, link in order.video_links.items() %}
+                        {% if video_type_id %}
+                            {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                            <div class="mb-3 p-3 border rounded">
+                                <h6>{{ video_type.name if video_type else 'Неизвестный тип' }}</h6>
+                                <a href="{{ link }}" target="_blank" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-external-link-alt me-1"></i>{{ link }}
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+                        </div>
+                        
+                        <!-- Chat Tab -->
+                        <div class="tab-pane fade" id="chat" role="tabpanel">
+                            <h5 class="mb-3">Чат по заказу</h5>
+                            
+                            <!-- Chat Messages -->
+                            <div id="chatMessages" class="border rounded p-3 mb-3" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+                                <div class="text-center text-muted">
+                                    <i class="fas fa-spinner fa-spin"></i> Загрузка сообщений...
+                                </div>
+                            </div>
+                            
+                            <!-- Chat Input -->
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <textarea class="form-control" id="chatMessageInput" rows="2" placeholder="Введите сообщение..." maxlength="5000"></textarea>
+                                    <button class="btn btn-outline-secondary" type="button" id="attachFileBtn" title="Прикрепить файл">
+                                        <i class="fas fa-paperclip"></i>
+                                    </button>
+                                </div>
+                                <input type="file" id="chatFileInput" style="display: none;" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx,.txt">
+                                <small class="text-muted">Максимум 5000 символов. Поддерживаемые файлы: изображения, PDF, документы</small>
+                            </div>
+                            
+                            <!-- Send Button -->
+                            <div class="d-flex justify-content-between">
+                                <button class="btn btn-primary" id="sendChatMessageBtn">
+                                    <i class="fas fa-paper-plane me-1"></i>Отправить
+                                </button>
+                                <div class="text-muted small">
+                                    <span id="charCount">0/5000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Order Status Card -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Статус заказа</h5>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }} fs-6 px-3 py-2">
+                            {{ order.get_status_display() }}
+                        </span>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm" 
+                            data-order-id="{{ order.id }}" 
+                            data-order-status="{{ order.status }}" 
+                            data-order-number="{{ order.generated_order_number }}" 
+                            id="openStatusModalBtn">
+                        <i class="fas fa-edit me-1"></i>Изменить статус
+                    </button>
+                </div>
+            </div>
+
+            <!-- Payment Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-credit-card me-2"></i>Оплата</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <h6>Сумма заказа:</h6>
+                        <h4 class="text-primary">{{ "%.2f"|format(order.total_amount) }} ₽</h4>
+                    </div>
+                    
+                    {% if order.payments %}
+                        {% for payment in order.payments %}
+                            <div class="mb-2">
+                                <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }}">
+                                    {{ 'Подтвержден' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
+                                </span>
+                                <small class="text-muted d-block">{{ payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '' }}</small>
+                                {% if payment.cp_transaction_id %}
+                                    <small class="text-muted d-block">ID: {{ payment.cp_transaction_id }}</small>
+                                {% endif %}
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted mb-0">Заказ не оплачен</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Video Links Section -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h5>
+                </div>
+                <div class="card-body">
+                    <!-- Отправленные ссылки -->
+                    {% if order.video_links %}
+                    <div class="mb-4">
+                        <h6 class="text-success"><i class="fas fa-check-circle me-1"></i>Отправленные ссылки клиенту:</h6>
+                        {% for video_type_id, link in order.video_links.items() %}
+                            {% if video_type_id %}
+                                {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                                <div class="mb-3 p-3 border rounded bg-light">
+                                    <h6 class="mb-2">{{ video_type.name if video_type else 'Неизвестный тип' }}</h6>
+                                    <div class="d-flex align-items-center">
+                                        <a href="{{ link }}" target="_blank" class="btn btn-outline-success btn-sm me-2">
+                                            <i class="fas fa-external-link-alt me-1"></i>Открыть ссылку
+                                        </a>
+                                        <small class="text-muted">{{ link }}</small>
+                                    </div>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                    <form id="sendLinksForm">
+                        <input type="hidden" name="order_id" value="{{ order.id }}">
+                        <input type="hidden" name="client_email" value="{{ order.contact_email }}">
+                        <input type="hidden" name="client_name" value="{{ order.contact_last_name or '' }} {{ order.contact_first_name or '' }}">
+
+                        {% if order.video_types %}
+                            {% for video_type_id in order.video_types %}
+                                {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                                <div class="mb-3">
+                                    <label for="video_link_{{ video_type_id }}" class="form-label">
+                                        {{ video_type.name if video_type else 'Неизвестный тип' }} ({{ "%.0f"|format(video_type.price) }} ₽)
+                                    </label>
+                                    <input type="url" class="form-control" id="video_link_{{ video_type_id }}"
+                                           name="video_links[{{ video_type_id }}]"
+                                           value="{{ order.video_links.get(video_type_id|string, '') if order.video_links else '' }}"
+                                           placeholder="Вставьте ссылку на скачивание видео"
+                                           {% if order.status == 'completed' or order.status in ['cancelled_unpaid', 'cancelled_manual'] %}disabled{% endif %}>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p class="text-muted">Типы видео не указаны</p>
+                        {% endif %}
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="partialRefundCheckbox" name="partial_refund"
+                                   {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                            <label class="form-check-label" for="partialRefundCheckbox">Требуется частичный возврат</label>
+                        </div>
+
+                        <div class="mb-3" id="refundCommentField" style="display: none;">
+                            <label for="refundComment" class="form-label">Комментарий по возврату (для оператора)</label>
+                            <textarea class="form-control" id="refundComment" name="refund_comment" rows="3"
+                                      {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>{{ order.operator_comment or '' }}</textarea>
+                        </div>
+
+                        <button type="button" class="btn btn-primary" id="sendVideoLinksBtn"
+                                {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                            <i class="fas fa-paper-plane me-2"></i>Отправить ссылки
+                        </button>
+                        {% if order.status != 'completed' and order.status != 'cancelled' %}
+                            <p class="mt-2 text-muted">
+                                <small>Для полного возврата и отмены заказа измените статус заказа в блоке "Действия".</small>
+                            </p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-cogs me-2"></i>Действия</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="orderStatusSelect" class="form-label">Изменить статус заказа</label>
+                        <select class="form-select" id="orderStatusSelect" data-order-id="{{ order.id }}">
+                            <option value="checkout_initiated" {{ 'selected' if order.status == 'checkout_initiated' else '' }}>Оформление инициировано</option>
+                            <option value="awaiting_payment" {{ 'selected' if order.status == 'awaiting_payment' else '' }}>Ожидание оплаты</option>
+                            <option value="processing" {{ 'selected' if order.status == 'processing' else '' }}>В обработке</option>
+                            <option value="completed" {{ 'selected' if order.status == 'completed' else '' }}>Выполнен</option>
+                            <option value="refund_required" {{ 'selected' if order.status == 'refund_required' else '' }}>Требуется возврат</option>
+                            <option value="cancelled_unpaid" {{ 'selected' if order.status == 'cancelled_unpaid' else '' }}>Отменен (не оплачен)</option>
+                            <option value="cancelled_manual" {{ 'selected' if order.status == 'cancelled_manual' else '' }}>Отменен вручную</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="orderComment" class="form-label">Комментарий к заказу</label>
+                        <textarea class="form-control" id="orderComment" rows="3" placeholder="Добавьте комментарий к заказу">{{ order.operator_comment or '' }}</textarea>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-sm w-100 mb-2" data-order-id="{{ order.id }}" id="saveOrderChangesBtn">
+                        <i class="fas fa-save me-1"></i>Сохранить изменения
+                    </button>
+                    
+                    <!-- Кнопка "Принять деньги" для completed, refund_required и links_sent -->
+                    {% if order.status in ['completed', 'refund_required', 'links_sent'] %}
+                        <button class="btn btn-success btn-sm w-100 mb-2 confirm-payment-btn" 
+                                data-order-id="{{ order.id }}" 
+                                data-order-number="{{ order.generated_order_number }}" 
+                                data-order-amount="{{ order.total_amount }}" 
+                                title="Принять деньги">
+                            <i class="fas fa-money-bill-wave me-1"></i>Принять деньги
+                        </button>
+                    {% endif %}
+                    
+                    <!-- Кнопка "Обработать возврат" для refund_required -->
+                    {% if order.status == 'refund_required' %}
+                        <button class="btn btn-warning btn-sm w-100 mb-2 process-refund-btn" 
+                                data-order-id="{{ order.id }}" 
+                                data-order-number="{{ order.generated_order_number }}" 
+                                data-order-amount="{{ order.total_amount }}" 
+                                title="Обработать возврат">
+                            <i class="fas fa-undo me-1"></i>Обработать возврат
+                        </button>
+                    {% endif %}
+                    
+                    <!-- Кнопка "Обработать возврат" для completed -->
+                    {% if order.status == 'completed' %}
+                        <button class="btn btn-outline-danger btn-sm w-100 mb-2 refund-btn" 
+                                data-order-id="{{ order.id }}" 
+                                data-order-number="{{ order.generated_order_number }}" 
+                                data-order-amount="{{ order.total_amount }}" 
+                                title="Возврат">
+                            <i class="fas fa-times me-1"></i>Возврат
+                        </button>
+                    {% endif %}
+                    
+                    <!-- Кнопка "Вернуть деньги" для cancelled -->
+                    {% if order.status == 'cancelled' %}
+                        <button class="btn btn-outline-danger btn-sm w-100 mb-2 refund-btn" 
+                                data-order-id="{{ order.id }}" 
+                                data-order-number="{{ order.generated_order_number }}" 
+                                data-order-amount="{{ order.total_amount }}" 
+                                title="Вернуть деньги">
+                            <i class="fas fa-undo me-1"></i>Вернуть деньги
+                        </button>
+                    {% endif %}
+                    
+                    <button class="btn btn-outline-secondary btn-sm w-100" onclick="window.print()">
+                        <i class="fas fa-print me-1"></i>Печать
+                    </button>
+                </div>
+            </div>
+
+            <!-- Order Timeline -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="fas fa-history me-2"></i>История заказа</h5>
+                </div>
+                <div class="card-body">
+                    <div class="timeline">
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-primary"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Заказ создан</h6>
+                                <small class="text-muted">{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Дата не указана' }}</small>
+                            </div>
+                        </div>
+                        
+                        {% if order.status in ['processing', 'ready', 'completed', 'cancelled'] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-info"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Заказ в обработке</h6>
+                                <small class="text-muted">Назначен оператор</small>
+                                {% if order.operator_id %}
+                                <br><small class="text-muted">{{ order.updated_at.strftime('%d.%m.%Y %H:%M') if order.updated_at else 'Дата не указана' }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if order.status in ['ready', 'completed'] %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Заказ готов</h6>
+                                <small class="text-muted">Видео обработано</small>
+                                {% if order.video_links %}
+                                <br><small class="text-muted">{{ order.updated_at.strftime('%d.%m.%Y %H:%M') if order.updated_at else 'Дата не указана' }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if order.status == 'completed' %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-success"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Заказ выполнен</h6>
+                                <small class="text-muted">Ссылки отправлены клиенту</small>
+                                {% if order.processed_at %}
+                                <br><small class="text-muted">{{ order.processed_at.strftime('%d.%m.%Y %H:%M') if order.processed_at else 'Дата не указана' }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                        
+                        {% if order.status == 'refund_required' %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-warning"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">Требуется возврат</h6>
+                                <small class="text-muted">Оператор запросил возврат</small>
+                                {% if order.operator_comment %}
+                                <br><small class="text-muted">{{ order.updated_at.strftime('%d.%m.%Y %H:%M') if order.updated_at else 'Дата не указана' }}</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Include modals from orders.html -->
+{% include 'mom/order_modals.html' %}
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 30px;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #dee2e6;
+}
+
+.timeline-item {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -23px;
+    top: 5px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 2px #dee2e6;
+}
+
+.timeline-content {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 5px;
+    border-left: 3px solid #007bff;
+}
+
+@media print {
+    .btn, .card-header, .alert {
+        display: none !important;
+    }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const partialRefundCheckbox = document.getElementById('partialRefundCheckbox');
+    const refundCommentField = document.getElementById('refundCommentField');
+
+    function toggleRefundCommentField() {
+        if (partialRefundCheckbox && partialRefundCheckbox.checked) {
+            refundCommentField.style.display = 'block';
+        } else if (refundCommentField) {
+            refundCommentField.style.display = 'none';
+        }
+    }
+
+    if (partialRefundCheckbox) {
+        partialRefundCheckbox.addEventListener('change', toggleRefundCommentField);
+        toggleRefundCommentField(); // Set initial state
+    }
+
+    // Function to send video links
+    window.sendVideoLinks = function() {
+        const form = document.getElementById('sendLinksForm');
+        const formData = new FormData(form);
+        
+        const videoLinks = {};
+        const videoLinkInputs = form.querySelectorAll('input[name^="video_links["]');
+        videoLinkInputs.forEach(input => {
+            const match = input.name.match(/video_links\[(.+)\]/);
+            if (match && input.value.trim()) {
+                videoLinks[match[1]] = input.value.trim();
+            }
+        });
+        
+        if (Object.keys(videoLinks).length === 0) {
+            alert('Пожалуйста, введите хотя бы одну ссылку на видео');
+            return;
+        }
+
+        const partialRefund = partialRefundCheckbox ? partialRefundCheckbox.checked : false;
+        const refundComment = document.getElementById('refundComment') ? document.getElementById('refundComment').value.trim() : '';
+
+        fetch('/api/order/' + formData.get('order_id') + '/send-links', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                client_name: formData.get('client_name'),
+                client_email: formData.get('client_email'),
+                video_links: videoLinks,
+                partial_refund: partialRefund,
+                refund_comment: refundComment
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Ссылки отправлены успешно!');
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при отправке ссылок: ' + error.message);
+        });
+    };
+
+    // Function to change order status
+    window.changeOrderStatus = function(orderId, newStatus) {
+        const comment = prompt('Пожалуйста, введите комментарий к изменению статуса (необязательно):');
+        if (comment === null) { // User cancelled
+            document.getElementById('orderStatusSelect').value = '{{ order.status }}'; // Reset dropdown
+            return;
+        }
+
+        fetch('/api/order/' + orderId + '/change-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                status: newStatus,
+                comment: comment
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Статус заказа успешно изменен!');
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.error);
+                document.getElementById('orderStatusSelect').value = '{{ order.status }}'; // Reset dropdown
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при изменении статуса: ' + error.message);
+            document.getElementById('orderStatusSelect').value = '{{ order.status }}'; // Reset dropdown
+        });
+    };
+
+    // Function to save order changes
+    window.saveOrderChanges = function(orderId) {
+        const status = document.getElementById('orderStatusSelect').value;
+        const comment = document.getElementById('orderComment').value.trim();
+
+        fetch('/api/order/' + orderId + '/change-status', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                status: status,
+                comment: comment
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Изменения сохранены успешно!');
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении: ' + error.message);
+        });
+    };
+});
+
+// Add event listeners for all buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle status modal button
+    const openStatusModalBtn = document.getElementById('openStatusModalBtn');
+    if (openStatusModalBtn) {
+        openStatusModalBtn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderStatus = this.getAttribute('data-order-status');
+            const orderNumber = this.getAttribute('data-order-number');
+            openStatusModal(orderId, orderStatus, orderNumber);
+        });
+    }
+    
+    // Handle send video links button
+    const sendVideoLinksBtn = document.getElementById('sendVideoLinksBtn');
+    if (sendVideoLinksBtn) {
+        sendVideoLinksBtn.addEventListener('click', function() {
+            sendVideoLinks();
+        });
+    }
+    
+    // Handle save order changes button
+    const saveOrderChangesBtn = document.getElementById('saveOrderChangesBtn');
+    if (saveOrderChangesBtn) {
+        saveOrderChangesBtn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            saveOrderChanges(orderId);
+        });
+    }
+    
+    // Handle refund buttons
+    const openRefundBtn1 = document.getElementById('openRefundBtn1');
+    const openRefundBtn2 = document.getElementById('openRefundBtn2');
+    
+    [openRefundBtn1, openRefundBtn2].forEach(button => {
+        if (button) {
+            button.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-order-id');
+                const orderNumber = this.getAttribute('data-order-number');
+                const orderAmount = this.getAttribute('data-order-amount');
+                openRefundModal(orderId, orderNumber, orderAmount);
+            });
+        }
+    });
+    
+    // Handle order status select
+    const orderStatusSelect = document.getElementById('orderStatusSelect');
+    if (orderStatusSelect) {
+        orderStatusSelect.addEventListener('change', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const newStatus = this.value;
+            if (orderId && newStatus) {
+                changeOrderStatus(orderId, newStatus);
+            }
+        });
+    }
+    
+    // Handle confirm payment checkbox
+    const confirmPaymentCheckbox = document.getElementById('confirmPaymentCheckbox');
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    
+    if (confirmPaymentCheckbox && confirmPaymentSubmitBtn) {
+        confirmPaymentCheckbox.addEventListener('change', function() {
+            confirmPaymentSubmitBtn.disabled = !this.checked;
+        });
+    }
+    
+    // Handle confirm payment form submission
+    const confirmPaymentSubmitBtn2 = document.getElementById('confirmPaymentSubmitBtn');
+    if (confirmPaymentSubmitBtn2) {
+        confirmPaymentSubmitBtn2.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            if (orderId && confirmPaymentCheckbox && confirmPaymentCheckbox.checked) {
+                confirmPayment(orderId);
+            }
+        });
+    }
+    
+    // Handle process refund form submission
+    const processRefundForm = document.getElementById('processRefundForm');
+    if (processRefundForm) {
+        processRefundForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const orderId = this.getAttribute('data-order-id');
+            if (orderId) {
+                processRefund(orderId, this);
+            }
+        });
+    }
+    
+    // Handle confirm payment button clicks
+    document.querySelectorAll('.confirm-payment-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const orderAmount = this.getAttribute('data-order-amount');
+            openConfirmPaymentModal(orderId, orderNumber, orderAmount);
+        });
+    });
+    
+    // Handle process refund button clicks
+    document.querySelectorAll('.process-refund-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const orderAmount = this.getAttribute('data-order-amount');
+            openProcessRefundModal(orderId, orderNumber, orderAmount);
+        });
+    });
+});
+
+// Function to open confirm payment modal
+function openConfirmPaymentModal(orderId, orderNumber, orderAmount) {
+    document.getElementById('confirmPaymentOrderNumber').textContent = orderNumber;
+    document.getElementById('confirmPaymentAmount').textContent = orderAmount;
+    
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    confirmPaymentSubmitBtn.setAttribute('data-order-id', orderId);
+    
+    // Reset checkbox and button state
+    const confirmPaymentCheckbox = document.getElementById('confirmPaymentCheckbox');
+    confirmPaymentCheckbox.checked = false;
+    confirmPaymentSubmitBtn.disabled = true;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmPaymentModal'));
+    modal.show();
+}
+
+// Function to open process refund modal
+function openProcessRefundModal(orderId, orderNumber, orderAmount) {
+    document.getElementById('processRefundOrderNumber').textContent = orderNumber;
+    document.getElementById('processRefundTotalAmount').textContent = orderAmount;
+    
+    const processRefundForm = document.getElementById('processRefundForm');
+    processRefundForm.setAttribute('data-order-id', orderId);
+    
+    // Set default refund amount to full amount
+    document.getElementById('processRefundAmount').value = orderAmount;
+    
+    const modal = new bootstrap.Modal(document.getElementById('processRefundModal'));
+    modal.show();
+}
+
+// Function to confirm payment
+function confirmPayment(orderId) {
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    confirmPaymentSubmitBtn.disabled = true;
+    confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Подтверждение...';
+    
+    fetch(`/api/order/${orderId}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Reload page to update status
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при подтверждении платежа');
+    })
+    .finally(() => {
+        confirmPaymentSubmitBtn.disabled = false;
+        confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-money-bill-wave me-1"></i>Подтвердить платеж';
+    });
+}
+
+// Function to process refund
+function processRefund(orderId, form) {
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Обработка...';
+    
+    fetch(`/api/order/${orderId}/process-refund`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Reload page to update status
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при обработке возврата');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-undo me-1"></i>Обработать возврат';
+    });
+}
+</script>
+
+<!-- Modal для подтверждения платежа -->
+<div class="modal fade" id="confirmPaymentModal" tabindex="-1" aria-labelledby="confirmPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmPaymentModalLabel">Подтвердить поступление денег</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Подтвердите, что деньги поступили на счет в банке.
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Номер заказа:</strong><br>
+                        <span id="confirmPaymentOrderNumber">-</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Сумма к подтверждению:</strong><br>
+                        <span id="confirmPaymentAmount">-</span> ₽
+                    </div>
+                </div>
+                <hr>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmPaymentCheckbox">
+                    <label class="form-check-label" for="confirmPaymentCheckbox">
+                        Я подтверждаю, что деньги поступили на счет в банке
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" id="confirmPaymentSubmitBtn" disabled>
+                    <i class="fas fa-money-bill-wave me-1"></i>Подтвердить платеж
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для обработки возврата -->
+<div class="modal fade" id="processRefundModal" tabindex="-1" aria-labelledby="processRefundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="processRefundModalLabel">Обработать возврат</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="processRefundForm">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Обработайте возврат согласно причине, указанной оператором.
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Номер заказа:</strong><br>
+                            <span id="processRefundOrderNumber">-</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Общая сумма заказа:</strong><br>
+                            <span id="processRefundTotalAmount">-</span> ₽
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="processRefundAmount" class="form-label">Сумма к возврату</label>
+                        <input type="number" class="form-control" id="processRefundAmount" name="refund_amount" 
+                               step="0.01" min="0" required>
+                        <div class="form-text">Введите сумму для возврата клиенту</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="processRefundReason" class="form-label">Причина возврата</label>
+                        <textarea class="form-control" id="processRefundReason" name="refund_reason" rows="3" 
+                                  placeholder="Укажите причину возврата для клиента" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo me-1"></i>Обработать возврат
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Chat JavaScript loaded for order {{ order.id }}');
+    
+    const orderId = parseInt('{{ order.id if order.id else 0 }}');
+    let currentPage = 1;
+    let isLoading = false;
+    let unreadCount = 0;
+    
+    // Chat elements
+    const chatMessages = document.getElementById('chatMessages');
+    const chatMessageInput = document.getElementById('chatMessageInput');
+    const sendChatMessageBtn = document.getElementById('sendChatMessageBtn');
+    const attachFileBtn = document.getElementById('attachFileBtn');
+    const chatFileInput = document.getElementById('chatFileInput');
+    const charCount = document.getElementById('charCount');
+    const chatUnreadCount = document.getElementById('chatUnreadCount');
+    
+    // Debug: Check if elements are found
+    console.log('🔍 Chat elements found:', {
+        chatMessages: !!chatMessages,
+        chatMessageInput: !!chatMessageInput,
+        sendChatMessageBtn: !!sendChatMessageBtn,
+        attachFileBtn: !!attachFileBtn,
+        chatFileInput: !!chatFileInput,
+        charCount: !!charCount,
+        chatUnreadCount: !!chatUnreadCount
+    });
+    
+    // Character counter
+    chatMessageInput.addEventListener('input', function() {
+        const length = this.value.length;
+        charCount.textContent = `${length}/5000`;
+        
+        if (length > 4500) {
+            charCount.style.color = '#dc3545';
+        } else if (length > 4000) {
+            charCount.style.color = '#fd7e14';
+        } else {
+            charCount.style.color = '#6c757d';
+        }
+    });
+    
+    // File attachment
+    attachFileBtn.addEventListener('click', function() {
+        chatFileInput.click();
+    });
+    
+    chatFileInput.addEventListener('change', function() {
+        if (this.files.length > 0) {
+            const file = this.files[0];
+            const maxSize = 10 * 1024 * 1024; // 10MB
+            
+            if (file.size > maxSize) {
+                alert('Размер файла не должен превышать 10MB');
+                this.value = '';
+                return;
+            }
+            
+            attachFileBtn.innerHTML = '<i class="fas fa-check text-success"></i>';
+            attachFileBtn.title = `Файл: ${file.name}`;
+        }
+    });
+    
+    // Send message
+    sendChatMessageBtn.addEventListener('click', function() {
+        sendMessage();
+    });
+    
+    chatMessageInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    function sendMessage() {
+        const message = chatMessageInput.value.trim();
+        const file = chatFileInput.files[0];
+        
+        if (!message && !file) {
+            alert('Введите сообщение или прикрепите файл');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('message', message);
+        if (file) {
+            formData.append('file', file);
+        }
+        
+        sendChatMessageBtn.disabled = true;
+        sendChatMessageBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+        
+        fetch(`/api/chat/order/${orderId}/send`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                chatMessageInput.value = '';
+                chatFileInput.value = '';
+                attachFileBtn.innerHTML = '<i class="fas fa-paperclip"></i>';
+                attachFileBtn.title = 'Прикрепить файл';
+                charCount.textContent = '0/5000';
+                charCount.style.color = '#6c757d';
+                
+                // Reload messages
+                loadMessages(true);
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при отправке сообщения');
+        })
+        .finally(() => {
+            sendChatMessageBtn.disabled = false;
+            sendChatMessageBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Отправить';
+        });
+    }
+    
+    function loadMessages(scrollToBottom = false) {
+        console.log('📨 Loading messages for order:', orderId, 'page:', currentPage);
+        
+        if (isLoading) return;
+        
+        isLoading = true;
+        
+        fetch(`/api/chat/order/${orderId}/messages?page=${currentPage}&per_page=20`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (currentPage === 1) {
+                    chatMessages.innerHTML = '';
+                }
+                
+                if (data.messages.length === 0 && currentPage === 1) {
+                    chatMessages.innerHTML = '<div class="text-center text-muted"><i class="fas fa-comments me-2"></i>Пока нет сообщений</div>';
+                    return;
+                }
+                
+                data.messages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `mb-3 p-2 rounded ${message.message_type === 'system' ? 'bg-light border-start border-info border-3' : 'bg-white border'}`;
+                    
+                    const isCurrentUser = message.sender_id === parseInt('{{ current_user.id }}');
+                    const alignment = isCurrentUser ? 'text-end' : 'text-start';
+                    
+                    let messageContent = '';
+                    if (message.message_type === 'system') {
+                        messageContent = `
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-info-circle text-info me-2"></i>
+                                <div>
+                                    <strong>Система:</strong>
+                                    <div>${message.message}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        messageContent = `
+                            <div class="${alignment}">
+                                <div class="d-flex ${isCurrentUser ? 'justify-content-end' : 'justify-content-start'} mb-1">
+                                    <small class="text-muted">
+                                        <strong>${message.sender_name}</strong> • ${new Date(message.created_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'})}
+                                    </small>
+                                </div>
+                                <div class="message-content">
+                                    ${message.message ? message.message.replace(/\n/g, '<br>') : ''}
+                                    ${message.attachment_path ? `<div class="mt-2"><a href="/uploads/chat/${message.attachment_path}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Скачать файл</a></div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    messageDiv.innerHTML = messageContent;
+                    chatMessages.appendChild(messageDiv);
+                });
+                
+                if (scrollToBottom) {
+                    chatMessages.scrollTop = chatMessages.scrollHeight;
+                }
+                
+                currentPage++;
+            } else {
+                console.error('Error loading messages:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('❌ Error loading messages:', error);
+            if (chatMessages) {
+                chatMessages.innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Ошибка загрузки сообщений</div>';
+            }
+        })
+        .finally(() => {
+            isLoading = false;
+        });
+    }
+    
+    function updateUnreadCount() {
+        fetch(`/api/chat/order/${orderId}/unread-count`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                unreadCount = data.unread_count;
+                if (unreadCount > 0) {
+                    chatUnreadCount.textContent = unreadCount;
+                    chatUnreadCount.style.display = 'inline';
+                } else {
+                    chatUnreadCount.style.display = 'none';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating unread count:', error);
+        });
+    }
+    
+    function markAsRead() {
+        fetch(`/api/chat/order/${orderId}/mark-read`, {
+            method: 'POST'
+        })
+        .catch(error => {
+            console.error('Error marking as read:', error);
+        });
+    }
+    
+    // Tab change handler
+    const chatTab = document.getElementById('chat-tab');
+    if (chatTab) {
+        chatTab.addEventListener('shown.bs.tab', function() {
+            console.log('💬 Chat tab activated');
+            loadMessages(true);
+            markAsRead();
+            unreadCount = 0;
+            chatUnreadCount.style.display = 'none';
+        });
+    } else {
+        console.error('❌ Chat tab not found');
+    }
+    
+    // Initial load
+    console.log('🚀 Starting initial chat load');
+    loadMessages(true);
+    updateUnreadCount();
+    
+    // Auto-refresh every 30 seconds
+    setInterval(() => {
+        if (document.getElementById('chat').classList.contains('active')) {
+            loadMessages();
+        }
+        updateUnreadCount();
+    }, 30000);
+});
+</script>
+{% endblock %}

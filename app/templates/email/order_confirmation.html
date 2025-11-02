@@ -1,0 +1,68 @@
+{% extends "email/base.html" %}
+
+{% block title %}Подтверждение заказа {{ order.generated_order_number }}{% endblock %}
+
+{% block content %}
+<h2>Здравствуйте!</h2>
+
+<p>Ваш заказ <strong>{{ order.generated_order_number }}</strong> успешно принят и передан в обработку.</p>
+
+<div class="order-details">
+    <h3>📋 Информация о заказе</h3>
+    <table>
+        <tr>
+            <td>Номер заказа:</td>
+            <td>{{ order.generated_order_number }}</td>
+        </tr>
+        <tr>
+            <td>Дата заказа:</td>
+            <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        </tr>
+        <tr>
+            <td>Статус:</td>
+            <td><span style="color: #ffc107; font-weight: bold;">В обработке</span></td>
+        </tr>
+        <tr>
+            <td>Спортсмен:</td>
+            <td>{{ order.athlete.name }}</td>
+        </tr>
+        <tr>
+            <td>Турнир:</td>
+            <td>{{ order.event.name }}</td>
+        </tr>
+        <tr>
+            <td>Категория:</td>
+            <td>{{ order.category.name }}</td>
+        </tr>
+        <tr>
+            <td>Общая сумма:</td>
+            <td><strong>{{ "%.2f"|format(order.total_amount) }} ₽</strong></td>
+        </tr>
+    </table>
+    
+    <h4>Типы видео:</h4>
+    {% for video_type_id in order.video_types %}
+        {% set video_type = order.video_types[video_type_id] %}
+        <p>• {{ video_type.name }} - {{ "%.2f"|format(video_type.price) }} ₽</p>
+    {% endfor %}
+</div>
+
+<h3>🕐 Что дальше?</h3>
+<ol>
+    <li><strong>Обработка заказа</strong> - наш оператор обработает ваш заказ в течение 1-2 часов</li>
+    <li><strong>Подготовка видео</strong> - подготовим видео в выбранном формате</li>
+    <li><strong>Доставка</strong> - отправим ссылки на видео на ваш email</li>
+</ol>
+
+<p style="text-align: center;">
+    <a href="{{ url_for('main.track_order', _external=True) }}" class="button">
+        Отследить заказ
+    </a>
+</p>
+
+{% if order.comment %}
+<div class="highlight">
+    <p><strong>Ваш комментарий:</strong> {{ order.comment }}</p>
+</div>
+{% endif %}
+{% endblock %}

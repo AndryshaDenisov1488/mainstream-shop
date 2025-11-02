@@ -1,0 +1,923 @@
+<!-- Status Change Modal -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">Изменить статус заказа</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="statusForm">
+                    <input type="hidden" id="statusOrderId" name="order_id">
+                    <div class="mb-3">
+                        <label for="newStatus" class="form-label">Новый статус</label>
+                        <select class="form-select" id="newStatus" name="status" required>
+                            <option value="checkout_initiated">Оформление инициировано</option>
+                            <option value="awaiting_payment">Ожидание оплаты</option>
+                            <option value="processing">В обработке</option>
+                            <option value="awaiting_info">Получение доп. информации</option>
+                            <option value="links_sent">Ссылки отправлены</option>
+                            <option value="completed">Выполнен</option>
+                            <option value="completed_partial_refund">Выполнен с частичным возвратом</option>
+                            <option value="refund_required">Требуется возврат</option>
+                            <option value="cancelled">Отменен</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="statusComment" class="form-label">Комментарий (необязательно)</label>
+                        <textarea class="form-control" id="statusComment" name="comment" rows="3" placeholder="Добавить комментарий к изменению статуса..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="changeOrderStatusFromModal()">Изменить статус</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Send Links Modal -->
+<div class="modal fade" id="sendLinksModalDetailed" tabindex="-1" aria-labelledby="sendLinksModalDetailedLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendLinksModalDetailedLabel">Отправить ссылки на видео</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="sendLinksForm">
+                    <input type="hidden" id="sendLinksOrderId" name="order_id">
+                    
+                    <!-- Order Information -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-info-circle me-2"></i>Информация о заказе</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <strong>Номер заказа:</strong> <span id="modalOrderNumber"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Турнир:</strong> <span id="modalTournament"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Категория:</strong> <span id="modalCategory"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Спортсмен:</strong> <span id="modalAthlete"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Сумма:</strong> <span id="modalAmount"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Дата заказа:</strong> <span id="modalOrderDate"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>Контактная информация</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label for="clientName" class="form-label">Имя клиента</label>
+                                        <input type="text" class="form-control" id="clientName" name="client_name" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="clientEmail" class="form-label">Email клиента</label>
+                                        <input type="email" class="form-control" id="clientEmail" name="client_email" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="clientPhone" class="form-label">Телефон</label>
+                                        <input type="text" class="form-control" id="clientPhone" name="client_phone" readonly>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Operator and Send Info -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-user-cog me-2"></i>Информация об отправке</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2">
+                                        <strong>Оператор:</strong> <span id="operatorInfo"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Время отправки:</strong> <span id="sendTime"></span>
+                                    </div>
+                                    <div class="mb-2">
+                                        <strong>Статус заказа:</strong> <span id="modalOrderStatus"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-video me-2"></i>Заказанные видео</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div id="modalVideoTypes">
+                                        <!-- Video types will be populated here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Operator Comment Section -->
+                    <div id="operatorCommentSection" class="card mb-4" style="display: none;">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-comment me-2"></i>Комментарий оператора</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="operatorCommentContent">
+                                <!-- Operator comment will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Video Links Section -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h6>
+                        </div>
+                        <div class="card-body">
+                            <div id="videoLinksContainer">
+                                <!-- Video links will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Refund Options -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-undo me-2"></i>Опции возврата</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3 form-check">
+                                <input type="checkbox" class="form-check-input" id="modalPartialRefundCheckbox" name="partial_refund">
+                                <label class="form-check-label" for="modalPartialRefundCheckbox">Требуется частичный возврат</label>
+                            </div>
+                            
+                            <div class="mb-3" id="modalRefundCommentField" style="display: none;">
+                                <label for="modalRefundComment" class="form-label">Комментарий по возврату (для оператора)</label>
+                                <textarea class="form-control" id="modalRefundComment" name="refund_comment" rows="3" placeholder="Укажите причину возврата..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional Message -->
+                    <div class="mb-3">
+                        <label for="customMessage" class="form-label">Дополнительное сообщение (необязательно)</label>
+                        <textarea class="form-control" id="customMessage" name="message" rows="3" placeholder="Добавить дополнительное сообщение к ссылкам..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="sendVideoLinks()">
+                    <i class="fas fa-paper-plane me-1"></i>Отправить ссылки
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refund Modal -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-labelledby="refundModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="refundModalLabel">Обработка возврата</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="refundForm">
+                    <input type="hidden" id="refundOrderId" name="order_id">
+                    
+                    <div class="alert alert-info">
+                        <h6>Информация о заказе</h6>
+                        <p class="mb-1"><strong>Номер заказа:</strong> <span id="refundOrderNumber"></span></p>
+                        <p class="mb-0"><strong>Сумма к возврату:</strong> <span id="refundAmount"></span> ₽</p>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Тип возврата</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="refundType" id="fullRefund" value="full" checked>
+                            <label class="form-check-label" for="fullRefund">
+                                Полный возврат
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="refundType" id="partialRefund" value="partial">
+                            <label class="form-check-label" for="partialRefund">
+                                Частичный возврат
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3" id="partialAmountDiv" style="display: none;">
+                        <label for="refundAmountInput" class="form-label">Сумма возврата (₽)</label>
+                        <input type="number" class="form-control" id="refundAmountInput" name="refund_amount" step="0.01" min="0">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundReason" class="form-label">Причина возврата</label>
+                        <select class="form-select" id="refundReason" name="reason" required>
+                            <option value="">Выберите причину</option>
+                            <option value="customer_request">Запрос клиента</option>
+                            <option value="technical_issue">Техническая проблема</option>
+                            <option value="quality_issue">Проблема с качеством</option>
+                            <option value="delivery_issue">Проблема с доставкой</option>
+                            <option value="other">Другая причина</option>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundComment" class="form-label">Комментарий</label>
+                        <textarea class="form-control" id="refundComment" name="comment" rows="3" placeholder="Дополнительная информация о возврате..." required></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="paymentInfo" class="form-label">Информация о платеже</label>
+                        <div id="paymentInfoContainer">
+                            <!-- Payment info will be populated here -->
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="processRefund()">
+                    <i class="fas fa-undo me-1"></i>Обработать возврат
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Status Modal Functions
+function openStatusModal(orderId, currentStatus, orderNumber) {
+    document.getElementById('statusOrderId').value = orderId;
+    document.getElementById('newStatus').value = currentStatus;
+    document.getElementById('statusComment').value = '';
+    document.getElementById('statusModalLabel').textContent = `Изменить статус заказа #${orderNumber}`;
+    
+    var modal = new bootstrap.Modal(document.getElementById('statusModal'));
+    modal.show();
+}
+
+function changeOrderStatusFromModal() {
+    const form = document.getElementById('statusForm');
+    const formData = new FormData(form);
+    
+    fetch('/api/order/' + formData.get('order_id') + '/change-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: formData.get('status'),
+            comment: formData.get('comment')
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при изменении статуса');
+    });
+}
+
+// Send Links Modal Functions
+function openSendLinksModal(orderId, orderNumber, clientEmail, firstName, lastName) {
+    // Show loading state first
+    document.getElementById('modalOrderNumber').textContent = orderNumber;
+    document.getElementById('modalTournament').textContent = 'Загрузка...';
+    document.getElementById('modalCategory').textContent = 'Загрузка...';
+    document.getElementById('modalAthlete').textContent = 'Загрузка...';
+    document.getElementById('modalAmount').textContent = 'Загрузка...';
+    document.getElementById('modalOrderDate').textContent = 'Загрузка...';
+    
+    // Set basic info
+    document.getElementById('sendLinksOrderId').value = orderId;
+    document.getElementById('sendTime').textContent = new Date().toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'});
+    document.getElementById('operatorInfo').textContent = '{{ current_user.full_name }}';
+    
+    // Set fallback values
+    document.getElementById('clientName').value = `${firstName || ''} ${lastName || ''}`.trim();
+    document.getElementById('clientEmail').value = clientEmail || '';
+    
+    // Show modal immediately with loading state
+    var modal = new bootstrap.Modal(document.getElementById('sendLinksModalDetailed'), {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+    });
+    modal.show();
+    
+    // Clean up modal when hidden
+    document.getElementById('sendLinksModalDetailed').addEventListener('hidden.bs.modal', function (event) {
+        // Clear any backdrop issues
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+        
+        // Remove any remaining backdrop elements
+        var backdrops = document.querySelectorAll('.modal-backdrop');
+        backdrops.forEach(function(backdrop) {
+            backdrop.remove();
+        });
+    });
+    
+    // Load order info
+    fetch('/api/order/' + orderId + '/info', {
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('HTTP ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('API Response received:', data);
+            if (data.success) {
+                const order = data.order;
+                console.log('Order data extracted:', order);
+                
+                // Fill order information with null checks
+                const modalTournament = document.getElementById('modalTournament');
+                const modalCategory = document.getElementById('modalCategory');
+                const modalAthlete = document.getElementById('modalAthlete');
+                const modalAmount = document.getElementById('modalAmount');
+                const modalOrderDate = document.getElementById('modalOrderDate');
+                
+                console.log('Filling modal fields with order data:', order);
+                
+                if (modalTournament) {
+                    modalTournament.textContent = order.event ? order.event.name : 'Не указан';
+                    console.log('Set tournament to:', order.event ? order.event.name : 'Не указан');
+                } else {
+                    console.log('modalTournament element not found');
+                }
+                if (modalCategory) {
+                    modalCategory.textContent = order.category ? order.category.name : 'Не указана';
+                    console.log('Set category to:', order.category ? order.category.name : 'Не указана');
+                } else {
+                    console.log('modalCategory element not found');
+                }
+                if (modalAthlete) {
+                    modalAthlete.textContent = order.athlete ? order.athlete.name : 'Не указан';
+                    console.log('Set athlete to:', order.athlete ? order.athlete.name : 'Не указан');
+                } else {
+                    console.log('modalAthlete element not found');
+                }
+                if (modalAmount) {
+                    modalAmount.textContent = order.total_amount ? order.total_amount.toFixed(2) + ' ₽' : '0 ₽';
+                    console.log('Set amount to:', order.total_amount ? order.total_amount.toFixed(2) + ' ₽' : '0 ₽');
+                } else {
+                    console.log('modalAmount element not found');
+                }
+                if (modalOrderDate) {
+                    modalOrderDate.textContent = order.created_at ? new Date(order.created_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'}) : 'Не указана';
+                    console.log('Set date to:', order.created_at ? new Date(order.created_at).toLocaleString('ru-RU') : 'Не указана');
+                } else {
+                    console.log('modalOrderDate element not found');
+                }
+                
+                // Fill client information with null checks
+                const clientName = document.getElementById('clientName');
+                const clientEmail = document.getElementById('clientEmail');
+                const clientPhone = document.getElementById('clientPhone');
+                
+                if (clientName) {
+                    if (order.contact_first_name && order.contact_last_name) {
+                        clientName.value = `${order.contact_last_name} ${order.contact_first_name}`;
+                    } else if (order.customer) {
+                        clientName.value = order.customer.full_name || '';
+                    }
+                }
+                
+                if (clientEmail) {
+                    clientEmail.value = order.contact_email || '';
+                }
+                
+                if (clientPhone) {
+                    clientPhone.value = order.contact_phone || '';
+                }
+                
+                // Display operator comment if exists
+                const operatorCommentSection = document.getElementById('operatorCommentSection');
+                const operatorCommentContent = document.getElementById('operatorCommentContent');
+                
+                console.log('operator_comment from API:', order.operator_comment);
+                console.log('operatorCommentSection element:', operatorCommentSection);
+                console.log('operatorCommentContent element:', operatorCommentContent);
+                
+                if (order.operator_comment) {
+                    operatorCommentSection.style.display = 'block';
+                    
+                    const isRefundRequired = order.status === 'refund_required';
+                    const alertClass = isRefundRequired ? 'alert-warning' : 'alert-info';
+                    const iconClass = isRefundRequired ? 'fa-exclamation-triangle' : 'fa-comment';
+                    const title = isRefundRequired ? 'Требуется возврат:' : 'Комментарий оператора:';
+                    
+                    operatorCommentContent.innerHTML = `
+                        <div class="alert ${alertClass} mb-0">
+                            <div class="d-flex align-items-start">
+                                <i class="fas ${iconClass} me-2 mt-1"></i>
+                                <div>
+                                    <strong>${title}</strong>
+                                    <p class="mb-0 mt-1">${order.operator_comment}</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    operatorCommentSection.style.display = 'none';
+                }
+                
+                // Fill status
+                const statusMap = {
+                    'checkout_initiated': 'Оформление инициировано',
+                    'awaiting_payment': 'Ожидание оплаты',
+                    'processing': 'В обработке', 
+                    'completed': 'Выполнен',
+                    'refund_required': 'Требуется возврат',
+                    'cancelled_unpaid': 'Отменен (не оплачен)',
+                    'cancelled_manual': 'Отменен вручную',
+                    'refunded_full': 'Полный возврат'
+                };
+                document.getElementById('modalOrderStatus').textContent = statusMap[order.status] || order.status;
+                
+                // Fill video types
+                const videoTypesContainer = document.getElementById('modalVideoTypes');
+                videoTypesContainer.innerHTML = '';
+                
+                if (order.video_types && order.video_types.length > 0) {
+                    order.video_types.forEach(videoType => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-2 p-2 border rounded';
+                        div.innerHTML = `
+                            <strong>${videoType.name}</strong><br>
+                            <small class="text-muted">${videoType.description || ''}</small><br>
+                            <small class="text-success">${videoType.price} ₽</small>
+                        `;
+                        videoTypesContainer.appendChild(div);
+                    });
+                }
+                
+                // Fill ordered video types section
+                const modalVideoTypes = document.getElementById('modalVideoTypes');
+                console.log('modalVideoTypes element:', modalVideoTypes);
+                console.log('order.video_types:', order.video_types);
+                
+                if (modalVideoTypes && order.video_types && order.video_types.length > 0) {
+                    let videoTypesHtml = '';
+                    order.video_types.forEach(videoType => {
+                        console.log('Processing video type:', videoType);
+                        videoTypesHtml += `
+                            <div class="mb-2">
+                                <strong>${videoType.name}</strong>
+                                <div class="text-muted small">${videoType.description || ''}</div>
+                                <div class="text-primary">${videoType.price ? videoType.price.toFixed(2) + ' ₽' : ''}</div>
+                            </div>
+                        `;
+                    });
+                    modalVideoTypes.innerHTML = videoTypesHtml;
+                    console.log('Set modalVideoTypes HTML:', videoTypesHtml);
+                } else {
+                    console.log('modalVideoTypes not found or no video types');
+                }
+                
+                // Fill video links
+                const container = document.getElementById('videoLinksContainer');
+                container.innerHTML = '';
+                
+                if (order.video_links && Object.keys(order.video_links).length > 0) {
+                    Object.entries(order.video_links).forEach(([videoTypeId, link]) => {
+                        const videoType = order.video_types ? order.video_types.find(vt => vt.id == videoTypeId) : null;
+                        const div = document.createElement('div');
+                        div.className = 'mb-3';
+                        div.innerHTML = `
+                            <label class="form-label"><strong>${videoType ? videoType.name : 'Неизвестный тип'}</strong></label>
+                            <input type="url" class="form-control" name="video_links[${videoTypeId}]" value="${link}" required>
+                            <div class="form-text">Текущая ссылка: ${link}</div>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else if (order.video_types && order.video_types.length > 0) {
+                    order.video_types.forEach(videoType => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-3';
+                        div.innerHTML = `
+                            <label class="form-label"><strong>${videoType.name}</strong></label>
+                            <input type="url" class="form-control" name="video_links[${videoType.id}]" placeholder="Введите ссылку на видео" required>
+                        `;
+                        container.appendChild(div);
+                    });
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order info:', error);
+            alert('Ошибка загрузки данных заказа: ' + error.message);
+            // Create default fields if API fails
+            const container = document.getElementById('videoLinksContainer');
+            container.innerHTML = '';
+            
+            const videoTypes = [
+                { id: 1, name: 'Спорт версия 1' },
+                { id: 2, name: 'ТВ версия 1' },
+                { id: 3, name: 'Спорт версия 2' },
+                { id: 4, name: 'ТВ версия 2' }
+            ];
+            
+            videoTypes.forEach(vt => {
+                const div = document.createElement('div');
+                div.className = 'mb-3';
+                div.innerHTML = `
+                    <label class="form-label"><strong>${vt.name}</strong></label>
+                    <input type="url" class="form-control" name="video_links[${vt.id}]" placeholder="Введите ссылку на видео" required>
+                `;
+                container.appendChild(div);
+            });
+        });
+    
+    var modal = new bootstrap.Modal(document.getElementById('sendLinksModalDetailed'));
+    modal.show();
+}
+
+function sendVideoLinks() {
+    const form = document.getElementById('sendLinksForm');
+    const formData = new FormData(form);
+    
+    const videoLinks = {};
+    const videoLinkInputs = form.querySelectorAll('input[name^="video_links["]');
+    videoLinkInputs.forEach(input => {
+        const match = input.name.match(/video_links\[(.+)\]/);
+        if (match && input.value.trim()) {
+            videoLinks[match[1]] = input.value.trim();
+        }
+    });
+    
+    // Check if at least one link is provided
+    if (Object.keys(videoLinks).length === 0) {
+        alert('Пожалуйста, введите хотя бы одну ссылку на видео');
+        return;
+    }
+    
+    const partialRefund = document.getElementById('modalPartialRefundCheckbox') ? document.getElementById('modalPartialRefundCheckbox').checked : false;
+    const refundComment = document.getElementById('modalRefundComment') ? document.getElementById('modalRefundComment').value.trim() : '';
+    
+    console.log('Sending video links:', videoLinks);
+    
+    fetch('/api/order/' + formData.get('order_id') + '/send-links', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            client_name: formData.get('client_name'),
+            client_email: formData.get('client_email'),
+            video_links: videoLinks,
+            message: formData.get('message'),
+            partial_refund: partialRefund,
+            refund_comment: refundComment
+        })
+    })
+    .then(response => {
+        console.log('Response status:', response.status);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log('Response data:', data);
+        if (data.success) {
+            alert('Ссылки отправлены успешно!');
+            bootstrap.Modal.getInstance(document.getElementById('sendLinksModalDetailed')).hide();
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при отправке ссылок: ' + error.message);
+    });
+}
+
+// Refund Modal Functions
+// Removed duplicate function
+
+function processRefund() {
+    const form = document.getElementById('refundForm');
+    const formData = new FormData(form);
+    
+    const refundType = formData.get('refundType');
+    const refundAmount = refundType === 'full' ? null : parseFloat(formData.get('refund_amount'));
+    
+    if (refundType === 'partial' && (!refundAmount || refundAmount <= 0)) {
+        alert('Укажите корректную сумму для частичного возврата');
+        return;
+    }
+    
+    fetch('/api/order/' + orderId + '/refund', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            order_id: parseInt(formData.get('order_id')),
+            refund_type: refundType,
+            refund_amount: refundAmount,
+            reason: formData.get('reason'),
+            comment: formData.get('comment')
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Возврат обработан успешно!');
+            bootstrap.Modal.getInstance(document.getElementById('refundModal')).hide();
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при обработке возврата');
+    });
+}
+
+// Toggle partial refund amount input and modal refund comment
+document.addEventListener('DOMContentLoaded', function() {
+    const fullRefund = document.getElementById('fullRefund');
+    const partialRefund = document.getElementById('partialRefund');
+    const partialAmountDiv = document.getElementById('partialAmountDiv');
+    
+    if (fullRefund && partialRefund && partialAmountDiv) {
+        fullRefund.addEventListener('change', function() {
+            partialAmountDiv.style.display = 'none';
+        });
+        
+        partialRefund.addEventListener('change', function() {
+            partialAmountDiv.style.display = 'block';
+        });
+    }
+    
+    // Toggle refund comment field in send links modal
+    const modalPartialRefundCheckbox = document.getElementById('modalPartialRefundCheckbox');
+    const modalRefundCommentField = document.getElementById('modalRefundCommentField');
+    
+    if (modalPartialRefundCheckbox && modalRefundCommentField) {
+        modalPartialRefundCheckbox.addEventListener('change', function() {
+            modalRefundCommentField.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+    
+    // Global modal cleanup for all modals on the page
+    document.querySelectorAll('.modal').forEach(function(modal) {
+        modal.addEventListener('hidden.bs.modal', function (event) {
+            // Clean up body classes and styles
+            document.body.classList.remove('modal-open');
+            document.body.style.overflow = '';
+            document.body.style.paddingRight = '';
+            
+            // Remove any remaining backdrop elements
+            var backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(function(backdrop) {
+                backdrop.remove();
+            });
+        });
+    });
+});
+</script>
+
+<!-- Payment Capture Modal -->
+<div class="modal fade" id="captureModal" tabindex="-1" aria-labelledby="captureModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="captureModalLabel">Зачет платежа</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="captureForm">
+                    <input type="hidden" id="captureOrderId" name="order_id">
+                    
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Укажите сумму к зачету. Если спортсмен выступал несколько раз, укажите сумму за одно видео - система зачтет частично.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="captureAmount" class="form-label">Сумма к зачету (руб.)</label>
+                        <input type="number" class="form-control" id="captureAmount" name="amount" step="0.01" min="0" required>
+                        <div class="form-text">Общая сумма заказа: <span id="totalAmountDisplay"></span> руб.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="captureComment" class="form-label">Комментарий (необязательно)</label>
+                        <textarea class="form-control" id="captureComment" name="comment" rows="3" placeholder="Например: зачет за одно выступление из двух"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" onclick="capturePayment()">
+                    <i class="fas fa-check me-2"></i>Зачесть платеж
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refund Modal -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-labelledby="refundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="refundModalLabel">Возврат платежа</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="refundForm">
+                    <input type="hidden" id="refundOrderId" name="order_id">
+                    
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Выполнение возврата отменит заказ. Это действие нельзя отменить.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundAmount" class="form-label">Сумма возврата (руб.)</label>
+                        <input type="number" class="form-control" id="refundAmount" name="amount" step="0.01" min="0">
+                        <div class="form-text">Оставьте пустым для полного возврата. Зачтенная сумма: <span id="paidAmountDisplay"></span> руб.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundReason" class="form-label">Причина возврата</label>
+                        <textarea class="form-control" id="refundReason" name="reason" rows="3" placeholder="Укажите причину возврата" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" onclick="refundPayment()">
+                    <i class="fas fa-undo me-2"></i>Выполнить возврат
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Capture payment function
+function openCaptureModal(orderId, totalAmount) {
+    document.getElementById('captureOrderId').value = orderId;
+    document.getElementById('captureAmount').value = parseFloat(totalAmount);
+    document.getElementById('totalAmountDisplay').textContent = parseFloat(totalAmount).toFixed(2) + ' ₽';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('captureModal'));
+    modal.show();
+}
+
+function capturePayment() {
+    const orderId = document.getElementById('captureOrderId').value;
+    const amount = parseFloat(document.getElementById('captureAmount').value);
+    
+    if (!amount || amount <= 0) {
+        alert('Укажите корректную сумму к зачету');
+        return;
+    }
+    
+    // Show loading state
+    const button = document.querySelector('#captureModal .btn-success');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обработка...';
+    button.disabled = true;
+    
+    fetch(`/api/order/${orderId}/capture`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            amount: amount
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('captureModal'));
+            modal.hide();
+            // Reload page to show updated status
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при зачете платежа');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+
+// Refund payment function
+function openRefundModal(orderId, paidAmount) {
+    document.getElementById('refundOrderId').value = orderId;
+    document.getElementById('paidAmountDisplay').textContent = parseFloat(paidAmount).toFixed(2) + ' ₽';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('refundModal'));
+    modal.show();
+}
+
+function refundPayment() {
+    const orderId = document.getElementById('refundOrderId').value;
+    const amount = document.getElementById('refundAmount').value;
+    const reason = document.getElementById('refundReason').value;
+    
+    if (!reason.trim()) {
+        alert('Укажите причину возврата');
+        return;
+    }
+    
+    if (amount && parseFloat(amount) <= 0) {
+        alert('Укажите корректную сумму возврата');
+        return;
+    }
+    
+    // Show loading state
+    const button = document.querySelector('#refundModal .btn-danger');
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обработка...';
+    button.disabled = true;
+    
+    fetch(`/api/order/${orderId}/refund`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            amount: amount ? parseFloat(amount) : null,
+            reason: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            // Close modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('refundModal'));
+            modal.hide();
+            // Reload page to show updated status
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при возврате платежа');
+    })
+    .finally(() => {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    });
+}
+</script>

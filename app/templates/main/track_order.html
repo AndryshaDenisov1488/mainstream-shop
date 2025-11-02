@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}Отследить заказ - MainStream Shop{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-header text-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-search me-2"></i>Отследить заказ
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted text-center mb-4">
+                            Введите email и номер заказа для просмотра статуса
+                        </p>
+                        
+                        <form method="POST">
+                            <div class="mb-3">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="email" name="email" 
+                                       placeholder="Введите ваш email" required>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label for="order_number" class="form-label">Номер заказа</label>
+                                <input type="text" class="form-control" id="order_number" name="order_number" 
+                                       placeholder="Например: MS-20251017-8EE8" required>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Найти заказ
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div class="mt-4 text-center">
+                            <p class="small text-muted">
+                                Номер заказа был отправлен на ваш email после оформления заказа
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('main.shop') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-2"></i>Вернуться в магазин
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

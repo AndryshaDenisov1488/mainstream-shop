@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+
+{% block title %}Турниры - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Турниры</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('mom.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к дашборду
+            </a>
+        </div>
+    </div>
+
+    <!-- Events Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Все турниры ({{ events.total }} найдено)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Название</th>
+                            <th>Место</th>
+                            <th>Дата начала</th>
+                            <th>Дата окончания</th>
+                            <th>Статус</th>
+                            <th>Категории</th>
+                            <th>Статистика заказов</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if events.items %}
+                            {% for event in events.items %}
+                            {% set stats = event_stats.get(event.id, {}) %}
+                            <tr>
+                                <td>
+                                    <strong>{{ event.name }}</strong>
+                                    <br>
+                                    <button class="btn btn-sm btn-outline-info mt-1" type="button" data-bs-toggle="collapse" data-bs-target="#eventStats{{ event.id }}" aria-expanded="false">
+                                        <i class="fas fa-chart-bar"></i> Статистика
+                                    </button>
+                                </td>
+                                <td>{{ event.place or 'Не указано' }}</td>
+                                <td>{{ event.start_date.strftime('%d.%m.%Y') if event.start_date else 'Не указано' }}</td>
+                                <td>{{ event.end_date.strftime('%d.%m.%Y') if event.end_date else 'Не указано' }}</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if event.is_active else 'secondary' }}">
+                                        {{ 'Активен' if event.is_active else 'Неактивен' }}
+                                    </span>
+                                </td>
+                                <td>{{ event.categories.count() if event.categories else 0 }}</td>
+                                <td>
+                                    <div class="row g-1">
+                                        <div class="col-12">
+                                            <span class="badge bg-primary">{{ stats.get('total_orders', 0) }} всего</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <span class="badge bg-success">{{ stats.get('completed_orders', 0) }} выполнено</span>
+                                        </div>
+                                        <div class="col-6">
+                                            <span class="badge bg-warning">{{ stats.get('refund_required_orders', 0) }} возврат</span>
+                                        </div>
+                                        <div class="col-12 mt-1">
+                                            <small class="text-success">💰 {{ "%.0f"|format(stats.get('total_revenue', 0)) }} ₽</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <a href="{{ url_for('mom.event_detail', event_id=event.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            <!-- Expandable statistics row -->
+                            <tr class="collapse" id="eventStats{{ event.id }}">
+                                <td colspan="8">
+                                    <div class="card">
+                                        <div class="card-header">
+                                            <h6 class="mb-0">📊 Подробная статистика: {{ event.name }}</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <h6>📋 Статусы заказов:</h6>
+                                                    <div class="row g-2">
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>В ожидании:</span>
+                                                                <span class="badge bg-secondary">{{ stats.get('pending_orders', 0) }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>В обработке:</span>
+                                                                <span class="badge bg-info">{{ stats.get('processing_orders', 0) }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>Выполнено:</span>
+                                                                <span class="badge bg-success">{{ stats.get('completed_orders', 0) }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>Отменено:</span>
+                                                                <span class="badge bg-danger">{{ stats.get('cancelled_orders', 0) }}</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12">
+                                                            <div class="d-flex justify-content-between">
+                                                                <span>Требует возврата:</span>
+                                                                <span class="badge bg-warning">{{ stats.get('refund_required_orders', 0) }}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <h6>💰 Финансы:</h6>
+                                                    <div class="alert alert-success">
+                                                        <strong>Общая выручка:</strong> {{ "%.2f"|format(stats.get('total_revenue', 0)) }} ₽
+                                                    </div>
+                                                    
+                                                    {% if stats.get('refund_reasons') %}
+                                                    <h6>🔄 Причины возвратов:</h6>
+                                                    {% for reason, count in stats.get('refund_reasons', {}).items() %}
+                                                    <div class="d-flex justify-content-between mb-1">
+                                                        <small>{{ reason }}</small>
+                                                        <span class="badge bg-warning">{{ count }}</span>
+                                                    </div>
+                                                    {% endfor %}
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="text-center text-muted py-4">
+                                    <i class="fas fa-calendar fa-2x mb-2"></i><br>
+                                    Турниры не найдены
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if events.pages > 1 %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if events.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('mom.events', page=events.prev_num) }}">Предыдущая</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in events.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != events.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('mom.events', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if events.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('mom.events', page=events.next_num) }}">Следующая</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+

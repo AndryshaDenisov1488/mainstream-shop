@@ -1,0 +1,27 @@
+Ваши видео готовы!
+
+Номер заказа: {{ order.generated_order_number }}
+Спортсмен: {{ order.athlete.name }}
+Турнир: {{ order.event.name }}
+Дата заказа: {{ order.created_at.strftime('%d.%m.%Y %H:%M') }}
+
+Ссылки на видео:
+{% if order.video_links %}
+{% for video_type_id, link in order.video_links.items() %}
+{% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+{{ video_type.name if video_type else 'Видео' }}: {{ link }}
+{% endfor %}
+{% else %}
+Ссылки на видео будут отправлены дополнительно.
+{% endif %}
+
+Важная информация:
+- Ссылки действительны в течение 90 дней
+- Рекомендуем скачать видео как можно скорее
+- При возникновении проблем обращайтесь к нам
+
+Спасибо за заказ!
+
+MainStream Shop
+Email: support@mainstreamfs.ru
+Telegram: @mainstreamshopbot

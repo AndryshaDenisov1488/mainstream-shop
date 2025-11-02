@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}MainStream Shop - Профессиональные видео с турниров по фигурному катанию{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4 fade-in">
+                    Профессиональные видео<br>
+                    <span class="text-gradient">с турниров по фигурному катанию</span>
+                </h1>
+                <p class="lead mb-4 fade-in">
+                    Получите качественные записи выступлений ваших детей с соревнований. 
+                    Видео спорт и ТВ версии в высоком качестве.
+                </p>
+                <div class="d-flex gap-3 fade-in">
+                    <a href="{{ url_for('main.shop') }}" class="btn btn-light btn-lg px-4">
+                        <i class="fas fa-shopping-cart me-2"></i>Перейти в магазин
+                    </a>
+                    <a href="{{ url_for('main.about') }}" class="btn btn-outline-light btn-lg px-4">
+                        <i class="fas fa-info-circle me-2"></i>Узнать больше
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="hero-image fade-in">
+                    <i class="fas fa-video fa-10x text-white opacity-75"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-5 fw-bold mb-3">Качественные видео</h2>
+                <p class="lead text-muted">Профессиональная съемка и монтаж</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card slide-in-left">
+                    <div class="feature-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <h4>Профессиональная съемка</h4>
+                    <p class="text-muted">
+                        Высококачественные записи с профессиональным оборудованием и монтажом
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card slide-in-left">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h4>Срок исполнения</h4>
+                    <p class="text-muted">
+                        Мы отправляем видео в течение 3–4 дней с даты заказа
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="feature-card slide-in-left">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h4>Гарантия качества</h4>
+                    <p class="text-muted">
+                        Если видео не соответствует заявленному качеству, вернем деньги
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How it Works Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-5 fw-bold mb-3">Как заказать видео</h2>
+                <p class="lead text-muted">Простой процесс в 4 шага</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">1</span>
+                    </div>
+                    <h5>Выберите турнир</h5>
+                    <p class="text-muted">Найдите соревнование, в котором участвовал ваш ребенок</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">2</span>
+                    </div>
+                    <h5>Выберите разряд</h5>
+                    <p class="text-muted">Укажите категорию, в которой выступал спортсмен</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">3</span>
+                    </div>
+                    <h5>Выберите спортсмена</h5>
+                    <p class="text-muted">Найдите вашего ребенка в списке участников</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">4</span>
+                    </div>
+                    <h5>Выберите видео</h5>
+                    <p class="text-muted">Выберите нужные типы видео и оформите заказ</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Recent Tournaments Section -->
+{% if events %}
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-5 fw-bold mb-3">Последние турниры</h2>
+                <p class="lead text-muted">Выберите турнир и закажите видео</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for event in events %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card tournament-card h-100">
+                    <div class="card-img-top d-flex align-items-center justify-content-center">
+                        <i class="fas fa-trophy fa-3x text-white"></i>
+                    </div>
+                    <div class="tournament-info">
+                        <div class="tournament-date">
+                            <i class="fas fa-calendar me-1"></i>
+                            {{ event.start_date.strftime('%d.%m.%Y') }} - {{ event.end_date.strftime('%d.%m.%Y') }}
+                        </div>
+                        <h5 class="tournament-title">{{ event.name }}</h5>
+                        {% if event.place %}
+                        <p class="tournament-place">
+                            <i class="fas fa-map-marker-alt me-1"></i>
+                            {{ event.place }}
+                        </p>
+                        {% endif %}
+                        <a href="{{ url_for('main.tournament', event_id=event.id) }}" class="btn btn-primary w-100">
+                            Выбрать спортсмена
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.shop') }}" class="btn btn-outline-primary btn-lg">
+                <i class="fas fa-th-large me-2"></i>Все турниры
+            </a>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+<!-- Telegram Bot Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h2 class="display-5 fw-bold mb-3">Заказ через Telegram-бота</h2>
+                <p class="lead mb-4">
+                    Для заказа видео вы можете использовать нашего Telegram-бота. 
+                    Быстро, удобно и доступно 24/7.
+                </p>
+                <a href="#" class="btn btn-primary btn-lg" id="telegramBotBtn">
+                    <i class="fab fa-telegram me-2"></i>Открыть бота
+                </a>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="feature-icon mx-auto" style="width: 120px; height: 120px;">
+                    <i class="fab fa-telegram fa-3x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="py-5 bg-gradient-primary text-white">
+    <div class="container text-center">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h2 class="display-5 fw-bold mb-3">Готовы заказать видео?</h2>
+                <p class="lead mb-4">
+                    Начните прямо сейчас и получите качественные записи выступлений
+                </p>
+                <a href="{{ url_for('main.shop') }}" class="btn btn-light btn-lg px-5">
+                    <i class="fas fa-shopping-cart me-2"></i>Заказать видео
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Stats Section (for staff) -->
+{% if stats %}
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-4">
+                <h3 class="fw-bold">Статистика</h3>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-primary">{{ stats.total_orders }}</h4>
+                        <p class="text-muted mb-0">Всего заказов</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-warning">{{ stats.pending_orders }}</h4>
+                        <p class="text-muted mb-0">Ожидают оплаты</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-info">{{ stats.processing_orders }}</h4>
+                        <p class="text-muted mb-0">В обработке</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-lg-3 col-md-6 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h4 class="text-success">{{ stats.completed_orders }}</h4>
+                        <p class="text-muted mb-0">Выполнено</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Telegram bot button
+    $('#telegramBotBtn').click(function(e) {
+        e.preventDefault();
+        showToast('Telegram бот будет доступен в ближайшее время', 'info');
+    });
+    
+    // Add animation classes on scroll
+    $(window).scroll(function() {
+        $('.slide-in-left, .slide-in-right').each(function() {
+            const elementTop = $(this).offset().top;
+            const elementBottom = elementTop + $(this).outerHeight();
+            const viewportTop = $(window).scrollTop();
+            const viewportBottom = viewportTop + $(window).height();
+            
+            if (elementBottom > viewportTop && elementTop < viewportBottom) {
+                $(this).addClass('fade-in');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

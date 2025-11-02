@@ -1,0 +1,23 @@
+Новое сообщение в чате заказа
+
+Здравствуйте, {{ recipient.full_name }}!
+
+В чате заказа поступило новое сообщение от {{ sender.full_name }}.
+
+Информация о заказе:
+- Номер заказа: {{ order.generated_order_number }}
+- Клиент: {% if order.contact_first_name and order.contact_last_name %}{{ order.contact_last_name }} {{ order.contact_first_name }}{% elif order.customer %}{{ order.customer.full_name }}{% else %}{{ order.contact_email }}{% endif %}
+- Турнир: {{ order.event.name if order.event else 'Неизвестный турнир' }}
+- Статус: {% if order.status == 'completed' %}Выполнен{% elif order.status == 'pending' %}В ожидании{% elif order.status == 'pending_payment' %}Ожидание оплаты{% elif order.status == 'processing' %}В обработке{% elif order.status == 'links_sent' %}Ссылки отправлены{% elif order.status == 'refund_required' %}Требуется возврат{% elif order.status == 'cancelled' %}Отменен{% else %}{{ order.status }}{% endif %}
+
+Сообщение от {{ sender.full_name }}:
+{{ message.message }}
+
+Время: {{ message.created_at.strftime('%d.%m.%Y в %H:%M') if message.created_at else 'Не указано' }}
+
+Для просмотра чата перейдите по ссылке:
+{{ url_for('operator.order_detail', order_id=order.id, _external=True) }}
+
+---
+Это автоматическое уведомление от системы MainStream Shop
+Если у вас есть вопросы, обратитесь к администратору системы

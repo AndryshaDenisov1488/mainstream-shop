@@ -1,0 +1,95 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Flask
+instance/
+.webassets-cache
+
+# Environment variables
+.env
+.env.local
+.env.production
+*.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+app.db
+app_prod.db
+app_dev.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Uploads (кроме структуры)
+uploads/*
+!uploads/.gitkeep
+uploads/xml/*
+!uploads/xml/.gitkeep
+uploads/chat/*
+!uploads/chat/.gitkeep
+
+# Migrations (опционально, если хотите их в репозитории)
+# migrations/
+
+# Тестовые файлы
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Временные файлы
+*.tmp
+*.bak
+*.swp
+.cache/
+
+# Системные файлы
+Thumbs.db
+desktop.ini
+
+# Скрипты для локальной разработки
+RESET_DATABASE.bat
+RESET_DATABASE.sh
+create_database_final_v3.py
+start_server.bat
+
+# Документация (опционально)
+# *.md
+# !README.md
+

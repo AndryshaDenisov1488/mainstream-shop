@@ -1,0 +1,594 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Клиенты{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">👥 Клиенты</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportCustomers()">
+                    <i class="fas fa-download"></i> Экспорт
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Всего клиентов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ customers.total }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Активные клиенты</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% set active_customers = [] %}
+                                {% for customer in customers.items %}
+                                    {% if customer_stats.get(customer.id, {}).get('total_orders', 0) > 0 %}
+                                        {% set _ = active_customers.append(1) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {{ active_customers|length }}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-user-check fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Общая выручка</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% set total_revenue = [] %}
+                                {% for customer in customers.items %}
+                                    {% set _ = total_revenue.append(customer_stats.get(customer.id, {}).get('total_spent', 0)) %}
+                                {% endfor %}
+                                {{ "%.0f"|format(total_revenue|sum) }} ₽
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-ruble-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Средний чек</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                {% set avg_orders = [] %}
+                                {% for customer in customers.items %}
+                                    {% set stats = customer_stats.get(customer.id, {}) %}
+                                    {% if stats.get('average_order_value', 0) > 0 %}
+                                        {% set _ = avg_orders.append(stats.get('average_order_value', 0)) %}
+                                    {% endif %}
+                                {% endfor %}
+                                {% if avg_orders|length > 0 %}
+                                    {{ "%.0f"|format(avg_orders|sum / avg_orders|length) }} ₽
+                                {% else %}
+                                    0 ₽
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-chart-line fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search and Filters -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Поиск и фильтры</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-6">
+                    <label for="search" class="form-label">Поиск клиентов</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           value="{{ search }}" placeholder="Поиск по имени, email или телефону">
+                </div>
+                <div class="col-md-3">
+                    <label for="sort" class="form-label">Сортировка</label>
+                    <select class="form-select" id="sort" name="sort">
+                        <option value="created_at" {{ 'selected' if sort_by == 'created_at' }}>Дата регистрации</option>
+                        <option value="name" {{ 'selected' if sort_by == 'name' }}>Имя</option>
+                        <option value="email" {{ 'selected' if sort_by == 'email' }}>Email</option>
+                        <option value="orders" {{ 'selected' if sort_by == 'orders' }}>Количество заказов</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="order" class="form-label">Порядок</label>
+                    <select class="form-select" id="order" name="order">
+                        <option value="desc" {{ 'selected' if sort_order == 'desc' }}>По убыванию</option>
+                        <option value="asc" {{ 'selected' if sort_order == 'asc' }}>По возрастанию</option>
+                    </select>
+                </div>
+                <div class="col-md-1">
+                    <label class="form-label">&nbsp;</label>
+                    <div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Customers Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">Список клиентов</h6>
+        </div>
+        <div class="card-body">
+            {% if customers.items %}
+            <div class="table-responsive">
+                <table class="table table-bordered" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Клиент</th>
+                            <th>Контактная информация</th>
+                            <th>Данные ребенка</th>
+                            <th>Статистика заказов</th>
+                            <th>Участие в турнирах</th>
+                            <th>Дата регистрации</th>
+                            <th>Последний заказ</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customers.items %}
+                        {% set stats = customer_stats.get(customer.id, {}) %}
+                        <tr>
+                            <td>{{ customer.id }}</td>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="mr-3">
+                                        <div class="icon-circle bg-primary">
+                                            <i class="fas fa-user text-white"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                            {{ customer.full_name }}
+                                        </div>
+                                        <div class="text-xs text-muted">
+                                            {% if stats.get('total_orders', 0) > 0 %}
+                                                <span class="badge bg-success">Активный</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">Новый</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="text-xs">
+                                    <div><i class="fas fa-envelope me-1"></i> {{ customer.email }}</div>
+                                    {% if customer.phone %}
+                                        <div><i class="fas fa-phone me-1"></i> {{ customer.phone }}</div>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if stats.get('children_data') %}
+                                    {% for child in stats.get('children_data', []) %}
+                                    <div class="mb-2 p-2 border rounded bg-light">
+                                        <div class="text-xs font-weight-bold">
+                                            <i class="fas fa-child me-1"></i> {{ child.get('name', 'Не указано') }}
+                                        </div>
+                                        {% if child.get('birth_date') %}
+                                            <div class="text-xs text-muted">
+                                                <i class="fas fa-birthday-cake me-1"></i> 
+                                                {{ child.get('birth_date').strftime('%d.%m.%Y') if child.get('birth_date') else 'Не указано' }}
+                                            </div>
+                                        {% endif %}
+                                        {% if child.get('gender') %}
+                                            <div class="text-xs text-muted">
+                                                <i class="fas fa-{{ 'mars' if child.get('gender') == 'male' else 'venus' }} me-1"></i> 
+                                                {{ 'Мальчик' if child.get('gender') == 'male' else 'Девочка' }}
+                                            </div>
+                                        {% endif %}
+                                        {% if child.get('team') %}
+                                            <div class="text-xs text-muted">
+                                                <i class="fas fa-users me-1"></i> {{ child.get('team') }}
+                                            </div>
+                                        {% endif %}
+                                        {% if child.get('coach') %}
+                                            <div class="text-xs text-muted">
+                                                <i class="fas fa-user-tie me-1"></i> {{ child.get('coach') }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                {% else %}
+                                    <div class="text-xs text-muted">
+                                        <i class="fas fa-info-circle me-1"></i> Данные не указаны
+                                    </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="row g-1">
+                                    <div class="col-12">
+                                        <span class="badge bg-primary">{{ stats.get('total_orders', 0) }} заказов</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="badge bg-success">{{ stats.get('completed_orders', 0) }} выполнено</span>
+                                    </div>
+                                    <div class="col-6">
+                                        <small class="text-success">💰 {{ "%.0f"|format(stats.get('total_spent', 0)) }} ₽</small>
+                                    </div>
+                                    {% if stats.get('average_order_value', 0) > 0 %}
+                                    <div class="col-12">
+                                        <small class="text-info">📊 Средний чек: {{ "%.0f"|format(stats.get('average_order_value', 0)) }} ₽</small>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Status breakdown -->
+                                {% if stats.get('status_breakdown') %}
+                                <div class="mt-2">
+                                    {% for status, count in stats.get('status_breakdown', {}).items() %}
+                                    <span class="badge bg-{{ 'success' if status == 'completed' else 'warning' if status == 'pending' else 'info' if status == 'processing' else 'danger' if status == 'cancelled' else 'warning' if status == 'refund_required' else 'secondary' }} me-1">
+                                        {{ 'Выполнено' if status == 'completed' else 'Оформление' if status == 'checkout_initiated' else 'Ожидание оплаты' if status == 'awaiting_payment' else 'В обработке' if status == 'processing' else 'Требуется возврат' if status == 'refund_required' else 'Отменено' if status in ['cancelled_unpaid', 'cancelled_manual'] else status }}: {{ count }}
+                                    </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if stats.get('events_participated') %}
+                                    <div class="text-xs">
+                                        {% for event in stats.get('events_participated', []) %}
+                                        <div class="mb-1">
+                                            <i class="fas fa-trophy me-1 text-warning"></i>
+                                            <span class="text-truncate d-inline-block" style="max-width: 150px;" title="{{ event }}">
+                                                {{ event }}
+                                            </span>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <span class="text-muted text-xs">Не участвовал</span>
+                                {% endif %}
+                                
+                                {% if stats.get('video_types_ordered') %}
+                                <div class="mt-2">
+                                    <small class="text-muted">Типы видео:</small>
+                                    {% for vt in stats.get('video_types_ordered', []) %}
+                                    <div class="text-xs">
+                                        <i class="fas fa-video me-1 text-info"></i>
+                                        <span class="text-truncate d-inline-block" style="max-width: 120px;" title="{{ vt }}">
+                                            {{ vt }}
+                                        </span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="text-xs">
+                                    {{ customer.created_at.strftime('%d.%m.%Y') if customer.created_at else 'Не указано' }}
+                                    <br>
+                                    <small class="text-muted">{{ customer.created_at.strftime('%H:%M') if customer.created_at else '' }}</small>
+                                </div>
+                            </td>
+                            <td>
+                                {% if stats.get('last_order_date') %}
+                                <div class="text-xs">
+                                    {{ stats.get('last_order_date').strftime('%d.%m.%Y') }}
+                                    <br>
+                                    <small class="text-muted">{{ stats.get('last_order_date').strftime('%H:%M') }}</small>
+                                </div>
+                                {% else %}
+                                <span class="text-muted text-xs">Нет заказов</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-info" 
+                                            data-customer-id="{{ customer.id }}"
+                                            title="Подробная информация">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    <a href="mailto:{{ customer.email }}" class="btn btn-sm btn-primary" title="Написать email">
+                                        <i class="fas fa-envelope"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if customers.pages > 1 %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if customers.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.customers', page=customers.prev_num, search=search, sort=sort_by, order=sort_order) }}">Предыдущая</a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for page_num in customers.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != customers.page %}
+                            <li class="page-item">
+                                <a class="page-link" href="{{ url_for('admin.customers', page=page_num, search=search, sort=sort_by, order=sort_order) }}">{{ page_num }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item active">
+                                <span class="page-link">{{ page_num }}</span>
+                            </li>
+                            {% endif %}
+                        {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">…</span>
+                        </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if customers.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('admin.customers', page=customers.next_num, search=search, sort=sort_by, order=sort_order) }}">Следующая</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+            {% else %}
+            <div class="text-center py-4">
+                <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                <h5 class="text-muted">Клиенты не найдены</h5>
+                <p class="text-muted">Попробуйте изменить параметры поиска</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Customer Details Modal -->
+<div class="modal fade" id="customerDetailsModal" tabindex="-1" aria-labelledby="customerDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="customerDetailsModalLabel">Подробная информация о клиенте</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="customerDetailsContent">
+                <!-- Content will be loaded here -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCustomerDetails(customerId) {
+    // Show loading state
+    document.getElementById('customerDetailsContent').innerHTML = `
+        <div class="text-center">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p>Загрузка детальной информации о клиенте...</p>
+        </div>
+    `;
+    
+    // Show modal first
+    var modal = new bootstrap.Modal(document.getElementById('customerDetailsModal'));
+    modal.show();
+    
+    // Load customer details
+    fetch(`/admin/customer/${customerId}/details`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const customer = data.customer;
+                const stats = data.statistics;
+                const orders = data.orders;
+                
+                let childrenHtml = '';
+                if (stats.children_data && stats.children_data.length > 0) {
+                    childrenHtml = stats.children_data.map(child => `
+                        <div class="mb-3 p-3 border rounded">
+                            <h6><i class="fas fa-child me-2"></i>${child.name}</h6>
+                            ${child.birth_date ? `<div><strong>Дата рождения:</strong> ${child.birth_date}</div>` : ''}
+                            ${child.gender ? `<div><strong>Пол:</strong> ${child.gender === 'male' ? 'Мужской' : 'Женский'}</div>` : ''}
+                            ${child.team ? `<div><strong>Команда:</strong> ${child.team}</div>` : ''}
+                            ${child.coach ? `<div><strong>Тренер:</strong> ${child.coach}</div>` : ''}
+                        </div>
+                    `).join('');
+                } else {
+                    childrenHtml = '<p class="text-muted">Данные о детях не указаны</p>';
+                }
+                
+                let ordersHtml = '';
+                if (orders.length > 0) {
+                    ordersHtml = orders.map(order => `
+                        <tr>
+                            <td>${order.generated_order_number}</td>
+                            <td>${order.event_name}</td>
+                            <td>${order.athlete_name}</td>
+                            <td>${order.total_amount.toFixed(2)} ₽</td>
+                            <td><span class="badge bg-${getStatusColor(order.status)}">${getStatusText(order.status)}</span></td>
+                            <td>${new Date(order.created_at).toLocaleDateString('ru-RU')}</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    ordersHtml = '<tr><td colspan="6" class="text-center text-muted">Заказов нет</td></tr>';
+                }
+                
+                document.getElementById('customerDetailsContent').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-user me-2"></i>Информация о клиенте</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2"><strong>Имя:</strong> ${customer.full_name}</div>
+                                    <div class="mb-2"><strong>Email:</strong> ${customer.email}</div>
+                                    <div class="mb-2"><strong>Телефон:</strong> ${customer.phone || 'Не указан'}</div>
+                                    <div class="mb-2"><strong>Дата регистрации:</strong> ${new Date(customer.created_at).toLocaleDateString('ru-RU')}</div>
+                                    <div class="mb-2"><strong>Статус:</strong> <span class="badge bg-${customer.is_active ? 'success' : 'danger'}">${customer.is_active ? 'Активен' : 'Заблокирован'}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Статистика</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="mb-2"><strong>Всего заказов:</strong> ${stats.total_orders}</div>
+                                    <div class="mb-2"><strong>Выполнено:</strong> ${stats.completed_orders}</div>
+                                    <div class="mb-2"><strong>Потрачено:</strong> ${stats.total_spent.toFixed(2)} ₽</div>
+                                    <div class="mb-2"><strong>Турниры:</strong> ${stats.events_participated.join(', ') || 'Нет'}</div>
+                                    <div class="mb-2"><strong>Типы видео:</strong> ${stats.video_types_ordered.join(', ') || 'Нет'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card mb-3">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-child me-2"></i>Данные о детях</h6>
+                                </div>
+                                <div class="card-body">
+                                    ${childrenHtml}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>История заказов</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm">
+                                            <thead>
+                                                <tr>
+                                                    <th>Номер заказа</th>
+                                                    <th>Турнир</th>
+                                                    <th>Спортсмен</th>
+                                                    <th>Сумма</th>
+                                                    <th>Статус</th>
+                                                    <th>Дата</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${ordersHtml}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('customerDetailsContent').innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Ошибка загрузки данных: ${data.error}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('customerDetailsContent').innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Ошибка загрузки данных клиента
+                </div>
+            `;
+        });
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'checkout_initiated': 'secondary',
+        'awaiting_payment': 'warning',
+        'processing': 'info',
+        'completed': 'success',
+        'cancelled_unpaid': 'danger',
+        'cancelled_manual': 'danger',
+        'refund_required': 'warning'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getStatusText(status) {
+    const texts = {
+        'checkout_initiated': 'Оформление инициировано',
+        'awaiting_payment': 'Ожидание оплаты',
+        'processing': 'В обработке',
+        'completed': 'Выполнен',
+        'cancelled_unpaid': 'Отменен (не оплачен)',
+        'cancelled_manual': 'Отменен вручную',
+        'refund_required': 'Требуется возврат'
+    };
+    return texts[status] || status;
+}
+
+function exportCustomers() {
+    // Export functionality would go here
+    alert('Функция экспорта будет реализована позже');
+}
+</script>
+
+<style>
+.icon-circle {
+    height: 2rem;
+    width: 2rem;
+    border-radius: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+</style>
+{% endblock %}

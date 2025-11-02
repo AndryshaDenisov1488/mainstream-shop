@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ {{ order.generated_order_number }}{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">Заказ {{ order.generated_order_number }}</h1>
+                <div>
+                    <a href="{{ url_for('customer.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к заказам
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Order Information -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о заказе</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Номер заказа:</strong></td>
+                                    <td>{{ order.generated_order_number }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Статус:</strong></td>
+                                    <td>
+                                        {% if order.status in ['pending', 'pending_payment'] %}
+                                            <span class="badge bg-warning">Ожидает обработки</span>
+                                        {% elif order.status == 'pending_payment' %}
+                                            <span class="badge bg-secondary">Ожидание оплаты</span>
+                                        {% elif order.status in ['processing', 'awaiting_info'] %}
+                                            <span class="badge bg-info">В обработке</span>
+                                        {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
+                                            <span class="badge bg-success">Выполнен</span>
+                                        {% elif order.status == 'refund_required' %}
+                                            <span class="badge bg-warning">Требуется возврат</span>
+                                        {% elif order.status == 'cancelled' %}
+                                            <span class="badge bg-danger">Отменен</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">{{ order.get_status_display() }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Дата заказа:</strong></td>
+                                    <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Сумма:</strong></td>
+                                    <td><strong>{{ "%.0f"|format(order.total_amount) }} ₽</strong></td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Турнир:</strong></td>
+                                    <td>{{ order.event.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Категория:</strong></td>
+                                    <td>{{ order.category.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Спортсмен:</strong></td>
+                                    <td>{{ order.athlete.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Имя:</strong></td>
+                                    <td>
+                                        {% if order.contact_first_name and order.contact_last_name %}
+                                            {{ order.contact_last_name }} {{ order.contact_first_name }}
+                                        {% else %}
+                                            Не указано
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Email:</strong></td>
+                                    <td>{{ order.contact_email }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    {% if order.comment %}
+                    <div class="mt-3">
+                        <strong>Комментарий клиента:</strong>
+                        <p class="mt-1 text-muted">{{ order.comment }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Video Types -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Заказанные видео</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.video_types %}
+                        <div class="row">
+                            {% for video_type_id in order.video_types %}
+                                {% if video_type_id %}
+                                    {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="border rounded p-3">
+                                            <h6>{{ video_type.name if video_type else 'Неизвестный тип' }}</h6>
+                                            {% if video_type %}
+                                                <p class="text-muted mb-2">{{ video_type.description }}</p>
+                                                <p class="mb-0"><strong>Цена: {{ "%.0f"|format(video_type.price) }} ₽</strong></p>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">Типы видео не указаны</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Video Links -->
+            {% if order.video_links and order.status in ['ready', 'completed'] %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Ссылки на видео</h5>
+                </div>
+                <div class="card-body">
+                    {% for video_type_id, link in order.video_links.items() %}
+                        {% if video_type_id %}
+                            {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                            <div class="mb-3">
+                                <strong>{{ video_type.name if video_type else 'Неизвестный тип' }}:</strong>
+                                <a href="{{ link }}" target="_blank" class="ms-2 text-decoration-none">
+                                    {{ link }}
+                                </a>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Order Status Info -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Статус заказа</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.status in ['pending', 'pending_payment'] %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-clock"></i>
+                            <strong>Заказ принят</strong><br>
+                            Ваш заказ принят в обработку. Ожидайте подтверждения.
+                        </div>
+                    {% elif order.status == 'processing' %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-cogs"></i>
+                            <strong>В обработке</strong><br>
+                            Оператор работает над вашим заказом.
+                        </div>
+                    {% elif order.status == 'completed' %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-check"></i>
+                            <strong>Готов к отправке</strong><br>
+                            Ваши видео готовы! Ожидайте ссылки.
+                        </div>
+                    {% elif order.status == 'completed' %}
+                        <div class="alert alert-success">
+                            <i class="fas fa-paper-plane"></i>
+                            <strong>Отправлено</strong><br>
+                            Ссылки на видео отправлены на ваш email.
+                        </div>
+                    {% elif order.status == 'refund_required' %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i>
+                            <strong>Требуется возврат</strong><br>
+                            Обрабатывается вопрос возврата средств.
+                        </div>
+                    {% elif order.status == 'cancelled' %}
+                        <div class="alert alert-danger">
+                            <i class="fas fa-times"></i>
+                            <strong>Отменен</strong><br>
+                            Заказ был отменен.
+                        </div>
+                    {% endif %}
+                    
+                    <hr>
+                    
+                    <div class="text-center">
+                        <small class="text-muted">
+                            {% if order.processed_at %}
+                                Обработан: {{ order.processed_at.strftime('%d.%m.%Y %H:%M') }}
+                            {% else %}
+                                Не обработан
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contact Information -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Контактная информация</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <td><strong>Имя:</strong></td>
+                            <td>
+                                {% if order.contact_first_name and order.contact_last_name %}
+                                    {{ order.contact_last_name }} {{ order.contact_first_name }}
+                                {% else %}
+                                    Не указано
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Email:</strong></td>
+                            <td>{{ order.contact_email }}</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Телефон:</strong></td>
+                            <td>{{ order.contact_phone or 'Не указан' }}</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

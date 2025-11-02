@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}Корзина - MainStream Shop{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="fw-bold">Корзина покупок</h2>
+                    <a href="{{ url_for('main.shop') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Продолжить покупки
+                    </a>
+                </div>
+                
+                {% if cart_items %}
+                <div class="row">
+                    <div class="col-md-8">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Товары в корзине</h5>
+                                
+                                {% for item in cart_items %}
+                                <div class="row align-items-center border-bottom py-3">
+                                    <div class="col-md-6">
+                                        <h6 class="mb-1">{{ item.athlete.name }}</h6>
+                                        <small class="text-muted">
+                                            {{ item.athlete.category.event.name }} - {{ item.athlete.category.name }}
+                                        </small>
+                                        <br>
+                                        <small class="text-muted">{{ item.video_type.name }}</small>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <span class="badge bg-primary">{{ item.quantity }}</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>{{ "%.2f"|format(item.total) }} ₽</strong>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button class="btn btn-sm btn-outline-danger" 
+                                                data-item-id="{{ item.id }}"
+                                                data-action="remove-from-cart">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Итого</h5>
+                                <div class="d-flex justify-content-between">
+                                    <span>Сумма:</span>
+                                    <strong>{{ "%.2f"|format(total_price) }} ₽</strong>
+                                </div>
+                                <hr>
+                                <button class="btn btn-primary w-100" onclick="proceedToCheckout()">
+                                    <i class="fas fa-credit-card"></i> Оформить заказ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="card">
+                    <div class="card-body">
+                        <div class="text-center py-5">
+                            <i class="fas fa-shopping-cart fa-3x text-muted mb-3"></i>
+                            <h4 class="text-muted">Ваша корзина пуста</h4>
+                            <p class="text-muted">Добавьте видео в корзину, чтобы продолжить оформление заказа</p>
+                            <a href="{{ url_for('main.shop') }}" class="btn btn-primary">
+                                <i class="fas fa-video me-2"></i>Перейти в магазин
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+
+<script>
+function removeFromCart(itemId) {
+    if (confirm('Удалить товар из корзины?')) {
+        console.log('Removing item:', itemId);
+        
+        fetch('/api/cart/remove', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({item_id: itemId})
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            if (data.success) {
+                console.log('Success, reloading page');
+                location.reload();
+            } else {
+                console.error('Error:', data.error);
+                alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+            }
+        })
+        .catch(error => {
+            console.error('Fetch error:', error);
+            alert('Ошибка при удалении товара');
+        });
+    }
+}
+
+function proceedToCheckout() {
+    // Allow checkout for both authenticated and non-authenticated users
+    window.location.href = "{{ url_for('main.checkout') }}";
+}
+
+// Handle remove from cart buttons
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-action="remove-from-cart"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const itemId = this.getAttribute('data-item-id');
+            removeFromCart(itemId);
+        });
+    });
+});
+</script>
+{% endblock %}

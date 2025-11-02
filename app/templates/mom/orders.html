@@ -1,0 +1,1408 @@
+{% extends "base.html" %}
+
+{% block title %}Все заказы - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Все заказы</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('mom.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к дашборду
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form method="GET" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Поиск</label>
+                            <input type="text" class="form-control" name="search" value="{{ search }}" 
+                                   placeholder="Поиск по номеру заказа или email">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Статус</label>
+                            <select class="form-select" name="status">
+                                <option value="">Все статусы</option>
+                                <option value="checkout_initiated" {{ 'selected' if status_filter == 'checkout_initiated' else '' }}>Оформление инициировано</option>
+                                <option value="awaiting_payment" {{ 'selected' if status_filter == 'awaiting_payment' else '' }}>Ожидание оплаты</option>
+                                <option value="processing" {{ 'selected' if status_filter == 'processing' else '' }}>В обработке</option>
+                                <option value="awaiting_info" {{ 'selected' if status_filter == 'awaiting_info' else '' }}>Нужно уточнить детали</option>
+                                <option value="links_sent" {{ 'selected' if status_filter == 'links_sent' else '' }}>Ссылки отправлены</option>
+                                <option value="completed" {{ 'selected' if status_filter == 'completed' else '' }}>Выполнен</option>
+                                <option value="completed_partial_refund" {{ 'selected' if status_filter == 'completed_partial_refund' else '' }}>Выполнен с частичным возвратом</option>
+                                <option value="refund_required" {{ 'selected' if status_filter == 'refund_required' else '' }}>Требуется возврат</option>
+                                <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' else '' }}>Отменен</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary me-2">
+                                <i class="fas fa-search"></i> Найти
+                            </button>
+                            <a href="{{ url_for('mom.orders') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-times"></i> Сбросить
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Orders Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Заказы ({{ orders.total }} найдено)</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive" style="margin-bottom: 100px;">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Дата</th>
+                            <th>Клиент</th>
+                            <th>Контакты</th>
+                            <th>Турнир</th>
+                            <th>Спортсмен</th>
+                            <th>Тип видео</th>
+                            <th>Сумма</th>
+                            <th>Статус</th>
+                            <th>Оператор</th>
+                            <th>Оплата</th>
+                            <th>Ссылки</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if orders.items %}
+                            {% for order in orders.items %}
+                            <tr>
+                                <td>#{{ order.id }}</td>
+                                <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
+                                <td>
+                                    {% if order.contact_first_name and order.contact_last_name %}
+                                        {{ order.contact_last_name }} {{ order.contact_first_name }}
+                                    {% elif order.customer %}
+                                        {{ order.customer.full_name }}
+                                    {% else %}
+                                        {{ order.contact_email }}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        <div>{{ order.contact_email or 'Не указан' }}</div>
+                                        <div>
+                                            {{ order.contact_phone or 'Телефон не указан' }}
+                                            {% if order.contact_phone %}
+                                                <a href="https://wa.me/{{ order.contact_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') }}" 
+                                                   target="_blank" 
+                                                   class="btn btn-success btn-sm ms-1" 
+                                                   title="Написать в WhatsApp"
+                                                   style="padding: 0.125rem 0.25rem; font-size: 0.7rem;">
+                                                    <i class="fab fa-whatsapp"></i>
+                                                </a>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        {{ order.event.name if order.event else 'Неизвестный турнир' }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        {{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        {% if order.video_types %}
+                                            {% for video_type_id in order.video_types %}
+                                                {% if video_types_dict and video_types_dict.get(video_type_id|string) %}
+                                                    <span class="badge bg-info small me-1">{{ video_types_dict[video_type_id|string].name }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning small me-1">Неизвестный тип</span>
+                                                {% endif %}
+                                            {% endfor %}
+                                        {% else %}
+                                            <span class="text-muted">Не указан</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'secondary' if order.status == 'awaiting_info' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }}" 
+                                          style="cursor: pointer;" 
+                                          title="Нажмите для изменения статуса"
+                                          data-order-id="{{ order.id }}" 
+                                          data-order-status="{{ order.status }}" 
+                                          data-order-number="{{ order.generated_order_number }}">
+                                        {{ order.get_status_display() }}
+                                    </span>
+                                    {% if order.operator_comment %}
+                                        {% if order.status == 'refund_required' %}
+                                            <i class="fas fa-exclamation-triangle text-warning ms-1" title="Требуется возврат: {{ order.operator_comment }}"></i>
+                                        {% else %}
+                                            <i class="fas fa-comment text-info ms-1" title="Комментарий оператора: {{ order.operator_comment }}"></i>
+                                        {% endif %}
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="small">
+                                        {% if order.operator %}
+                                            {{ order.operator.full_name }}
+                                        {% else %}
+                                            <span class="text-muted">Не назначен</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if order.payments %}
+                                        {% for payment in order.payments %}
+                                            <div class="d-flex flex-column">
+                                                <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }} small mb-1">
+                                                    {{ 'Подтвержден' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
+                                                </span>
+                                                <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
+                                                {% if payment.cp_transaction_id %}
+                                                    <small class="text-muted">{{ payment.cp_transaction_id[:8] }}...</small>
+                                                {% endif %}
+                                            </div>
+                                        {% endfor %}
+                                    {% else %}
+                                        <div class="d-flex flex-column">
+                                            <span class="badge bg-secondary small mb-1">Не оплачен</span>
+                                            <small class="text-muted">{{ "%.2f"|format(order.total_amount) }} ₽</small>
+                                        </div>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if order.status != 'cancelled' %}
+                                        <button class="btn btn-sm btn-outline-primary send-links-btn" 
+                                                data-order-id="{{ order.id }}" 
+                                                data-order-number="{{ order.generated_order_number }}" 
+                                                data-client-email="{{ order.contact_email }}" 
+                                                data-client-first-name="{{ order.contact_first_name or '' }}" 
+                                                data-client-last-name="{{ order.contact_last_name or '' }}" 
+                                                title="Отправить ссылки">
+                                            <i class="fas fa-link"></i>
+                                        </button>
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Просмотр">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                        
+                                        <!-- Кнопка "Частичный зачет" для оплаченных заказов -->
+                                        {% if order.status == 'paid' and order.payment_method == 'card' %}
+                                            <button class="btn btn-sm btn-info capture-payment-btn" 
+                                                    data-order-id="{{ order.id }}" 
+                                                    data-amount="{{ order.total_amount }}"
+                                                    title="Частичный зачет">
+                                                <i class="fas fa-money-check-alt"></i>
+                                            </button>
+                                        {% endif %}
+                                        
+                                        <!-- Кнопка "Возврат" для оплаченных заказов -->
+                                        {% if order.status == 'paid' %}
+                                            <button class="btn btn-sm btn-warning refund-payment-btn" 
+                                                    data-order-id="{{ order.id }}" 
+                                                    data-amount="{{ order.paid_amount or order.total_amount }}"
+                                                    title="Возврат">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                        {% endif %}
+                                        
+                                        <!-- Кнопка "Принять деньги" для links_sent и refund_required -->
+                                        {% if order.status in ['links_sent', 'refund_required'] %}
+                                            <button class="btn btn-sm btn-success confirm-payment-btn" 
+                                                    data-order-id="{{ order.id }}" 
+                                                    data-order-number="{{ order.generated_order_number }}" 
+                                                    data-order-amount="{{ order.total_amount }}" 
+                                                    title="Принять деньги">
+                                                <i class="fas fa-money-bill-wave"></i>
+                                            </button>
+                                        {% endif %}
+                                        
+                                        <!-- Кнопка "Обработать возврат" для refund_required -->
+                                        {% if order.status == 'refund_required' %}
+                                            <button class="btn btn-sm btn-warning process-refund-btn" 
+                                                    data-order-id="{{ order.id }}" 
+                                                    data-order-number="{{ order.generated_order_number }}" 
+                                                    data-order-amount="{{ order.total_amount }}" 
+                                                    title="Обработать возврат">
+                                                <i class="fas fa-undo"></i>
+                                            </button>
+                                        {% endif %}
+                                        
+                                        <!-- Кнопка "Вернуть деньги" для cancelled -->
+                                        {% if order.status == 'cancelled' %}
+                                            <button class="btn btn-sm btn-danger refund-money-btn" 
+                                                    data-order-id="{{ order.id }}" 
+                                                    data-order-number="{{ order.generated_order_number }}" 
+                                                    data-order-amount="{{ order.total_amount }}" 
+                                                    title="Вернуть деньги">
+                                                <i class="fas fa-arrow-left"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="13" class="text-center text-muted py-4">
+                                    <i class="fas fa-shopping-cart fa-2x mb-2"></i><br>
+                                    Заказы не найдены
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if orders.pages > 1 %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if orders.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('mom.orders', page=orders.prev_num, search=search, status=status_filter) }}">Предыдущая</a>
+                        </li>
+                    {% endif %}
+                    
+                    {% for page_num in orders.iter_pages() %}
+                        {% if page_num %}
+                            {% if page_num != orders.page %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('mom.orders', page=page_num, search=search, status=status_filter) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                            {% endif %}
+                        {% else %}
+                            <li class="page-item disabled">
+                                <span class="page-link">...</span>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if orders.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('mom.orders', page=orders.next_num, search=search, status=status_filter) }}">Следующая</a>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Modal for resending links -->
+<div class="modal fade" id="resendModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Отправить ссылку заново</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="resendForm">
+                    <input type="hidden" id="resendOrderId">
+                    <div class="mb-3">
+                        <label class="form-label">Email для отправки</label>
+                        <input type="email" class="form-control" id="resendEmail" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Сообщение (необязательно)</label>
+                        <textarea class="form-control" id="resendMessage" rows="3" placeholder="Дополнительное сообщение для клиента"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" onclick="confirmResend()">Отправить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function sendLinks(orderId) {
+    if (confirm('Отправить ссылки на видео клиенту?')) {
+        fetch(`/mom/orders/${orderId}/send-links`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': 'dummy-token'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Ссылки отправлены успешно!');
+            } else {
+                alert('Ошибка при отправке: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Ошибка: ' + error);
+        });
+    }
+}
+
+function resendLinks(orderId) {
+    document.getElementById('resendOrderId').value = orderId;
+    // Заполнить email клиента
+    fetch(`/mom/orders/${orderId}`)
+    .then(response => response.text())
+    .then(html => {
+        // Извлечь email из HTML (простое решение)
+        const emailMatch = html.match(/contact_email.*?>([^<]+)</);
+        if (emailMatch) {
+            document.getElementById('resendEmail').value = emailMatch[1];
+        }
+    });
+    
+    const modal = new bootstrap.Modal(document.getElementById('resendModal'));
+    modal.show();
+}
+
+function confirmResend() {
+    const orderId = document.getElementById('resendOrderId').value;
+    const email = document.getElementById('resendEmail').value;
+    const message = document.getElementById('resendMessage').value;
+    
+    fetch(`/mom/orders/${orderId}/resend-links`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': 'dummy-token'
+        },
+        body: JSON.stringify({
+            email: email,
+            message: message
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Ссылки отправлены успешно!');
+            bootstrap.Modal.getInstance(document.getElementById('resendModal')).hide();
+        } else {
+            alert('Ошибка при отправке: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Ошибка: ' + error);
+    });
+}
+
+function refundOrder(orderId) {
+    if (confirm('Вы уверены, что хотите вернуть средства по этому заказу?')) {
+        fetch(`/mom/orders/${orderId}/refund`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': 'dummy-token'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Возврат выполнен успешно!');
+                location.reload();
+            } else {
+                alert('Ошибка при возврате: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Ошибка: ' + error);
+        });
+    }
+}
+
+function changeOrderStatus(orderId, newStatus) {
+    fetch(`/api/order/${orderId}/change-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: newStatus
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Статус заказа успешно изменен!');
+            location.reload(); // Обновляем страницу
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка изменения статуса');
+    });
+}
+
+function openStatusModal(orderId, currentStatus, orderNumber) {
+    document.getElementById('statusOrderId').value = orderId;
+    document.getElementById('statusOrderNumber').textContent = orderNumber;
+    document.getElementById('currentStatus').textContent = getStatusText(currentStatus);
+    
+    // Сбрасываем состояние
+    selectedStatus = null;
+    document.getElementById('selectedStatusInfo').style.display = 'none';
+    document.getElementById('confirmStatusChange').style.display = 'none';
+    
+    // Показываем модальное окно
+    new bootstrap.Modal(document.getElementById('statusModal')).show();
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'checkout_initiated': 'Оформление инициировано',
+        'awaiting_payment': 'Ожидание оплаты',
+        'processing': 'В обработке',
+        'awaiting_info': 'Нужно уточнить детали',
+        'links_sent': 'Ссылки отправлены',
+        'completed': 'Выполнен',
+        'completed_partial_refund': 'Выполнен с частичным возвратом',
+        'refund_required': 'Требуется возврат',
+        'cancelled': 'Отменен'
+    };
+    return statusMap[status] || status;
+}
+
+// Глобальная переменная для хранения выбранного статуса
+let selectedStatus = null;
+
+function selectStatus(status) {
+    selectedStatus = status;
+    
+    // Показываем информацию о выбранном статусе
+    document.getElementById('selectedStatusText').textContent = getStatusText(status);
+    document.getElementById('selectedStatusInfo').style.display = 'block';
+    
+    // Показываем кнопку подтверждения
+    document.getElementById('confirmStatusChange').style.display = 'inline-block';
+}
+
+function confirmStatusChange() {
+    if (selectedStatus) {
+        const orderId = document.getElementById('statusOrderId').value;
+        
+        // Закрываем модальное окно
+        bootstrap.Modal.getInstance(document.getElementById('statusModal')).hide();
+        
+        // Изменяем статус
+        changeOrderStatus(orderId, selectedStatus);
+        
+        // Сбрасываем выбранный статус
+        selectedStatus = null;
+    }
+}
+</script>
+
+<!-- Modal для изменения статуса -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">Изменить статус заказа</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="statusOrderId" name="order_id">
+                <div class="mb-3">
+                    <label class="form-label"><strong>Заказ:</strong> <span id="statusOrderNumber"></span></label>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label"><strong>Текущий статус:</strong> <span id="currentStatus"></span></label>
+                </div>
+                
+                <div class="mb-3">
+                    <label class="form-label"><strong>Выберите новый статус:</strong></label>
+                    <div class="d-grid gap-2">
+                        <button type="button" class="btn btn-outline-secondary" onclick="selectStatus('awaiting_payment')">Ожидание оплаты</button>
+                        <button type="button" class="btn btn-outline-info" onclick="selectStatus('processing')">В обработке</button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="selectStatus('awaiting_info')">Нужно уточнить детали</button>
+                        <button type="button" class="btn btn-outline-primary" onclick="selectStatus('links_sent')">Ссылки отправлены</button>
+                        <button type="button" class="btn btn-outline-success" onclick="selectStatus('completed')">Выполнен</button>
+                        <button type="button" class="btn btn-outline-success" onclick="selectStatus('completed_partial_refund')">Выполнен с частичным возвратом</button>
+                        <button type="button" class="btn btn-outline-warning" onclick="selectStatus('refund_required')">Требуется возврат</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="selectStatus('cancelled')">Отменен</button>
+                    </div>
+                </div>
+                
+                <div id="selectedStatusInfo" class="alert alert-info" style="display: none;">
+                    <strong>Выбран статус:</strong> <span id="selectedStatusText"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="confirmStatusChange" onclick="confirmStatusChange()" style="display: none;">Подтвердить изменение</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для отправки ссылок -->
+<div class="modal fade" id="sendLinksModal" tabindex="-1" aria-labelledby="sendLinksModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sendLinksModalLabel">Отправить ссылки на видео</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="sendLinksForm">
+                <div class="modal-body">
+                    <input type="hidden" id="orderId" name="order_id">
+                    
+                    <!-- Информация о заказе -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Номер заказа:</strong></label>
+                            <div id="orderNumber" class="form-control-plaintext"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Дата заказа:</strong></label>
+                            <div id="orderDate" class="form-control-plaintext"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Информация о клиенте -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Имя клиента:</strong></label>
+                            <div id="customerNameDisplay" class="form-control-plaintext"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Email клиента:</strong></label>
+                            <input type="email" class="form-control" id="customerEmail" name="customer_email" required>
+                        </div>
+                    </div>
+                    
+                    <!-- Информация о заказе -->
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Турнир:</strong></label>
+                            <div id="eventName" class="form-control-plaintext"></div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><strong>Спортсмен:</strong></label>
+                            <div id="athleteName" class="form-control-plaintext"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Ссылки на видео -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Ссылки на видео:</strong></label>
+                        <div id="videoLinksContainer">
+                            <!-- Видео ссылки будут добавлены динамически -->
+                        </div>
+                    </div>
+                    
+                    <!-- Время последней отправки -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Время последней отправки:</strong></label>
+                        <div id="lastSentTime" class="form-control-plaintext text-muted">Не отправлялось</div>
+                    </div>
+                    
+                    <!-- Оператор -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Оператор:</strong></label>
+                        <div id="operatorName" class="form-control-plaintext">Не назначен</div>
+                    </div>
+                    
+                    <!-- Комментарий клиента -->
+                    <div class="mb-3" id="clientCommentSection" style="display: none;">
+                        <label class="form-label"><strong>Комментарий клиента:</strong></label>
+                        <div id="clientComment" class="alert alert-info"></div>
+                    </div>
+                    
+                    <!-- Комментарий оператора (только для чтения) -->
+                    <div class="mb-3" id="operatorCommentSection" style="display: none;">
+                        <label class="form-label"><strong>Комментарий оператора:</strong></label>
+                        <div id="operatorCommentDisplay" class="alert alert-warning"></div>
+                    </div>
+                    
+                    <!-- Опции возврата (только для чтения) -->
+                    <div class="mb-3" id="refundOptionsSection" style="display: none;">
+                        <label class="form-label"><strong>Опции возврата:</strong></label>
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input" id="readonlyPartialRefund" disabled>
+                            <label class="form-check-label" for="readonlyPartialRefund">
+                                Требуется частичный возврат
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Причина возврата (только для чтения) -->
+                    <div class="mb-3" id="refundReasonSection" style="display: none;">
+                        <label class="form-label"><strong>Причина возврата:</strong></label>
+                        <div id="refundReason" class="alert alert-danger"></div>
+                    </div>
+                    
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Отправить ссылки</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+
+function openRefundModal(orderId, orderNumber, totalAmount) {
+    document.getElementById('refundOrderId').value = orderId;
+    document.getElementById('refundOrderNumber').textContent = orderNumber;
+    document.getElementById('totalAmount').textContent = `${totalAmount.toFixed(2)} ₽`;
+    document.getElementById('maxRefundAmount').textContent = `${totalAmount.toFixed(2)} ₽`;
+    document.getElementById('refundAmount').max = totalAmount;
+    
+    // Загружаем информацию о платежах
+    fetch(`/api/order/${orderId}/payment-info`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('paidAmount').textContent = `${data.paid_amount.toFixed(2)} ₽`;
+                document.getElementById('refundedAmount').textContent = `${data.refunded_amount.toFixed(2)} ₽`;
+                document.getElementById('refundAmount').max = data.available_for_refund;
+                document.getElementById('maxRefundAmount').textContent = `${data.available_for_refund.toFixed(2)} ₽`;
+                
+                if (data.available_for_refund <= 0) {
+                    document.getElementById('refundAmount').disabled = true;
+                    document.getElementById('fullRefundCheckbox').disabled = true;
+                    document.getElementById('refundSubmitBtn').disabled = true;
+                    document.getElementById('refundWarning').innerHTML = '<div class="alert alert-warning">Нет средств для возврата</div>';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Ошибка загрузки информации о платежах');
+        });
+    
+    // Показываем модальное окно
+    new bootstrap.Modal(document.getElementById('refundModal')).show();
+}
+</script>
+
+<!-- Modal для возврата средств -->
+<div class="modal fade" id="refundModal" tabindex="-1" aria-labelledby="refundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="refundModalLabel">Возврат средств</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="refundForm">
+                <div class="modal-body">
+                    <input type="hidden" id="refundOrderId" name="order_id">
+                    
+                    <!-- Информация о заказе -->
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Номер заказа:</strong></label>
+                        <div id="refundOrderNumber" class="form-control-plaintext"></div>
+                    </div>
+                    
+                    <!-- Информация о платежах -->
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Общая стоимость:</strong></label>
+                            <div id="totalAmount" class="form-control-plaintext"></div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Оплачено:</strong></label>
+                            <div id="paidAmount" class="form-control-plaintext text-success">0.00 ₽</div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label"><strong>Уже возвращено:</strong></label>
+                            <div id="refundedAmount" class="form-control-plaintext text-warning">0.00 ₽</div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Доступно для возврата:</strong></label>
+                        <div id="maxRefundAmount" class="form-control-plaintext text-info"></div>
+                    </div>
+                    
+                    <!-- Предупреждение -->
+                    <div id="refundWarning"></div>
+                    
+                    <!-- Опции возврата -->
+                    <div class="mb-3">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" id="fullRefundCheckbox" onchange="toggleRefundOptions()">
+                            <label class="form-check-label" for="fullRefundCheckbox">
+                                <strong>Вернуть полную стоимость заказа</strong>
+                            </label>
+                        </div>
+                        
+                        <div id="partialRefundSection">
+                            <label for="refundAmount" class="form-label"><strong>Сумма возврата:</strong></label>
+                            <div class="input-group">
+                                <input type="number" class="form-control" id="refundAmount" name="refund_amount" 
+                                       step="0.01" min="0.01" placeholder="0.00">
+                                <span class="input-group-text">₽</span>
+                            </div>
+                            <div class="form-text">Введите сумму для частичного возврата</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Причина возврата -->
+                    <div class="mb-3">
+                        <label for="refundReason" class="form-label"><strong>Причина возврата:</strong></label>
+                        <select class="form-select" id="refundReason" name="refund_reason" required>
+                            <option value="">Выберите причину</option>
+                            <option value="customer_request">Запрос клиента</option>
+                            <option value="quality_issue">Проблема с качеством</option>
+                            <option value="delivery_issue">Проблема с доставкой</option>
+                            <option value="duplicate_payment">Дублирование платежа</option>
+                            <option value="system_error">Ошибка системы</option>
+                            <option value="other">Другое</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Комментарий -->
+                    <div class="mb-3">
+                        <label for="refundComment" class="form-label"><strong>Комментарий (опционально):</strong></label>
+                        <textarea class="form-control" id="refundComment" name="refund_comment" rows="3" 
+                                  placeholder="Дополнительная информация о возврате"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger" id="refundSubmitBtn">Обработать возврат</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для подтверждения платежа -->
+<div class="modal fade" id="confirmPaymentModal" tabindex="-1" aria-labelledby="confirmPaymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="confirmPaymentModalLabel">Подтвердить поступление денег</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Подтвердите, что деньги поступили на счет в банке.
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Номер заказа:</strong><br>
+                        <span id="confirmPaymentOrderNumber">-</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Сумма к подтверждению:</strong><br>
+                        <span id="confirmPaymentAmount">-</span> ₽
+                    </div>
+                </div>
+                <hr>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confirmPaymentCheckbox">
+                    <label class="form-check-label" for="confirmPaymentCheckbox">
+                        Я подтверждаю, что деньги поступили на счет в банке
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-success" id="confirmPaymentSubmitBtn" disabled>
+                    <i class="fas fa-money-bill-wave me-1"></i>Подтвердить платеж
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для обработки возврата -->
+<div class="modal fade" id="processRefundModal" tabindex="-1" aria-labelledby="processRefundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="processRefundModalLabel">Обработать возврат</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="processRefundForm">
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Обработайте возврат согласно причине, указанной оператором.
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Номер заказа:</strong><br>
+                            <span id="processRefundOrderNumber">-</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Общая сумма заказа:</strong><br>
+                            <span id="processRefundTotalAmount">-</span> ₽
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="processRefundAmount" class="form-label">Сумма к возврату</label>
+                        <input type="number" class="form-control" id="processRefundAmount" name="refund_amount" 
+                               step="0.01" min="0" required>
+                        <div class="form-text">Введите сумму для возврата клиенту</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="processRefundReason" class="form-label">Причина возврата</label>
+                        <textarea class="form-control" id="processRefundReason" name="refund_reason" rows="3" 
+                                  placeholder="Укажите причину возврата для клиента" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-undo me-1"></i>Обработать возврат
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleRefundOptions() {
+    const fullRefundCheckbox = document.getElementById('fullRefundCheckbox');
+    const partialRefundSection = document.getElementById('partialRefundSection');
+    const refundAmount = document.getElementById('refundAmount');
+    
+    if (fullRefundCheckbox.checked) {
+        partialRefundSection.style.display = 'none';
+        refundAmount.value = '';
+    } else {
+        partialRefundSection.style.display = 'block';
+    }
+}
+
+// Обработка отправки формы возврата
+document.getElementById('refundForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const orderId = formData.get('order_id');
+    const fullRefundCheckbox = document.getElementById('fullRefundCheckbox');
+    const refundAmount = document.getElementById('refundAmount');
+    const maxAmount = parseFloat(document.getElementById('maxRefundAmount').textContent);
+    
+    // Определяем сумму возврата
+    let refundAmountValue;
+    if (fullRefundCheckbox.checked) {
+        refundAmountValue = maxAmount;
+    } else {
+        refundAmountValue = parseFloat(refundAmount.value);
+        
+        // Проверки
+        if (!refundAmountValue || refundAmountValue <= 0) {
+            alert('Введите корректную сумму возврата');
+            return;
+        }
+        
+        if (refundAmountValue > maxAmount) {
+            alert(`Сумма возврата не может превышать ${maxAmount.toFixed(2)} ₽`);
+            return;
+        }
+    }
+    
+    // Добавляем сумму возврата к данным формы
+    formData.append('refund_amount', refundAmountValue);
+    
+    // Подтверждение
+    const confirmMessage = `Подтвердите возврат ${refundAmountValue.toFixed(2)} ₽`;
+    if (!confirm(confirmMessage)) {
+        return;
+    }
+    
+    // Отправляем данные
+    fetch(`/api/order/${orderId}/refund`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Возврат успешно обработан!');
+            bootstrap.Modal.getInstance(document.getElementById('refundModal')).hide();
+            location.reload(); // Обновляем страницу
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка обработки возврата');
+    });
+});
+</script>
+
+<!-- Include modals -->
+<!-- Function for opening send links modal -->
+<script>
+function openSendLinksModal(orderId, orderNumber, clientEmail, firstName, lastName) {
+    console.log('Opening send links modal for order:', orderId);
+    
+    // Set basic info
+    document.getElementById('orderId').value = orderId;
+    document.getElementById('orderNumber').textContent = orderNumber;
+    document.getElementById('customerNameDisplay').textContent = `${firstName || ''} ${lastName || ''}`.trim();
+    document.getElementById('customerEmail').value = clientEmail || '';
+    
+    // Show loading state
+    document.getElementById('orderDate').textContent = 'Загрузка...';
+    document.getElementById('eventName').textContent = 'Загрузка...';
+    document.getElementById('athleteName').textContent = 'Загрузка...';
+    document.getElementById('lastSentTime').textContent = 'Загрузка...';
+    document.getElementById('operatorName').textContent = 'Загрузка...';
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('sendLinksModal'));
+    modal.show();
+    
+    // Load order info from API
+    fetch(`/api/order/${orderId}/info`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const order = data.order;
+                console.log('Order data loaded:', order);
+                
+                // Fill order information
+                document.getElementById('orderDate').textContent = order.created_at ? 
+                    new Date(order.created_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'}) : 'Не указана';
+                
+                document.getElementById('eventName').textContent = order.event ? 
+                    order.event.name : 'Не указан';
+                
+                document.getElementById('athleteName').textContent = order.athlete ? 
+                    order.athlete.name : 'Не указан';
+                
+                document.getElementById('operatorName').textContent = order.operator ? 
+                    order.operator.full_name : 'Не назначен';
+                
+                document.getElementById('lastSentTime').textContent = order.processed_at ? 
+                    new Date(order.processed_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'}) : 'Не отправлялось';
+                
+                // Show/hide client comment
+                const clientCommentSection = document.getElementById('clientCommentSection');
+                const clientComment = document.getElementById('clientComment');
+                if (order.comment) {
+                    clientComment.innerHTML = order.comment;
+                    clientCommentSection.style.display = 'block';
+                } else {
+                    clientCommentSection.style.display = 'none';
+                }
+                
+                // Show/hide operator comment (read-only display)
+                console.log('Operator comment from API:', order.operator_comment);
+                const operatorCommentSection = document.getElementById('operatorCommentSection');
+                const operatorCommentDisplay = document.getElementById('operatorCommentDisplay');
+                console.log('Operator comment section:', operatorCommentSection);
+                console.log('Operator comment display element:', operatorCommentDisplay);
+                
+                if (order.operator_comment) {
+                    operatorCommentDisplay.innerHTML = order.operator_comment;
+                    operatorCommentSection.style.display = 'block';
+                    console.log('Operator comment displayed');
+                } else {
+                    operatorCommentSection.style.display = 'none';
+                    console.log('No operator comment to display');
+                }
+                
+                
+                // Show/hide refund options
+                console.log('Order status:', order.status);
+                const refundOptionsSection = document.getElementById('refundOptionsSection');
+                const readonlyPartialRefund = document.getElementById('readonlyPartialRefund');
+                console.log('Refund options section:', refundOptionsSection);
+                console.log('Readonly partial refund checkbox:', readonlyPartialRefund);
+                
+                if (order.status === 'refund_required') {
+                    console.log('Setting refund checkbox to checked');
+                    readonlyPartialRefund.checked = true;
+                    refundOptionsSection.style.display = 'block';
+                    
+                    // Show refund reason if it exists
+                    const refundReasonSection = document.getElementById('refundReasonSection');
+                    const refundReason = document.getElementById('refundReason');
+                    if (order.refund_reason) {
+                        refundReason.innerHTML = order.refund_reason;
+                        refundReasonSection.style.display = 'block';
+                    } else {
+                        refundReasonSection.style.display = 'none';
+                    }
+                } else {
+                    readonlyPartialRefund.checked = false;
+                    refundOptionsSection.style.display = 'none';
+                    
+                    // Hide refund reason
+                    const refundReasonSection = document.getElementById('refundReasonSection');
+                    refundReasonSection.style.display = 'none';
+                }
+                
+                
+                // Populate video links
+                populateVideoLinks(order);
+                
+            } else {
+                console.error('API returned error:', data.error);
+                alert('Ошибка загрузки данных заказа: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading order info:', error);
+            alert('Ошибка загрузки данных заказа');
+        });
+}
+
+function populateVideoLinks(order) {
+    console.log('populateVideoLinks called with order:', order);
+    console.log('order.video_types:', order.video_types);
+    console.log('order.video_links:', order.video_links);
+    console.log('order.video_types_info:', order.video_types_info);
+    
+    const container = document.getElementById('videoLinksContainer');
+    container.innerHTML = '';
+    
+    // Try multiple sources for video types
+    let videoTypes = [];
+    
+    // First, try order.video_types (should be array of objects)
+    if (order.video_types && Array.isArray(order.video_types) && order.video_types.length > 0) {
+        console.log('Using order.video_types:', order.video_types);
+        videoTypes = order.video_types.filter(vt => vt && vt.id && vt.name && Object.keys(vt).length > 0);
+        console.log('Filtered video types:', videoTypes);
+    }
+    
+    // If no video types from video_types, try to extract from video_links
+    if (videoTypes.length === 0 && order.video_links) {
+        console.log('No video types found, trying to extract from video_links');
+        // This is a fallback - we'll create basic video type objects from video_links
+        for (const [videoTypeId, link] of Object.entries(order.video_links)) {
+            videoTypes.push({
+                id: videoTypeId,
+                name: `Видео ${videoTypeId}`,
+                description: '',
+                price: 0
+            });
+        }
+    }
+    
+    // If still no video types, try to get from video_types_info
+    if (videoTypes.length === 0 && order.video_types_info) {
+        console.log('No video types found, trying to extract from video_types_info');
+        for (const [videoTypeId, info] of Object.entries(order.video_types_info)) {
+            videoTypes.push({
+                id: videoTypeId,
+                name: info.name || `Видео ${videoTypeId}`,
+                description: info.description || '',
+                price: info.price || 0
+            });
+        }
+    }
+    
+    console.log('Final video types to process:', videoTypes);
+    
+    if (videoTypes.length > 0) {
+        videoTypes.forEach((videoType, index) => {
+            console.log(`Processing video type ${index}:`, videoType);
+            
+            const div = document.createElement('div');
+            div.className = 'mb-3';
+            const existingLink = order.video_links ? order.video_links[videoType.id] : '';
+            
+            div.innerHTML = `
+                <label class="form-label"><strong>${videoType.name || 'Неизвестный тип видео'}</strong></label>
+                <input type="url" class="form-control" name="video_link_${videoType.id}" 
+                       value="${existingLink || ''}" placeholder="https://disk.yandex.ru/..." required>
+                <div class="form-text">Вставьте ссылку на скачивание видео</div>
+            `;
+            container.appendChild(div);
+        });
+    } else {
+        console.log('No valid video types found');
+        container.innerHTML = '<p class="text-muted">Нет заказанных видео</p>';
+    }
+}
+
+// Handle form submission
+document.getElementById('sendLinksForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(this);
+    const orderId = formData.get('order_id');
+    
+    // Collect video links
+    const videoLinks = {};
+    const videoLinkInputs = this.querySelectorAll('input[name^="video_link_"]');
+    videoLinkInputs.forEach(input => {
+        if (input.value.trim()) {
+            const videoTypeId = input.name.replace('video_link_', '');
+            videoLinks[videoTypeId] = input.value.trim();
+        }
+    });
+    
+    // Check if any links provided
+    if (Object.keys(videoLinks).length === 0) {
+        alert('Пожалуйста, введите хотя бы одну ссылку на видео');
+        return;
+    }
+    
+    // Prepare request data
+    const requestData = {
+        video_links: videoLinks,
+        client_email: formData.get('customer_email'),
+        client_name: formData.get('customer_name')
+    };
+    
+    // Send data
+    fetch(`/api/order/${orderId}/send-links`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Ссылки успешно отправлены!');
+            bootstrap.Modal.getInstance(document.getElementById('sendLinksModal')).hide();
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка отправки ссылок');
+    });
+});
+
+// Add event listeners for status modal and send links buttons
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle status badge clicks
+    document.querySelectorAll('[data-order-id]').forEach(element => {
+        if (element.hasAttribute('data-order-status')) {
+            element.addEventListener('click', function() {
+                const orderId = this.getAttribute('data-order-id');
+                const orderStatus = this.getAttribute('data-order-status');
+                const orderNumber = this.getAttribute('data-order-number');
+                openStatusModal(orderId, orderStatus, orderNumber);
+            });
+        }
+    });
+    
+    // Handle send links button clicks
+    document.querySelectorAll('.send-links-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const clientEmail = this.getAttribute('data-client-email');
+            const clientFirstName = this.getAttribute('data-client-first-name');
+            const clientLastName = this.getAttribute('data-client-last-name');
+            openSendLinksModal(orderId, orderNumber, clientEmail, clientFirstName, clientLastName);
+        });
+    });
+    
+    // Handle confirm payment button clicks
+    document.querySelectorAll('.confirm-payment-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const orderAmount = this.getAttribute('data-order-amount');
+            openConfirmPaymentModal(orderId, orderNumber, orderAmount);
+        });
+    });
+    
+    // Handle process refund button clicks
+    document.querySelectorAll('.process-refund-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const orderAmount = this.getAttribute('data-order-amount');
+            openProcessRefundModal(orderId, orderNumber, orderAmount);
+        });
+    });
+    
+    // Handle confirm payment checkbox
+    const confirmPaymentCheckbox = document.getElementById('confirmPaymentCheckbox');
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    
+    if (confirmPaymentCheckbox && confirmPaymentSubmitBtn) {
+        confirmPaymentCheckbox.addEventListener('change', function() {
+            confirmPaymentSubmitBtn.disabled = !this.checked;
+        });
+    }
+    
+    // Handle confirm payment form submission
+    const confirmPaymentSubmitBtn2 = document.getElementById('confirmPaymentSubmitBtn');
+    if (confirmPaymentSubmitBtn2) {
+        confirmPaymentSubmitBtn2.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            if (orderId && confirmPaymentCheckbox.checked) {
+                confirmPayment(orderId);
+            }
+        });
+    }
+    
+    // Handle process refund form submission
+    const processRefundForm = document.getElementById('processRefundForm');
+    if (processRefundForm) {
+        processRefundForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const orderId = this.getAttribute('data-order-id');
+            if (orderId) {
+                processRefund(orderId, this);
+            }
+        });
+    }
+});
+
+// Function to open confirm payment modal
+function openConfirmPaymentModal(orderId, orderNumber, orderAmount) {
+    document.getElementById('confirmPaymentOrderNumber').textContent = orderNumber;
+    document.getElementById('confirmPaymentAmount').textContent = orderAmount;
+    
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    confirmPaymentSubmitBtn.setAttribute('data-order-id', orderId);
+    
+    // Reset checkbox and button state
+    const confirmPaymentCheckbox = document.getElementById('confirmPaymentCheckbox');
+    confirmPaymentCheckbox.checked = false;
+    confirmPaymentSubmitBtn.disabled = true;
+    
+    const modal = new bootstrap.Modal(document.getElementById('confirmPaymentModal'));
+    modal.show();
+}
+
+// Function to open process refund modal
+function openProcessRefundModal(orderId, orderNumber, orderAmount) {
+    document.getElementById('processRefundOrderNumber').textContent = orderNumber;
+    document.getElementById('processRefundTotalAmount').textContent = orderAmount;
+    
+    const processRefundForm = document.getElementById('processRefundForm');
+    processRefundForm.setAttribute('data-order-id', orderId);
+    
+    // Set default refund amount to full amount
+    document.getElementById('processRefundAmount').value = orderAmount;
+    
+    const modal = new bootstrap.Modal(document.getElementById('processRefundModal'));
+    modal.show();
+}
+
+// Function to confirm payment
+function confirmPayment(orderId) {
+    const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    confirmPaymentSubmitBtn.disabled = true;
+    confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Подтверждение...';
+    
+    fetch(`/api/order/${orderId}/confirm-payment`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Reload page to update status
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при подтверждении платежа');
+    })
+    .finally(() => {
+        confirmPaymentSubmitBtn.disabled = false;
+        confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-money-bill-wave me-1"></i>Подтвердить платеж';
+    });
+}
+
+// Function to process refund
+function processRefund(orderId, form) {
+    const formData = new FormData(form);
+    const submitBtn = form.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Обработка...';
+    
+    fetch(`/api/order/${orderId}/process-refund`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            location.reload(); // Reload page to update status
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при обработке возврата');
+    })
+    .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-undo me-1"></i>Обработать возврат';
+    });
+}
+
+// Обработчики для кнопок частичного зачета и возврата
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчик для кнопки "Частичный зачет"
+    document.querySelectorAll('.capture-payment-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const amount = this.getAttribute('data-amount');
+            openCaptureModal(orderId, amount);
+        });
+    });
+    
+    // Обработчик для кнопки "Возврат"
+    document.querySelectorAll('.refund-payment-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const amount = this.getAttribute('data-amount');
+            openRefundModal(orderId, amount);
+        });
+    });
+});
+</script>
+
+<!-- Подключение модальных окон -->
+{% include 'mom/order_modals.html' %}
+
+{% endblock %}

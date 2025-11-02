@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- CSP отключен для тестирования CloudPayments -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'unsafe-hashes' https://widget.cloudpayments.ru https://intent-api.cloudpayments.ru https://bundles.cloudpayments.ru https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://forma.tinkoff.ru https://pay.google.com https://pay.yandex.ru combo.cloudpayments.ru https://next.cloudpayments.ru; style-src 'self' 'unsafe-inline' https://widget.cloudpayments.ru https://bundles.cloudpayments.ru https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com; img-src 'self' data: https://widget.cloudpayments.ru https://bundles.cloudpayments.ru https://ads.cloudpayments.ru https://static.cloudpayments.ru https://static-stage.cloudpayments.ru https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://cp.ru https://qr.nspk.ru https://www.gstatic.com https://next.cloudpayments.ru; connect-src 'self' https://widget.cloudpayments.ru https://intent-api.cloudpayments.ru https://api.cloudpayments.ru https://bundles.cloudpayments.ru https://forma.tinkoff.ru https://pay.google.com https://pay.yandex.ru combo.cloudpayments.ru https://next.cloudpayments.ru; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; frame-src 'self' https://widget.cloudpayments.ru https://bundles.cloudpayments.ru https://next.cloudpayments.ru;"> -->
+    <title>{% block title %}MainStream Shop - Профессиональные видео с турниров по фигурному катанию{% endblock %}</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/logo.png') }}">
+    
+    <!-- CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+        <div class="container">
+            <!-- Logo -->
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('main.index') }}">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="MainStream" height="117" style="width: auto; max-width: 467px; margin-left: -20px;" class="me-2">
+            </a>
+            
+            <!-- Mobile toggle -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            
+            <!-- Navigation items -->
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.index') }}">Главная</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.shop') }}">Магазин</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.about') }}">О нас</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('main.contact') }}">Контакты</a>
+                    </li>
+                </ul>
+                
+                <!-- Right side -->
+                <div class="d-flex align-items-center">
+                    <!-- Cart -->
+                    <div class="me-3">
+                        <a href="{{ url_for('main.cart') }}" class="btn btn-outline-primary btn-sm" id="cartBtn">
+                            <i class="fas fa-shopping-cart me-1"></i>
+                            Корзина <span class="badge bg-primary ms-1" id="cartCount">0</span>
+                        </a>
+                    </div>
+                    
+                    <!-- User menu -->
+                    {% if current_user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-1"></i>
+                                {% if current_user.full_name and current_user.full_name != current_user.email.split('@')[0] %}
+                                    {{ current_user.full_name }}
+                                {% else %}
+                                    {{ current_user.email.split('@')[0] }}
+                                {% endif %}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                {% if current_user.role == 'ADMIN' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.dashboard') }}">
+                                        <i class="fas fa-cog me-2"></i>Админ панель
+                                    </a></li>
+                                {% elif current_user.role == 'MOM' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('mom.dashboard') }}">
+                                        <i class="fas fa-chart-line me-2"></i>Финансы
+                                    </a></li>
+                                {% elif current_user.role == 'OPERATOR' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('operator.dashboard') }}">
+                                        <i class="fas fa-tasks me-2"></i>Заказы
+                                    </a></li>
+                                {% elif current_user.role == 'CUSTOMER' %}
+                                    <li><a class="dropdown-item" href="{{ url_for('customer.dashboard') }}">
+                                        <i class="fas fa-user me-2"></i>Мои заказы
+                                    </a></li>
+                                {% endif %}
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.change_password') }}">
+                                    <i class="fas fa-key me-2"></i>Изменить пароль
+                                </a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">
+                                    <i class="fas fa-sign-out-alt me-2"></i>Выход
+                                </a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('auth.login') }}" class="btn btn-primary">Вход</a>
+                            <a href="{{ url_for('auth.register') }}" class="btn btn-outline-primary">Регистрация</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Main content -->
+    <main class="{% block main_class %}{% endblock %}">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="bg-dark text-light py-5 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-4 mb-4">
+                    <h5 class="fw-bold mb-3">MainStream Shop</h5>
+                    <p class="text-muted">Профессиональные видео с турниров по фигурному катанию. Качественные записи выступлений ваших детей с соревнований.</p>
+                </div>
+                <div class="col-lg-2 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3">Навигация</h6>
+                    <ul class="list-unstyled">
+                        <li><a href="{{ url_for('main.index') }}" class="text-muted text-decoration-none">Главная</a></li>
+                        <li><a href="{{ url_for('main.shop') }}" class="text-muted text-decoration-none">Магазин</a></li>
+                        <li><a href="{{ url_for('main.about') }}" class="text-muted text-decoration-none">О нас</a></li>
+                        <li><a href="{{ url_for('main.contact') }}" class="text-muted text-decoration-none">Контакты</a></li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 col-md-6 mb-4">
+                    <h6 class="fw-bold mb-3">Контакты</h6>
+                    <ul class="list-unstyled text-muted">
+                        <li class="mb-2">
+                            <a href="mailto:support@mainstreamfs.ru" class="text-muted text-decoration-none d-flex align-items-center">
+                                <i class="fas fa-envelope me-2"></i>support@mainstreamfs.ru
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="https://wa.me/79689039018" class="text-muted text-decoration-none d-flex align-items-center" target="_blank">
+                                <i class="fab fa-whatsapp me-2"></i>Написать в WhatsApp
+                            </a>
+                        </li>
+                        <li class="mb-2">
+                            <a href="https://t.me/mainstreamshopbot" class="text-muted text-decoration-none d-flex align-items-center" target="_blank">
+                                <i class="fab fa-telegram me-2"></i>@mainstreamshopbot
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+                <div class="col-lg-3 mb-4">
+                    <h6 class="fw-bold mb-3">Социальные сети</h6>
+                    <div class="d-flex gap-3">
+                        <a href="https://vk.com/mainstreamshop" class="text-muted" target="_blank" title="ВКонтакте">
+                            <i class="fab fa-vk fa-lg"></i>
+                        </a>
+                        <a href="https://t.me/mainstreamshop" class="text-muted" target="_blank" title="Telegram">
+                            <i class="fab fa-telegram fa-lg"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <hr class="my-4">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <p class="mb-0 text-muted">&copy; 2025 MainStream Shop. Все права защищены.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <a href="{{ url_for('main.privacy_policy') }}" class="text-muted text-decoration-none me-3">Политика конфиденциальности</a>
+                    <a href="{{ url_for('main.terms_of_use') }}" class="text-muted text-decoration-none">Условия использования</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <script>
+    // Update cart count on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCartCount();
+    });
+    
+    function updateCartCount() {
+        fetch('/api/cart/count')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('cartCount').textContent = data.count;
+            }
+        })
+        .catch(error => {
+            console.log('Cart count update failed:', error);
+        });
+    }
+    
+    // Global function to update cart count (called from other scripts)
+    window.updateCartCount = updateCartCount;
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

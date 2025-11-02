@@ -1,0 +1,583 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - {{ event.name }} - MainStream Shop{% endblock %}
+
+{% block content %}
+<!-- Category Header -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Главная</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('main.shop') }}">Магазин</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('main.tournament', event_id=event.id) }}">{{ event.name }}</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ category.name }}</li>
+            </ol>
+        </nav>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold mb-3">{{ category.name }}</h1>
+                
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                    <div class="d-flex align-items-center text-muted">
+                        <i class="fas fa-trophy me-2"></i>
+                        <span>{{ event.name }}</span>
+                    </div>
+                    <div class="d-flex align-items-center text-muted">
+                        <i class="fas fa-calendar me-2"></i>
+                        <span>{{ event.start_date.strftime('%d.%m.%Y') }} - {{ event.end_date.strftime('%d.%m.%Y') }}</span>
+                    </div>
+                    {% if category.gender %}
+                    <div class="d-flex align-items-center">
+                        <span class="badge bg-{% if category.gender == 'F' %}pink{% elif category.gender == 'M' %}primary{% else %}secondary{% endif %} fs-6">
+                            {% if category.gender == 'F' %}Женщины
+                            {% elif category.gender == 'M' %}Мужчины
+                            {% else %}Смешанные{% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <p class="lead text-muted">
+                    Выберите спортсмена для заказа видео выступления.
+                </p>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="feature-icon mx-auto" style="width: 120px; height: 120px;">
+                    {% if category.gender == 'F' %}
+                        <i class="fas fa-female fa-3x"></i>
+                    {% elif category.gender == 'M' %}
+                        <i class="fas fa-male fa-3x"></i>
+                    {% else %}
+                        <i class="fas fa-users fa-3x"></i>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Athletes Grid -->
+<section class="py-5">
+    <div class="container">
+        {% if athletes %}
+        <div class="row mb-4">
+            <div class="col-lg-8 mx-auto text-center">
+                <h2 class="display-6 fw-bold mb-3">Спортсмены</h2>
+                <p class="lead text-muted">Найдите вашего спортсмена и закажите видео</p>
+            </div>
+        </div>
+        
+        <!-- Search -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mx-auto">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="text" class="form-control" id="athleteSearch" placeholder="Поиск по имени спортсмена...">
+                </div>
+            </div>
+        </div>
+        
+        <div class="row" id="athletesGrid">
+            {% for athlete in athletes %}
+            <div class="col-lg-3 col-md-4 col-sm-6 mb-4 athlete-card-wrapper" data-athlete-name="{{ athlete.name.lower() }}">
+                <div class="athlete-card">
+                    <div class="athlete-avatar">
+                        {{ athlete.name.split()[0][0] }}{{ athlete.name.split()[-1][0] if athlete.name.split()|length > 1 else '' }}
+                    </div>
+                    <h5 class="athlete-name">{{ athlete.name }}</h5>
+                    
+                    {% if athlete.is_pair and athlete.partner_name %}
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-heart me-1"></i>
+                        Пара с {{ athlete.partner_name }}
+                    </p>
+                    {% endif %}
+                    
+                    {% if athlete.birth_date %}
+                    <p class="text-muted small mb-2">
+                        <i class="fas fa-birthday-cake me-1"></i>
+                        {{ athlete.birth_date.strftime('%d.%m.%Y') }}
+                    </p>
+                    {% endif %}
+                    
+                    {% if athlete.club_name %}
+                    <p class="athlete-club mb-3">{{ athlete.club_name }}</p>
+                    {% endif %}
+                    
+                    <button class="btn btn-primary w-100 add-to-cart"
+                            data-athlete-id="{{ athlete.id }}"
+                            data-athlete-name="{{ athlete.name }}"
+                            data-event-id="{{ event.id }}"
+                            data-event-name="{{ event.name }}"
+                            data-category-id="{{ category.id }}"
+                            data-category-name="{{ category.name }}">
+                        <i class="fas fa-plus me-2"></i>Заказать видео
+                    </button>
+                    
+                    <button class="btn btn-outline-secondary btn-sm w-100 mt-2"
+                            data-athlete-id="{{ athlete.id }}"
+                            data-action="show-athlete-details">
+                        <i class="fas fa-info-circle me-1"></i>Подробнее
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-user-slash fa-5x text-muted"></i>
+            </div>
+            <h3 class="fw-bold mb-3">Спортсмены не найдены</h3>
+            <p class="text-muted mb-4">
+                В данной категории пока нет участников.
+            </p>
+            <a href="{{ url_for('main.tournament', event_id=event.id) }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>К категориям
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Athlete Details Modal -->
+<div class="modal fade" id="athleteDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Информация о спортсмене</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="athleteDetailsContent">
+                <!-- Content will be loaded via AJAX -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+                <button type="button" class="btn btn-primary" id="orderFromModal">
+                    <i class="fas fa-shopping-cart me-2"></i>Заказать видео
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Video Types Info -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Доступные форматы видео</h2>
+                <p class="lead text-muted">Выберите подходящий тип видео для вашего заказа</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for video_type in video_types %}
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-{% if 'спорт' in video_type.name.lower() %}video{% else %}tv{% endif %} fa-2x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{{ video_type.name }}</h4>
+                        {% if video_type.description %}
+                        <p class="text-muted mb-3">{{ video_type.description }}</p>
+                        {% endif %}
+                        <div class="video-type-price text-primary fw-bold fs-4">{{ "{:,.0f}".format(video_type.price) }} ₽</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Navigation -->
+<section class="py-4">
+    <div class="container">
+        <div class="text-center">
+            <a href="{{ url_for('main.tournament', event_id=event.id) }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>К категориям
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentAthleteId = null;
+
+$(document).ready(function() {
+    // Athlete search
+    $('#athleteSearch').on('input', function() {
+        const searchTerm = $(this).val().toLowerCase();
+        
+        $('.athlete-card-wrapper').each(function() {
+            const athleteName = $(this).data('athlete-name');
+            if (athleteName.includes(searchTerm)) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+    
+    // Add hover effects to athlete cards
+    $('.athlete-card').hover(
+        function() {
+            $(this).css('transform', 'translateY(-3px)');
+        },
+        function() {
+            $(this).css('transform', 'translateY(0)');
+        }
+    );
+    
+    // Add animation classes on scroll
+    $(window).scroll(function() {
+        $('.athlete-card-wrapper').each(function() {
+            const elementTop = $(this).offset().top;
+            const viewportBottom = $(window).scrollTop() + $(window).height();
+            
+            if (elementTop < viewportBottom - 100) {
+                $(this).find('.athlete-card').addClass('fade-in');
+            }
+        });
+    });
+    
+    // Add to cart functionality
+    $('.add-to-cart').on('click', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const athleteId = $(this).data('athlete-id');
+        const athleteName = $(this).data('athlete-name');
+        const eventId = $(this).data('event-id');
+        const eventName = $(this).data('event-name');
+        const categoryId = $(this).data('category-id');
+        
+        // Show video type selection modal
+        showVideoTypeSelection(athleteId, athleteName, eventName);
+    });
+});
+
+function showVideoTypeSelection(athleteId, athleteName, eventName) {
+    // Close any existing athlete details modal first
+    const existingDetailsModal = document.getElementById('athleteDetailsModal');
+    if (existingDetailsModal) {
+        const modal = bootstrap.Modal.getInstance(existingDetailsModal);
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    // Create modal HTML for video type selection
+    let modalHtml = `
+        <div class="modal fade" id="videoTypeModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Выберите тип видео</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <p><strong>Спортсмен:</strong> ${athleteName}</p>
+                        <p><strong>Турнир:</strong> ${eventName}</p>
+                        <hr>
+                        <div class="row">
+                            {% for video_type in video_types %}
+                            <div class="col-md-6 mb-3">
+                                <div class="card video-type-option" data-video-type-id="{{ video_type.id }}" data-price="{{ video_type.price }}" style="cursor: pointer; transition: all 0.3s ease;">
+                                    <div class="card-body text-center">
+                                        <h6>{{ video_type.name }}</h6>
+                                        {% if video_type.description %}
+                                        <p class="text-muted small">{{ video_type.description }}</p>
+                                        {% endif %}
+                                        <div class="fw-bold text-primary">{{ "{:,.0f}".format(video_type.price) }} ₽</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <div class="d-flex justify-content-between w-100">
+                            <div>
+                                <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Отмена</button>
+                                <button type="button" class="btn btn-primary" id="confirmAddToCart" disabled>
+                                    <i class="fas fa-shopping-cart me-2"></i>Добавить в корзину
+                                </button>
+                            </div>
+                            <div>
+                                <button type="button" class="btn btn-success" id="addAndGoToCart" disabled>
+                                    <i class="fas fa-shopping-cart me-2"></i>Добавить и перейти в корзину
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Remove existing modal if any
+    $('#videoTypeModal').remove();
+    
+    // Add modal to body
+    $('body').append(modalHtml);
+    
+    // Add custom CSS for better selection highlighting
+    if (!$('#videoTypeModalStyles').length) {
+        $('head').append(`
+            <style id="videoTypeModalStyles">
+                .video-type-option {
+                    transition: all 0.3s ease !important;
+                }
+                .video-type-option:hover {
+                    transform: translateY(-2px) !important;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+                    border: 1px solid rgba(26, 74, 143, 0.3) !important;
+                }
+                .video-type-option.border-primary.bg-primary.bg-opacity-10 {
+                    background: linear-gradient(135deg, rgba(26, 74, 143, 0.15) 0%, rgba(0, 174, 239, 0.15) 100%) !important;
+                    border: 2px solid #1A4A8F !important;
+                    box-shadow: 0 4px 12px rgba(26, 74, 143, 0.3) !important;
+                    transform: translateY(-2px) !important;
+                }
+                .video-type-option.border-primary.bg-primary.bg-opacity-10 .card-body h6 {
+                    color: #1A4A8F !important;
+                    font-weight: 600 !important;
+                }
+                .video-type-option.border-primary.bg-primary.bg-opacity-10 .card-body .fw-bold {
+                    color: #1A4A8F !important;
+                    font-size: 1.1em !important;
+                }
+            </style>
+        `);
+    }
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('videoTypeModal'));
+    modal.show();
+    
+    // Handle video type selection
+    $('.video-type-option').on('click', function() {
+        $('.video-type-option').removeClass('border-primary bg-primary bg-opacity-10 shadow-sm');
+        $(this).addClass('border-primary bg-primary bg-opacity-10 shadow-sm');
+        $('#confirmAddToCart').prop('disabled', false);
+        $('#addAndGoToCart').prop('disabled', false);
+    });
+    
+    // Handle confirm add to cart
+    $('#confirmAddToCart').on('click', function() {
+        const selectedType = $('.video-type-option.border-primary');
+        if (selectedType.length) {
+            const videoTypeId = selectedType.data('video-type-id');
+            const price = selectedType.data('price');
+            
+            // Add to cart
+            fetch('/api/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    athlete_id: athleteId,
+                    video_type_id: videoTypeId,
+                    quantity: 1
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update cart count
+                    if (window.updateCartCount) {
+                        window.updateCartCount();
+                    }
+                    
+                    // Success - no message needed
+                    
+                    // Close modal
+                    modal.hide();
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Ошибка при добавлении в корзину');
+                console.error('Error:', error);
+            });
+        }
+    });
+    
+    // Handle add and go to cart
+    $('#addAndGoToCart').on('click', function() {
+        const selectedType = $('.video-type-option.border-primary');
+        if (selectedType.length) {
+            const videoTypeId = selectedType.data('video-type-id');
+            const price = selectedType.data('price');
+            
+            // Add to cart
+            fetch('/api/cart/add', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    athlete_id: athleteId,
+                    video_type_id: videoTypeId,
+                    quantity: 1
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update cart count
+                    if (window.updateCartCount) {
+                        window.updateCartCount();
+                    }
+                    
+                    // Close modal
+                    modal.hide();
+                    
+                    // Redirect to cart page
+                    window.location.href = '/cart';
+                } else {
+                    alert('Ошибка: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Ошибка при добавлении в корзину');
+                console.error('Error:', error);
+            });
+        }
+    });
+    
+    // Clean up modal when closed
+    $('#videoTypeModal').on('hidden.bs.modal', function() {
+        $(this).remove();
+    });
+}
+
+function showAthleteDetails(athleteId) {
+    currentAthleteId = athleteId;
+    
+    // Close any existing video type modal first
+    const existingModal = document.getElementById('videoTypeModal');
+    if (existingModal) {
+        const modal = bootstrap.Modal.getInstance(existingModal);
+        if (modal) {
+            modal.hide();
+        }
+    }
+    
+    // Show loading
+    $('#athleteDetailsContent').html('<div class="text-center py-4"><div class="spinner mx-auto"></div></div>');
+    
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('athleteDetailsModal'));
+    modal.show();
+    
+    // Load athlete details via AJAX
+    $.get(`/api/athlete/${athleteId}/details`)
+        .done(function(data) {
+            let html = `
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <div class="athlete-avatar mx-auto mb-3" style="width: 100px; height: 100px; font-size: 2rem;">
+                            ${data.name.split(' ')[0][0]}${data.name.split(' ').length > 1 ? data.name.split(' ')[1][0] : ''}
+                        </div>
+                        <h4 class="fw-bold">${data.name}</h4>
+                        <p class="text-muted">${data.category} - ${data.event}</p>
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table table-borderless">
+            `;
+            
+            if (data.birth_date) {
+                html += `
+                    <tr>
+                        <td><i class="fas fa-birthday-cake me-2"></i><strong>Дата рождения:</strong></td>
+                        <td>${data.birth_date}</td>
+                    </tr>
+                `;
+            }
+            
+            if (data.gender) {
+                html += `
+                    <tr>
+                        <td><i class="fas fa-${data.gender === 'F' ? 'female' : 'male'} me-2"></i><strong>Пол:</strong></td>
+                        <td>${data.gender === 'F' ? 'Женский' : 'Мужской'}</td>
+                    </tr>
+                `;
+            }
+            
+            if (data.club_name) {
+                html += `
+                    <tr>
+                        <td><i class="fas fa-building me-2"></i><strong>Клуб:</strong></td>
+                        <td>${data.club_name}</td>
+                    </tr>
+                `;
+            }
+            
+            if (data.is_pair && data.partner_name) {
+                html += `
+                    <tr>
+                        <td><i class="fas fa-heart me-2"></i><strong>Партнер:</strong></td>
+                        <td>${data.partner_name}</td>
+                    </tr>
+                `;
+            }
+            
+            html += `
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            $('#athleteDetailsContent').html(html);
+        })
+        .fail(function() {
+            $('#athleteDetailsContent').html('<div class="alert alert-danger">Ошибка загрузки данных о спортсмене</div>');
+        });
+}
+
+// Order from modal
+$(document).on('click', '#orderFromModal', function() {
+    if (currentAthleteId) {
+        // Get athlete data from the modal
+        const athleteCard = $(`.add-to-cart[data-athlete-id="${currentAthleteId}"]`);
+        if (athleteCard.length) {
+            const athleteName = athleteCard.data('athlete-name');
+            const eventName = athleteCard.data('event-name');
+            
+            // Close athlete details modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('athleteDetailsModal'));
+            if (modal) {
+                modal.hide();
+            }
+            
+            // Show video type selection modal after a short delay
+            setTimeout(() => {
+                showVideoTypeSelection(currentAthleteId, athleteName, eventName);
+            }, 300);
+        }
+    }
+});
+
+// Handle show athlete details buttons
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('[data-action="show-athlete-details"]').forEach(button => {
+        button.addEventListener('click', function() {
+            const athleteId = this.getAttribute('data-athlete-id');
+            showAthleteDetails(athleteId);
+        });
+    });
+});
+</script>
+{% endblock %}

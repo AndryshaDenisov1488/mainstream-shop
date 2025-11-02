@@ -1,0 +1,175 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Панель администратора - MainStream Shop{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Панель администратора</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary">Экспорт</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary">Печать</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Всего заказов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.total_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-shopping-cart fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                                Выполнено</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.completed_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                                В обработке</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.processing_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-clock fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                Ожидают</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ stats.pending_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-hourglass-half fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overdue Orders Alert -->
+    {% if overdue_orders > 0 %}
+    <div class="alert alert-warning" role="alert">
+        <i class="fas fa-exclamation-triangle"></i>
+        <strong>Внимание!</strong> У вас {{ overdue_orders }} просроченных заказов (более 4 дней в обработке).
+        <a href="{{ url_for('admin.orders') }}" class="alert-link">Перейти к заказам</a>
+    </div>
+    {% endif %}
+
+    <!-- Recent Orders -->
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Последние заказы</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_orders %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered" width="100%" cellspacing="0">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Клиент</th>
+                                    <th>Сумма</th>
+                                    <th>Статус</th>
+                                    <th>Дата</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in recent_orders %}
+                                <tr>
+                                    <td>{{ order.id }}</td>
+                                    <td>{{ order.customer.full_name }}</td>
+                                    <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'info' if order.status == 'processing' else 'danger' if order.status == 'cancelled' else 'warning' if order.status == 'refund_required' else 'secondary' }}">
+                                            {{ 'Выполнен' if order.status == 'completed' else 'В ожидании' if order.status == 'pending' else 'В обработке' if order.status == 'processing' else 'Требуется возврат' if order.status == 'refund_required' else 'Отменен' if order.status == 'cancelled' else order.status }}
+                                        </span>
+                                    </td>
+                                    <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+                                    <td>
+                                        <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Нет заказов</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Users -->
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">Новые пользователи</h6>
+                </div>
+                <div class="card-body">
+                    {% if recent_users %}
+                    <div class="list-group list-group-flush">
+                        {% for user in recent_users %}
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ user.full_name }}</h6>
+                                <small class="text-muted">{{ user.email }}</small>
+                            </div>
+                            <small class="text-muted">{{ user.created_at.strftime('%d.%m') }}</small>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Нет новых пользователей</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

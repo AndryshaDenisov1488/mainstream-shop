@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}Оплата не завершена - MainStream Shop{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-6">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="mb-4">
+                            <i class="fas fa-times-circle text-danger" style="font-size: 4rem;"></i>
+                        </div>
+                        
+                        <h2 class="text-danger mb-3">Оплата не завершена</h2>
+                        
+                        <p class="text-muted mb-4">
+                            К сожалению, оплата заказа <strong>{{ order_number }}</strong> не была завершена.
+                        </p>
+                        
+                        <div class="alert alert-warning">
+                            <h5 class="alert-heading">Возможные причины:</h5>
+                            <ul class="mb-0 text-start">
+                                <li>Недостаточно средств на карте</li>
+                                <li>Превышен лимит по карте</li>
+                                <li>Отклонено банком</li>
+                                <li>Прервано пользователем</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('main.checkout') }}" class="btn btn-primary">
+                                <i class="fas fa-redo me-2"></i>Попробовать снова
+                            </a>
+                            <a href="{{ url_for('main.cart') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-shopping-cart me-2"></i>Вернуться в корзину
+                            </a>
+                            <a href="{{ url_for('main.index') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-home me-2"></i>На главную
+                            </a>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="text-muted">
+                            <h6>Нужна помощь?</h6>
+                            <p class="mb-2">
+                                <i class="fas fa-envelope me-2"></i>
+                                <a href="mailto:support@mainstreamfs.ru">support@mainstreamfs.ru</a>
+                            </p>
+                            <p class="mb-0">
+                                <i class="fas fa-phone me-2"></i>
+                                <a href="https://wa.me/79689039018">+7 (968) 903-90-18</a>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

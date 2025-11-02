@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Ваши видео готовы!</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+    <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h2 style="color: #28a745;">🎉 Ваши видео готовы!</h2>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3>Информация о заказе:</h3>
+            <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
+            <p><strong>Спортсмен:</strong> {{ order.athlete.name }}</p>
+            <p><strong>Турнир:</strong> {{ order.event.name }}</p>
+            <p><strong>Дата заказа:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</p>
+        </div>
+        
+        <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <h3>Ссылки на видео:</h3>
+            {% if order.video_links %}
+                {% for video_type_id, link in order.video_links.items() %}
+                    {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                    <div style="margin: 10px 0; padding: 10px; background: white; border-radius: 3px;">
+                        <strong>{{ video_type.name if video_type else 'Видео' }}:</strong><br>
+                        <a href="{{ link }}" style="color: #007bff; text-decoration: none;">{{ link }}</a>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Ссылки на видео будут отправлены дополнительно.</p>
+            {% endif %}
+        </div>
+        
+        <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0;">
+            <p><strong>📋 Важная информация:</strong></p>
+            <ul>
+                <li>Ссылки действительны в течение 90 дней</li>
+                <li>Рекомендуем скачать видео как можно скорее</li>
+                <li>При возникновении проблем обращайтесь к нам</li>
+            </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+            <p>Спасибо за заказ!</p>
+            <p><strong>MainStream Shop</strong></p>
+        </div>
+        
+        <hr>
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 30px;">
+            <h4 style="color: #333; margin-bottom: 15px;">📞 Свяжитесь с нами</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: center;">
+                <div style="flex: 1; min-width: 200px;">
+                    <p style="margin: 5px 0; font-size: 14px;">
+                        <strong>📧 Email:</strong><br>
+                        <a href="mailto:support@mainstreamfs.ru" style="color: #007bff; text-decoration: none;">
+                            support@mainstreamfs.ru
+                        </a>
+                    </p>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <p style="margin: 5px 0; font-size: 14px;">
+                        <strong>📱 WhatsApp:</strong><br>
+                        <a href="https://wa.me/79689039018" style="color: #25D366; text-decoration: none;">
+                            +7 (968) 903-90-18
+                        </a>
+                    </p>
+                </div>
+                <div style="flex: 1; min-width: 200px;">
+                    <p style="margin: 5px 0; font-size: 14px;">
+                        <strong>💬 Telegram:</strong><br>
+                        <a href="https://t.me/mainstreamshopbot" style="color: #0088cc; text-decoration: none;">
+                            @mainstreamshopbot
+                        </a>
+                    </p>
+                </div>
+            </div>
+            <hr style="margin: 15px 0;">
+            <p style="font-size: 12px; color: #666; text-align: center; margin: 0;">
+                <strong>MainStream Shop</strong> - Профессиональные видео с турниров по фигурному катанию<br>
+                Мы всегда готовы помочь вам с любыми вопросами!
+            </p>
+        </div>
+    </div>
+</body>
+</html>

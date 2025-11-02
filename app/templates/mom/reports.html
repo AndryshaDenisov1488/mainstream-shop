@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Отчеты - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Отчеты</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('mom.dashboard') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к дашборду
+            </a>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Всего заказов</h6>
+                            <h3 class="mb-0">{{ total_orders }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-shopping-cart fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Заказы за месяц</h6>
+                            <h3 class="mb-0">{{ orders_last_month }}</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-calendar fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Общая выручка</h6>
+                            <h3 class="mb-0">{{ "%.0f"|format(total_revenue) }} ₽</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-ruble-sign fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="card-title">Средний чек</h6>
+                            <h3 class="mb-0">{{ "%.0f"|format(total_revenue / total_orders if total_orders > 0 else 0) }} ₽</h3>
+                        </div>
+                        <div class="align-self-center">
+                            <i class="fas fa-calculator fa-2x"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reports Content -->
+    <div class="row">
+        <!-- Orders by Status -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Заказы по статусам</h5>
+                </div>
+                <div class="card-body">
+                    {% if orders_by_status %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Статус</th>
+                                        <th>Количество</th>
+                                        <th>Процент</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for status, count in orders_by_status %}
+                                    <tr>
+                                        <td>
+                                            <span class="badge bg-{{ 'success' if status == 'completed' else 'secondary' if status in ['checkout_initiated', 'awaiting_payment'] else 'danger' if status in ['cancelled_unpaid', 'cancelled_manual'] else 'secondary' }}">
+                                                {% set status_map = {'draft': 'Черновик', 'checkout_initiated': 'Оформление инициировано', 'awaiting_payment': 'Ожидание оплаты', 'paid': 'Оплачен', 'processing': 'В обработке', 'awaiting_info': 'Нужно уточнить детали', 'ready': 'Готов к отправке', 'links_sent': 'Ссылки отправлены', 'completed': 'Выполнен', 'completed_partial_refund': 'Выполнен с частичным возвратом', 'cancelled_unpaid': 'Отменен (не оплачен)', 'cancelled_manual': 'Отменен вручную', 'refund_required': 'Требуется возврат', 'refunded_partial': 'Частичный возврат', 'refunded_full': 'Полный возврат'} %}
+                                                {{ status_map.get(status, status|replace('_', ' ')|title) }}
+                                            </span>
+                                        </td>
+                                        <td>{{ count }}</td>
+                                        <td>{{ "%.1f"|format((count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-chart-pie fa-2x mb-2"></i><br>
+                            Данные не найдены
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Events -->
+        <div class="col-lg-6 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Топ турниров по заказам</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_events %}
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Турнир</th>
+                                        <th>Заказов</th>
+                                        <th>Доля</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for event_name, order_count in top_events %}
+                                    <tr>
+                                        <td>{{ event_name }}</td>
+                                        <td>{{ order_count }}</td>
+                                        <td>{{ "%.1f"|format((order_count / total_orders * 100) if total_orders > 0 else 0) }}%</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-trophy fa-2x mb-2"></i><br>
+                            Данные не найдены
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Options -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Экспорт данных</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-primary w-100" disabled>
+                                <i class="fas fa-file-excel"></i><br>
+                                <small>Экспорт в Excel</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-secondary w-100" disabled>
+                                <i class="fas fa-file-pdf"></i><br>
+                                <small>Экспорт в PDF</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-info w-100" disabled>
+                                <i class="fas fa-file-csv"></i><br>
+                                <small>Экспорт в CSV</small>
+                            </button>
+                        </div>
+                        <div class="col-md-3 mb-3">
+                            <button class="btn btn-outline-success w-100" disabled>
+                                <i class="fas fa-print"></i><br>
+                                <small>Печать отчета</small>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="alert alert-info mt-3">
+                        <i class="fas fa-info-circle"></i>
+                        Функции экспорта будут доступны в следующих версиях
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

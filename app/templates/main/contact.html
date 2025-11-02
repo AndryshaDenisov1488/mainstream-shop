@@ -1,0 +1,267 @@
+{% extends "base.html" %}
+
+{% block title %}Контакты - MainStream Shop{% endblock %}
+
+{% block content %}
+<!-- Contact Header -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-5 fw-bold mb-3">Контакты</h1>
+                <p class="lead text-muted">
+                    Свяжитесь с нами любым удобным способом. Мы всегда готовы помочь!
+                </p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Information -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-envelope fa-2x"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3">Email</h5>
+                        <p class="text-muted mb-3">
+                            Напишите нам на email для получения консультации или решения вопросов
+                        </p>
+                        <a href="mailto:support@mainstreamfs.ru" class="btn btn-outline-primary">
+                            <i class="fas fa-envelope me-2"></i>support@mainstreamfs.ru
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 mb-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fab fa-telegram fa-2x"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3">Telegram</h5>
+                        <p class="text-muted mb-3">
+                            Быстрая связь через Telegram-бота или личные сообщения
+                        </p>
+                        <button class="btn btn-outline-primary" id="telegramContactBtn">
+                            <i class="fab fa-telegram me-2"></i>Написать в Telegram
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 mb-4">
+                <div class="card h-100 text-center">
+                    <div class="card-body">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-clock fa-2x"></i>
+                        </div>
+                        <h5 class="fw-bold mb-3">Время работы</h5>
+                        <p class="text-muted mb-3">
+                            Мы отвечаем на сообщения в течение рабочего дня
+                        </p>
+                        <div class="text-muted">
+                            <p class="mb-1"><strong>Пн-Пт:</strong> 9:00 - 20:00</p>
+                            <p class="mb-0"><strong>Сб-Вс:</strong> 10:00 - 18:00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- FAQ Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Часто задаваемые вопросы</h2>
+                <p class="lead text-muted">
+                    Ответы на самые популярные вопросы наших клиентов
+                </p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="accordion" id="faqAccordion">
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                Сколько времени занимает обработка заказа?
+                            </button>
+                        </h2>
+                        <div id="faq1" class="accordion-collapse collapse show" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Мы обрабатываем заказы в течение 3-4 дней с момента оплаты. В случае высокой загрузки срок может быть увеличен до 5-7 дней, о чем мы обязательно уведомим.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                Как долго действуют ссылки на скачивание?
+                            </button>
+                        </h2>
+                        <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Ссылки на Яндекс.Диск действуют 90 дней с момента отправки. За 5 дней до истечения срока мы отправляем напоминание на email.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                Что делать, если видео не соответствует качеству?
+                            </button>
+                        </h2>
+                        <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Если видео не соответствует заявленному качеству, мы возвращаем полную стоимость заказа. Свяжитесь с нами через email или Telegram.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq4">
+                                Можно ли заказать видео через Telegram?
+                            </button>
+                        </h2>
+                        <div id="faq4" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Да! У нас есть удобный Telegram-бот, через который можно оформить заказ. Просто найдите нашего бота и следуйте инструкциям.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="accordion-item">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq5">
+                                Как происходит оплата?
+                            </button>
+                        </h2>
+                        <div id="faq5" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                            <div class="accordion-body">
+                                Оплата происходит через безопасную систему CloudPayments. Мы используем двухэтапную оплату: сначала блокируем средства, а списываем их только после выполнения заказа.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Form -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <div class="card shadow-lg border-0">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <h3 class="fw-bold">Написать нам</h3>
+                            <p class="text-muted">Заполните форму, и мы свяжемся с вами в ближайшее время</p>
+                        </div>
+                        
+                        <form id="contactForm">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Имя *</label>
+                                    <input type="text" class="form-control" name="name" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Email *</label>
+                                    <input type="email" class="form-control" name="email" required>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Тема</label>
+                                <select class="form-select" name="subject">
+                                    <option value="order">Вопрос по заказу</option>
+                                    <option value="payment">Проблемы с оплатой</option>
+                                    <option value="quality">Качество видео</option>
+                                    <option value="other">Другое</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label">Сообщение *</label>
+                                <textarea class="form-control" rows="5" name="message" required placeholder="Опишите ваш вопрос или проблему..."></textarea>
+                            </div>
+                            
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-paper-plane me-2"></i>Отправить сообщение
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Telegram contact button
+    $('#telegramContactBtn').click(function(e) {
+        e.preventDefault();
+        showToast('Telegram контакт будет доступен в ближайшее время', 'info');
+    });
+    
+    // Contact form submission
+    $('#contactForm').on('submit', function(e) {
+        e.preventDefault();
+        
+        const form = $(this);
+        const submitBtn = form.find('button[type="submit"]');
+        const formData = {
+            name: form.find('[name="name"]').val(),
+            email: form.find('[name="email"]').val(),
+            subject: form.find('[name="subject"]').val(),
+            message: form.find('[name="message"]').val()
+        };
+        
+        showLoading(submitBtn);
+        
+        // Send form data
+        fetch('/contact/send', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading(submitBtn);
+            if (data.success) {
+                showToast(data.message, 'success');
+                form[0].reset();
+            } else {
+                showToast(data.message || 'Ошибка отправки сообщения', 'error');
+            }
+        })
+        .catch(error => {
+            hideLoading(submitBtn);
+            showToast('Ошибка отправки сообщения', 'error');
+            console.error('Error:', error);
+        });
+    });
+});
+</script>
+{% endblock %}

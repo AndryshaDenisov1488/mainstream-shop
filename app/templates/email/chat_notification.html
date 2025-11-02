@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Новое сообщение в чате</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #1A4A8F;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 0 0 5px 5px;
+        }
+        .order-info {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #1A4A8F;
+        }
+        .message {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #2196F3;
+        }
+        .button {
+            display: inline-block;
+            background-color: #1A4A8F;
+            color: white;
+            padding: 12px 24px;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+            color: #666;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💬 Новое сообщение в чате</h1>
+    </div>
+    
+    <div class="content">
+        <p>Здравствуйте, {{ recipient.full_name }}!</p>
+        
+        <p>В чате заказа поступило новое сообщение от <strong>{{ sender.full_name }}</strong>.</p>
+        
+        <div class="order-info">
+            <h3>📋 Информация о заказе</h3>
+            <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
+            <p><strong>Клиент:</strong> 
+                {% if order.contact_first_name and order.contact_last_name %}
+                    {{ order.contact_last_name }} {{ order.contact_first_name }}
+                {% elif order.customer %}
+                    {{ order.customer.full_name }}
+                {% else %}
+                    {{ order.contact_email }}
+                {% endif %}
+            </p>
+            <p><strong>Турнир:</strong> {{ order.event.name if order.event else 'Неизвестный турнир' }}</p>
+            <p><strong>Статус:</strong> 
+                {% if order.status == 'completed' %}Выполнен
+                {% elif order.status == 'pending' %}В ожидании
+                {% elif order.status == 'pending_payment' %}Ожидание оплаты
+                {% elif order.status == 'processing' %}В обработке
+                {% elif order.status == 'links_sent' %}Ссылки отправлены
+                {% elif order.status == 'refund_required' %}Требуется возврат
+                {% elif order.status == 'cancelled' %}Отменен
+                {% else %}{{ order.status }}{% endif %}
+            </p>
+        </div>
+        
+        <div class="message">
+            <h4>💬 Сообщение от {{ sender.full_name }}:</h4>
+            <p>{{ message.message }}</p>
+            <p><small><strong>Время:</strong> {{ message.created_at.strftime('%d.%m.%Y в %H:%M') if message.created_at else 'Не указано' }}</small></p>
+        </div>
+        
+        <div style="text-align: center; margin: 20px 0;">
+            <a href="{{ url_for('operator.order_detail', order_id=order.id, _external=True) }}" class="button">
+                📱 Открыть чат
+            </a>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Это автоматическое уведомление от системы MainStream Shop</p>
+        <p>Если у вас есть вопросы, обратитесь к администратору системы</p>
+    </div>
+</body>
+</html>

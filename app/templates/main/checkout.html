@@ -1,0 +1,389 @@
+{% extends "base.html" %}
+
+{% block title %}Оформление заказа - MainStream Shop{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h2 class="fw-bold">Оформление заказа</h2>
+                    <a href="{{ url_for('main.cart') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-arrow-left me-2"></i>Вернуться в корзину
+                    </a>
+                </div>
+                
+                <form id="checkoutForm">
+                    <div class="row">
+                        <!-- Order Items -->
+                        <div class="col-md-8">
+                            <div class="card mb-4">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Товары в заказе</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% for item in cart_items %}
+                                    <div class="row align-items-center border-bottom py-3">
+                                        <div class="col-md-6">
+                                            <h6 class="mb-1">{{ item.athlete.name }}</h6>
+                                            <small class="text-muted">
+                                                {{ item.athlete.category.event.name }} - {{ item.athlete.category.name }}
+                                            </small>
+                                            <br>
+                                            <small class="text-muted">{{ item.video_type.name }}</small>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <span class="badge bg-primary">{{ item.quantity }}</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <strong>{{ "%.2f"|format(item.total) }} ₽</strong>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+
+                            <!-- Contact Information -->
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Контактная информация</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="contact_first_name" class="form-label">Имя *</label>
+                                                <input type="text" class="form-control" id="contact_first_name" name="contact_first_name" 
+                                                       value="{{ current_user.full_name.split(' ')[0] if current_user.is_authenticated and current_user.full_name else '' }}" required>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="contact_last_name" class="form-label">Фамилия *</label>
+                                                <input type="text" class="form-control" id="contact_last_name" name="contact_last_name" 
+                                                       value="{{ current_user.full_name.split(' ')[1] if current_user.is_authenticated and current_user.full_name and ' ' in current_user.full_name else '' }}" required>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="contact_email" class="form-label">Email *</label>
+                                                <input type="email" class="form-control" id="contact_email" name="contact_email" 
+                                                       value="{{ current_user.email if current_user.is_authenticated else '' }}" required>
+                                                <div class="form-text">На этот email будет отправлена информация о заказе</div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="mb-3">
+                                                <label for="contact_phone" class="form-label">Телефон</label>
+                                                <input type="tel" class="form-control" id="contact_phone" name="contact_phone" 
+                                                       value="{{ current_user.phone if current_user.is_authenticated else '' }}">
+                                                <div class="form-text">Для связи по вопросам заказа</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="comment" class="form-label">Комментарий к заказу</label>
+                                        <textarea class="form-control" id="comment" name="comment" rows="3" 
+                                                  placeholder="Дополнительная информация или пожелания"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                        </div>
+                        
+                        <!-- Order Summary -->
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Итого</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Сумма товаров:</span>
+                                        <span>{{ "%.2f"|format(total_price) }} ₽</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span>Доставка:</span>
+                                        <span class="text-success">Бесплатно</span>
+                                    </div>
+                                    <hr>
+                                    <div class="d-flex justify-content-between">
+                                        <strong>К оплате:</strong>
+                                        <strong>{{ "%.2f"|format(total_price) }} ₽</strong>
+                                    </div>
+                                    
+                                    <div class="mt-4">
+                                        <div class="d-grid gap-2">
+                                            <button type="button" id="payCardBtn" class="btn btn-primary">
+                                                <i class="fas fa-credit-card me-2"></i>Оплатить картой
+                                            </button>
+                                            <button type="button" id="paySbpBtn" class="btn btn-success">
+                                                <i class="fas fa-mobile-alt me-2"></i>Оплатить через СБП
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="mt-3">
+                                        <small class="text-muted">
+                                            <i class="fas fa-shield-alt me-1"></i>
+                                            Ваши данные защищены. Мы не передаем информацию третьим лицам.
+                                        </small>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Payment Info -->
+                            <div class="card mt-3">
+                                <div class="card-body">
+                                    <h6><i class="fas fa-info-circle me-2"></i>Способы оплаты</h6>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-credit-card me-2 text-primary"></i>
+                                        <small>Банковские карты</small>
+                                    </div>
+                                    <div class="d-flex align-items-center mb-2">
+                                        <i class="fas fa-mobile-alt me-2 text-primary"></i>
+                                        <small>Оплата по SMS</small>
+                                    </div>
+                                    <div class="d-flex align-items-center">
+                                        <i class="fas fa-university me-2 text-primary"></i>
+                                        <small>Электронные деньги</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Test Cards Information -->
+                                <div class="mt-3 p-3 bg-light rounded">
+                                    <h6 class="text-info mb-2"><i class="fas fa-flask me-2"></i>Тестовые карты</h6>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <small class="text-muted">Visa:</small><br>
+                                            <code class="small">4242 4242 4242 4242</code>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">MasterCard:</small><br>
+                                            <code class="small">5555 5555 5555 4444</code>
+                                        </div>
+                                    </div>
+                                    <small class="text-muted d-block mt-2">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Срок: любая будущая дата, CVV: любой 3-значный код
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentOrderId = null;
+    
+    // Handle card payment
+    document.getElementById('payCardBtn').addEventListener('click', function() {
+        processPayment('card');
+    });
+    
+    // Handle SBP payment
+    document.getElementById('paySbpBtn').addEventListener('click', function() {
+        processPayment('sbp');
+    });
+    
+    function processPayment(paymentMethod) {
+        // Check if CloudPayments is loaded
+        if (typeof cp === 'undefined') {
+            alert('CloudPayments не загружен. Пожалуйста, обновите страницу и попробуйте снова.');
+            return;
+        }
+        
+        console.log('CloudPayments available, proceeding with payment');
+        processPaymentInternal(paymentMethod);
+    }
+    
+    
+    function processPaymentInternal(paymentMethod) {
+        // Get form data
+        const formData = new FormData(document.getElementById('checkoutForm'));
+        const orderData = {
+            contact_email: formData.get('contact_email'),
+            contact_phone: formData.get('contact_phone'),
+            contact_first_name: formData.get('contact_first_name'),
+            contact_last_name: formData.get('contact_last_name'),
+            comment: formData.get('comment')
+        };
+        
+        // Validate required fields
+        if (!orderData.contact_email || !orderData.contact_first_name || !orderData.contact_last_name) {
+            alert('Пожалуйста, заполните все обязательные поля');
+            return;
+        }
+        
+        // Show loading state
+        const button = paymentMethod === 'card' ? document.getElementById('payCardBtn') : document.getElementById('paySbpBtn');
+        const originalText = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Обработка...';
+        button.disabled = true;
+        
+        // First, create order using the new API endpoint
+        fetch('/api/order/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(orderData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                currentOrderId = data.order_id;
+                // Now create payment intent
+                return createPaymentIntent(currentOrderId, paymentMethod);
+            } else {
+                throw new Error(data.error || 'Ошибка создания заказа');
+            }
+        })
+        .then(paymentData => {
+            if (paymentData.success) {
+                // Initialize CloudPayments widget
+                initializePaymentWidget(paymentData.payment_data, paymentMethod);
+            } else {
+                throw new Error(paymentData.error || 'Ошибка создания платежа');
+            }
+        })
+        .catch(error => {
+            console.error('Payment error:', error);
+            alert('Ошибка: ' + error.message);
+            // Reset button state
+            const button = paymentMethod === 'card' ? document.getElementById('payCardBtn') : document.getElementById('paySbpBtn');
+            button.innerHTML = paymentMethod === 'card' ? '<i class="fas fa-credit-card me-2"></i>Оплатить картой' : '<i class="fas fa-mobile-alt me-2"></i>Оплатить через СБП';
+            button.disabled = false;
+        });
+    }
+    
+    function createPaymentIntent(orderId, paymentMethod) {
+        return fetch('/api/payment/create', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                order_id: orderId,
+                payment_method: paymentMethod
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        });
+    }
+    
+    function initializePaymentWidget(paymentData, paymentMethod) {
+        // Check if CloudPayments is loaded
+        if (typeof cp === 'undefined') {
+            alert('CloudPayments не загружен. Попробуйте обновить страницу.');
+            return;
+        }
+        
+        // Debug: Log payment parameters
+        console.log('🔍 Payment parameters being sent to CloudPayments:', paymentData);
+        console.log('🔍 Full payment data from server:', paymentData);
+        
+        // Initialize CloudPayments widget with correct method
+        const widget = new cp.CloudPayments();
+        
+        // Prepare payment parameters - ТОЛЬКО ОБЯЗАТЕЛЬНЫЕ ПОЛЯ
+        const paymentParams = {
+            publicId: paymentData.publicId,
+            description: paymentData.description,
+            amount: paymentData.amount,
+            currency: paymentData.currency,
+            invoiceId: paymentData.invoiceId,
+            email: paymentData.email
+        };
+        
+        // Add payment method specific parameters
+        if (paymentMethod === 'sbp') {
+            paymentParams.paymentMethod = 'sbp';
+        }
+        
+        console.log('🔍 Final payment parameters:', paymentParams);
+        
+        // Use the correct CloudPayments method
+        widget.pay('charge', paymentParams, {
+            onSuccess: function (options) {
+                console.log('Payment success:', options);
+                // Redirect to success page
+                window.location.href = `/order-success/${currentOrderId}`;
+            },
+            onFail: function (reason, options) {
+                console.error('Payment failed:', reason, options);
+                
+                let errorMessage = 'Неизвестная ошибка';
+                if (reason) {
+                    if (typeof reason === 'string') {
+                        errorMessage = reason;
+                    } else if (reason.message) {
+                        errorMessage = reason.message;
+                    } else if (reason.description) {
+                        errorMessage = reason.description;
+                    }
+                }
+                
+                // Show user-friendly error message
+                alert('Ошибка оплаты: ' + errorMessage);
+                
+                // Reset button state
+                const button = paymentMethod === 'card' ? document.getElementById('payCardBtn') : document.getElementById('paySbpBtn');
+                button.innerHTML = paymentMethod === 'card' ? '<i class="fas fa-credit-card me-2"></i>Оплатить картой' : '<i class="fas fa-mobile-alt me-2"></i>Оплатить через СБП';
+                button.disabled = false;
+            },
+            onComplete: function (paymentResult, options) {
+                console.log('Payment completed:', paymentResult, options);
+                
+                // Check if payment was successful
+                if (paymentResult && paymentResult.success) {
+                    console.log('Payment completed successfully');
+                    window.location.href = `/order-success/${currentOrderId}`;
+                } else {
+                    console.log('Payment completed with failure');
+                    let errorMessage = 'Платеж не может быть принят';
+                    if (paymentResult && paymentResult.message) {
+                        errorMessage = paymentResult.message;
+                    }
+                    alert('Ошибка оплаты: ' + errorMessage);
+                    
+                    // Reset button state
+                    const button = paymentMethod === 'card' ? document.getElementById('payCardBtn') : document.getElementById('paySbpBtn');
+                    button.innerHTML = paymentMethod === 'card' ? '<i class="fas fa-credit-card me-2"></i>Оплатить картой' : '<i class="fas fa-mobile-alt me-2"></i>Оплатить через СБП';
+                    button.disabled = false;
+                }
+            }
+        });
+    }
+});
+
+</script>
+
+<!-- CloudPayments Widget Script -->
+<script src="https://widget.cloudpayments.ru/bundles/cloudpayments.js"></script>
+<script>
+// Проверяем загрузку CloudPayments Widget
+window.addEventListener('load', function() {
+    if (typeof cp !== 'undefined') {
+        console.log('CloudPayments Widget loaded successfully');
+    } else {
+        console.error('CloudPayments Widget failed to load');
+    }
+});
+</script>
+
+{% endblock %}
+{% endblock %}

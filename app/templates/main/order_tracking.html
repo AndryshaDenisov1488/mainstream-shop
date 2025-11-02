@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Заказ #{{ order.generated_order_number }} - MainStream Shop{% endblock %}
+
+{% block content %}
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <!-- Header -->
+                <div class="text-center mb-4">
+                    <h1 class="h3">Информация о заказе</h1>
+                    <p class="text-muted">Заказ #{{ order.generated_order_number }}</p>
+                </div>
+
+                <!-- Order Status Alert -->
+                <div class="alert alert-{{ 'success' if order.status == 'completed' else 'info' if order.status == 'paid' else 'warning' if order.status == 'awaiting_payment' else 'info' if order.status == 'processing' else 'warning' if order.status == 'awaiting_info' else 'primary' if order.status == 'ready' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                    <h5 class="alert-heading mb-2">
+                        <i class="fas fa-{{ 'check-circle' if order.status == 'completed' else 'credit-card' if order.status == 'paid' else 'clock' if order.status == 'awaiting_payment' else 'cog' if order.status == 'processing' else 'question-circle' if order.status == 'awaiting_info' else 'check' if order.status == 'ready' else 'paper-plane' if order.status == 'links_sent' else 'check-circle' if order.status == 'completed_partial_refund' else 'times-circle' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'clock' }}"></i>
+                        {% if order.status == 'completed' %}
+                            Заказ выполнен
+                        {% elif order.status == 'paid' %}
+                            Заказ оплачен
+                        {% elif order.status == 'awaiting_payment' %}
+                            Ожидание оплаты
+                        {% elif order.status == 'processing' %}
+                            Заказ в обработке
+                        {% elif order.status == 'awaiting_info' %}
+                            Нужно уточнить детали
+                        {% elif order.status == 'ready' %}
+                            Готов к отправке
+                        {% elif order.status == 'links_sent' %}
+                            Ссылки отправлены
+                        {% elif order.status == 'completed_partial_refund' %}
+                            Выполнен с частичным возвратом
+                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}
+                            Заказ отменен
+                        {% elif order.status in ['refunded_partial', 'refunded_full'] %}
+                            Возврат выполнен
+                        {% else %}
+                            {{ order.status }}
+                        {% endif %}
+                    </h5>
+                    {% if order.status == 'links_sent' %}
+                        <p class="mb-0">Ссылки на видео отправлены на ваш email. Проверьте почту!</p>
+                    {% elif order.status == 'completed' %}
+                        <p class="mb-0">Ваш заказ успешно выполнен. Спасибо за покупку!</p>
+                    {% elif order.status == 'processing' %}
+                        <p class="mb-0">Ваш заказ обрабатывается нашим оператором.</p>
+                    {% elif order.status == 'paid' %}
+                        <p class="mb-0">Ваш заказ оплачен и передан оператору для обработки.</p>
+                    {% elif order.status == 'awaiting_payment' %}
+                        <p class="mb-0">Ожидаем подтверждения оплаты.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Order Information -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-info-circle me-2"></i>Информация о заказе</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
+                                <p><strong>Дата заказа:</strong> {{ order.created_at.strftime('%d.%m.%Y в %H:%M') if order.created_at else 'Не указана' }}</p>
+                                <p><strong>Статус:</strong> 
+                                    <span class="badge bg-{{ 'success' if order.status == 'completed' else 'info' if order.status == 'paid' else 'warning' if order.status == 'awaiting_payment' else 'info' if order.status == 'processing' else 'warning' if order.status == 'awaiting_info' else 'primary' if order.status == 'ready' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'secondary' }}">
+                                        {% if order.status == 'completed' %}Выполнен
+                                        {% elif order.status == 'paid' %}Оплачен
+                                        {% elif order.status == 'awaiting_payment' %}Ожидание оплаты
+                                        {% elif order.status == 'processing' %}В обработке
+                                        {% elif order.status == 'awaiting_info' %}Нужно уточнить детали
+                                        {% elif order.status == 'ready' %}Готов к отправке
+                                        {% elif order.status == 'links_sent' %}Ссылки отправлены
+                                        {% elif order.status == 'completed_partial_refund' %}Выполнен с частичным возвратом
+                                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}Отменен
+                                        {% elif order.status in ['refunded_partial', 'refunded_full'] %}Возврат выполнен
+                                        {% else %}{{ order.status }}{% endif %}
+                                    </span>
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong>Email:</strong> {{ order.contact_email }}</p>
+                                <p><strong>Телефон:</strong> {{ order.contact_phone or 'Не указан' }}</p>
+                                <p><strong>Сумма:</strong> {{ "%.2f"|format(order.total_amount) }} ₽</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="fas fa-shopping-cart me-2"></i>Состав заказа</h5>
+                    </div>
+                    <div class="card-body">
+                        {% for item in order.items %}
+                        <div class="border-bottom pb-3 mb-3">
+                            <div class="row align-items-center">
+                                <div class="col-md-8">
+                                    <h6 class="mb-1">{{ item.event.name if item.event else 'Неизвестный турнир' }}</h6>
+                                    <p class="text-muted mb-1">
+                                        <strong>Спортсмен:</strong> {{ item.athlete.name if item.athlete else 'Неизвестный спортсмен' }}
+                                    </p>
+                                    {% if item.video_types %}
+                                    <div class="mb-2">
+                                        <strong>Типы видео:</strong>
+                                        {% for video_type_id in item.video_types %}
+                                            {% set video_type = item.get_video_type(video_type_id) %}
+                                            {% if video_type %}
+                                                <span class="badge bg-info me-1">{{ video_type.name }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-4 text-end">
+                                    <div class="fw-bold">{{ "%.2f"|format(item.price) }} ₽</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                        
+                        <div class="row">
+                            <div class="col-md-8">
+                                <strong>Итого:</strong>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <strong>{{ "%.2f"|format(order.total_amount) }} ₽</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- What's Next -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6><i class="fas fa-info-circle me-2"></i>Что дальше?</h6>
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-clock text-primary mb-2" style="font-size: 2rem;"></i>
+                                    <h6>1. Обработка</h6>
+                                    <small class="text-muted">Наш оператор обработает ваш заказ в течение 1-2 часов</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-video text-primary mb-2" style="font-size: 2rem;"></i>
+                                    <h6>2. Подготовка</h6>
+                                    <small class="text-muted">Подготовим видео в выбранном формате</small>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="text-center p-3">
+                                    <i class="fas fa-envelope text-primary mb-2" style="font-size: 2rem;"></i>
+                                    <h6>3. Доставка</h6>
+                                    <small class="text-muted">Отправим ссылки на видео на ваш email</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('main.track_order') }}" class="btn btn-outline-secondary me-3">
+                        <i class="fas fa-search me-2"></i>Отследить другой заказ
+                    </a>
+                    <a href="{{ url_for('main.shop') }}" class="btn btn-primary">
+                        <i class="fas fa-shopping-cart me-2"></i>Продолжить покупки
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Редактировать пользователя - MainStream Shop{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Редактировать пользователя</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к списку
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о пользователе</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" novalidate>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">ФИО *</label>
+                                <input type="text" class="form-control" name="full_name" required 
+                                       value="{{ user.full_name }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" name="email" required 
+                                       value="{{ user.email }}">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Телефон</label>
+                                <input type="tel" class="form-control" name="phone" 
+                                       value="{{ user.phone or '' }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Роль *</label>
+                                <select class="form-select" name="role" required>
+                                    <option value="ADMIN" {{ 'selected' if user.role == 'ADMIN' }}>Администратор</option>
+                                    <option value="MOM" {{ 'selected' if user.role == 'MOM' }}>Мама</option>
+                                    <option value="OPERATOR" {{ 'selected' if user.role == 'OPERATOR' }}>Оператор</option>
+                                    <option value="CUSTOMER" {{ 'selected' if user.role == 'CUSTOMER' }}>Клиент</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Статус</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_active" value="1" 
+                                           {{ 'checked' if user.is_active }} id="is_active">
+                                    <label class="form-check-label" for="is_active">
+                                        Активный пользователь
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Дата регистрации</label>
+                                <input type="text" class="form-control" readonly 
+                                       value="{{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else 'Не указано' }}">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Последний вход</label>
+                                <input type="text" class="form-control" readonly 
+                                       value="{{ user.last_login.strftime('%d.%m.%Y %H:%M') if user.last_login else 'Никогда' }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Новый пароль</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" name="password" id="password"
+                                           placeholder="Оставьте пустым, чтобы не менять">
+                                    <button class="btn btn-outline-secondary" type="button" id="generatePassword">
+                                        <i class="fas fa-random"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Оставьте пустым, чтобы не менять текущий пароль</small>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="send_new_password" value="1" id="send_new_password">
+                                    <label class="form-check-label" for="send_new_password">
+                                        Отправить новый пароль на email
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('generatePassword').addEventListener('click', function() {
+    const password = generateRandomPassword();
+    document.getElementById('password').value = password;
+    document.getElementById('send_new_password').checked = true;
+});
+
+function generateRandomPassword() {
+    // Generate password with letters and numbers (minimum 8 characters)
+    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    const numbers = '0123456789';
+    let password = '';
+    
+    // Ensure at least one letter and one number
+    password += letters.charAt(Math.floor(Math.random() * letters.length));
+    password += numbers.charAt(Math.floor(Math.random() * numbers.length));
+    
+    // Fill the rest with random characters (letters and numbers)
+    const allChars = letters + numbers;
+    for (let i = 2; i < 10; i++) { // Total length 10 characters
+        password += allChars.charAt(Math.floor(Math.random() * allChars.length));
+    }
+    
+    // Shuffle the password
+    return password.split('').sort(() => Math.random() - 0.5).join('');
+}
+</script>
+{% endblock %}

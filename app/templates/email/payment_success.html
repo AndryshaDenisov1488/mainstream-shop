@@ -1,0 +1,76 @@
+{% extends "email/base.html" %}
+
+{% block title %}Оплата получена!{% endblock %}
+
+{% block content %}
+<h2>🎉 Оплата получена!</h2>
+
+<div class="success">
+    <p><strong>✅ Оплата успешно получена и заказ принят в работу!</strong></p>
+</div>
+
+<div class="order-details">
+    <h3>📋 Детали заказа</h3>
+    <table>
+        <tr>
+            <td>Номер заказа:</td>
+            <td>{{ order.generated_order_number }}</td>
+        </tr>
+        <tr>
+            <td>Турнир:</td>
+            <td>{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
+        </tr>
+        <tr>
+            <td>Категория:</td>
+            <td>{{ order.category.name if order.category else 'Неизвестная категория' }}</td>
+        </tr>
+        <tr>
+            <td>Спортсмен:</td>
+            <td>{{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</td>
+        </tr>
+        <tr>
+            <td>Дата заказа:</td>
+            <td>{{ order.created_at.strftime('%d.%m.%Y в %H:%M') if order.created_at else 'Не указана' }}</td>
+        </tr>
+        <tr>
+            <td>Сумма:</td>
+            <td><strong style="color: #28a745; font-size: 18px;">{{ "%.2f"|format(order.total_amount) }} ₽</strong></td>
+        </tr>
+    </table>
+    
+    {% if order.video_types %}
+    <h4>Заказанные видео:</h4>
+    {% for video_type_id in order.video_types %}
+        {% if video_type_id %}
+            {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+            <div style="background: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px; margin: 10px 0;">
+                <h5 style="margin: 0 0 8px 0; color: #495057;">{{ video_type.name if video_type else 'Неизвестный тип' }}</h5>
+                {% if video_type %}
+                    <p style="margin: 0 0 8px 0; color: #6c757d; font-size: 14px;">{{ video_type.description }}</p>
+                    <p style="margin: 0; color: #28a745; font-weight: bold;">{{ "%.0f"|format(video_type.price) }} ₽</p>
+                {% endif %}
+            </div>
+        {% endif %}
+    {% endfor %}
+    {% endif %}
+</div>
+
+<div class="warning">
+    <h4>📋 Что дальше?</h4>
+    <ul>
+        <li>Ваш заказ передан в обработку</li>
+        <li>Мы свяжемся с вами, если потребуется дополнительная информация</li>
+        <li>После обработки видео вы получите ссылки для скачивания</li>
+        <li>Обычно обработка занимает 1-3 рабочих дня</li>
+    </ul>
+</div>
+
+<p style="text-align: center;">
+    <a href="{{ url_for('customer.dashboard', _external=True) }}" class="button">
+        👤 Перейти в профиль
+    </a>
+</p>
+
+<p>Спасибо за заказ! Мы ценим ваше доверие.</p>
+<p>С уважением, команда MainStream Shop</p>
+{% endblock %}

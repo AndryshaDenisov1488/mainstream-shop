@@ -1,0 +1,100 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Загрузка XML - MainStream Shop{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Загрузка XML данных</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('admin.events') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к турнирам
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Загрузить XML файл с данными турнира</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" enctype="multipart/form-data" novalidate>
+                        <div class="mb-3">
+                            <label class="form-label">Выберите XML файл *</label>
+                            <input type="file" class="form-control" name="xml_file" accept=".xml" required>
+                            <div class="form-text">
+                                Поддерживаются только XML файлы с результатами турниров
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="auto_activate" value="1" checked id="auto_activate">
+                                <label class="form-check-label" for="auto_activate">
+                                    Автоматически активировать турнир для продажи
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Информация о формате XML:</h6>
+                            <ul class="mb-0">
+                                <li>Файл должен содержать данные о спортсменах, категориях и результатах</li>
+                                <li>Поддерживается формат результатов соревнований по фигурному катанию</li>
+                                <li>После загрузки будут созданы категории и спортсмены</li>
+                                <li>Все данные можно будет отредактировать после импорта</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload"></i> Загрузить XML
+                            </button>
+                            <a href="{{ url_for('admin.events') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Uploads -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Последние загрузки</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Файл</th>
+                                    <th>Турнир</th>
+                                    <th>Дата загрузки</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        <i class="fas fa-file-upload fa-2x mb-2"></i><br>
+                                        Загрузки не найдены
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

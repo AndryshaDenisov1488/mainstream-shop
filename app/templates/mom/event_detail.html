@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}{{ event.name }} - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">{{ event.name }}</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('mom.events') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к турнирам
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Event Information -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о турнире</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Название:</strong></td>
+                                    <td>{{ event.name }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Место:</strong></td>
+                                    <td>{{ event.place or 'Не указано' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Дата начала:</strong></td>
+                                    <td>{{ event.start_date.strftime('%d.%m.%Y') if event.start_date else 'Не указано' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Дата окончания:</strong></td>
+                                    <td>{{ event.end_date.strftime('%d.%m.%Y') if event.end_date else 'Не указано' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless">
+                                <tr>
+                                    <td><strong>Статус:</strong></td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if event.is_active else 'secondary' }}">
+                                            {{ 'Активен' if event.is_active else 'Неактивен' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Дата создания:</strong></td>
+                                    <td>{{ event.created_at.strftime('%d.%m.%Y %H:%M') if event.created_at else 'Не указано' }}</td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Описание:</strong></td>
+                                    <td>{{ event.description or 'Не указано' }}</td>
+                                </tr>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Categories -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Категории ({{ event.categories|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if event.categories %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Название</th>
+                                        <th>Пол</th>
+                                        <th>Спортсменов</th>
+                                        <th>Заказов</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for category in event.categories %}
+                                    <tr>
+                                        <td>{{ category.name }}</td>
+                                        <td>
+                                            {% if category.gender %}
+                                                <span class="badge bg-{{ 'primary' if category.gender == 'M' else 'pink' if category.gender == 'F' else 'secondary' }}">
+                                                    {{ 'Мужской' if category.gender == 'M' else 'Женский' if category.gender == 'F' else 'Смешанный' }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">Не указан</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ category.athletes|length if category.athletes else 0 }}</td>
+                                        <td>{{ category.orders|length if category.orders else 0 }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center text-muted py-4">
+                            <i class="fas fa-list fa-2x mb-2"></i><br>
+                            Категории не найдены
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Статистика</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-3">
+                            <h4 class="text-primary">{{ event.categories|length }}</h4>
+                            <p class="text-muted mb-0">Категорий</p>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-success">{{ event.athletes|length if event.athletes else 0 }}</h4>
+                            <p class="text-muted mb-0">Спортсменов</p>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-info">{{ event.orders|length if event.orders else 0 }}</h4>
+                            <p class="text-muted mb-0">Заказов</p>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <h4 class="text-warning">
+                                {% if event.orders %}
+                                    {{ "%.0f"|format(event.orders|sum(attribute='total_amount')) }} ₽
+                                {% else %}
+                                    0 ₽
+                                {% endif %}
+                            </h4>
+                            <p class="text-muted mb-0">Выручка</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Orders -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Последние заказы</h5>
+                </div>
+                <div class="card-body">
+                    {% if event.orders %}
+                        {% for order in event.orders[:5] %}
+                        <div class="border-bottom pb-2 mb-2">
+                            <div class="d-flex justify-content-between">
+                                <span><strong>#{{ order.id }}</strong></span>
+                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'danger' }}">
+                                    {{ 'Выполнен' if order.status == 'completed' else 'В обработке' if order.status == 'pending' else 'Отменен' }}
+                                </span>
+                            </div>
+                            <div class="text-muted small">
+                                {{ order.user.full_name if order.user else 'Гость' }}<br>
+                                {{ "%.2f"|format(order.total_amount) }} ₽
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-3">
+                            <i class="fas fa-shopping-cart fa-2x mb-2"></i><br>
+                            Заказы не найдены
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

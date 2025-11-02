@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}{{ event.name }} - MainStream Shop{% endblock %}
+
+{% block content %}
+<!-- Tournament Header -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <nav aria-label="breadcrumb" class="mb-4">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Главная</a></li>
+                <li class="breadcrumb-item"><a href="{{ url_for('main.shop') }}">Магазин</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ event.name }}</li>
+            </ol>
+        </nav>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <h1 class="display-5 fw-bold mb-3">{{ event.name }}</h1>
+                
+                <div class="d-flex flex-wrap gap-3 mb-4">
+                    <div class="d-flex align-items-center text-muted">
+                        <i class="fas fa-calendar me-2"></i>
+                        <span>{{ event.start_date.strftime('%d.%m.%Y') }} - {{ event.end_date.strftime('%d.%m.%Y') }}</span>
+                    </div>
+                    {% if event.place %}
+                    <div class="d-flex align-items-center text-muted">
+                        <i class="fas fa-map-marker-alt me-2"></i>
+                        <span>{{ event.place }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <p class="lead text-muted">
+                    Выберите категорию и найдите вашего спортсмена для заказа видео выступления.
+                </p>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="feature-icon mx-auto" style="width: 120px; height: 120px;">
+                    <i class="fas fa-trophy fa-3x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Categories Section -->
+<section class="py-5">
+    <div class="container">
+        {% if categories %}
+        <div class="row mb-4">
+            <div class="col-lg-8 mx-auto text-center">
+                <h2 class="display-6 fw-bold mb-3">Категории</h2>
+                <p class="lead text-muted">Выберите категорию для поиска спортсмена</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for category in categories %}
+            <div class="col-lg-4 col-md-6 mb-4">
+                <div class="card h-100 tournament-card">
+                    <div class="card-body text-center">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            {% if category.gender == 'F' %}
+                                <i class="fas fa-female fa-2x"></i>
+                            {% elif category.gender == 'M' %}
+                                <i class="fas fa-male fa-2x"></i>
+                            {% else %}
+                                <i class="fas fa-users fa-2x"></i>
+                            {% endif %}
+                        </div>
+                        
+                        <h5 class="fw-bold mb-2">{{ category.name }}</h5>
+                        
+                        {% if category.gender %}
+                        <div class="mb-3">
+                            <span class="badge bg-{% if category.gender == 'F' %}pink{% elif category.gender == 'M' %}primary{% else %}secondary{% endif %}">
+                                {% if category.gender == 'F' %}Женщины
+                                {% elif category.gender == 'M' %}Мужчины
+                                {% else %}Смешанные{% endif %}
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <small class="text-muted">
+                                <i class="fas fa-users me-1"></i>
+                                {{ category.athletes_count }} спортсменов
+                            </small>
+                        </div>
+                        
+                        <a href="{{ url_for('main.category_athletes', event_id=event.id, category_id=category.id) }}" 
+                           class="btn btn-primary w-100">
+                            <i class="fas fa-eye me-2"></i>Выбрать спортсмена
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        {% else %}
+        <!-- Empty State -->
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-users fa-5x text-muted"></i>
+            </div>
+            <h3 class="fw-bold mb-3">Категории не найдены</h3>
+            <p class="text-muted mb-4">
+                В данном турнире пока нет доступных категорий.
+            </p>
+            <a href="{{ url_for('main.shop') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-left me-2"></i>К турнирам
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<!-- Video Types Info -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Доступные форматы видео</h2>
+                <p class="lead text-muted">Выберите подходящий тип видео для вашего заказа</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            {% for video_type in video_types %}
+            <div class="col-lg-6 mb-4">
+                <div class="card h-100">
+                    <div class="card-body text-center">
+                        <div class="feature-icon mx-auto mb-3" style="width: 80px; height: 80px;">
+                            <i class="fas fa-{% if 'спорт' in video_type.name.lower() %}video{% else %}tv{% endif %} fa-2x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">{{ video_type.name }}</h4>
+                        {% if video_type.description %}
+                        <p class="text-muted mb-3">{{ video_type.description }}</p>
+                        {% endif %}
+                        <ul class="list-unstyled text-start mb-3">
+                            <li><i class="fas fa-check text-success me-2"></i>FullHD качество</li>
+                            {% if 'ТВ' in video_type.name %}
+                            <li><i class="fas fa-check text-success me-2"></i>Профессиональная графика</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Замедленные повторы</li>
+                            {% else %}
+                            <li><i class="fas fa-check text-success me-2"></i>Фокус на технике</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Без комментариев</li>
+                            {% endif %}
+                            {% if '2' in video_type.name %}
+                            <li><i class="fas fa-check text-success me-2"></i>КП + ПП прокаты</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Полный комплект</li>
+                            {% endif %}
+                        </ul>
+                        <div class="video-type-price text-primary fw-bold fs-4">{{ "{:,.0f}".format(video_type.price) }} ₽</div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Order Process Info -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Процесс заказа</h2>
+                <p class="lead text-muted">После выбора спортсмена и типа видео</p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <h5>Добавьте в корзину</h5>
+                    <p class="text-muted">Выберите нужные типы видео</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <i class="fas fa-credit-card"></i>
+                    </div>
+                    <h5>Оплатите заказ</h5>
+                    <p class="text-muted">Безопасная оплата через CloudPayments</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h5>Ожидайте обработки</h5>
+                    <p class="text-muted">Видео готовится 3-4 дня</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <i class="fas fa-download"></i>
+                    </div>
+                    <h5>Получите видео</h5>
+                    <p class="text-muted">Ссылки на Яндекс.Диск на 90 дней</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.shop') }}" class="btn btn-outline-primary">
+                <i class="fas fa-arrow-left me-2"></i>К турнирам
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Add hover effects to category cards
+    $('.tournament-card').hover(
+        function() {
+            $(this).css('transform', 'translateY(-5px)');
+        },
+        function() {
+            $(this).css('transform', 'translateY(0)');
+        }
+    );
+    
+    // Add animation classes on scroll
+    $(window).scroll(function() {
+        $('.tournament-card').each(function() {
+            const elementTop = $(this).offset().top;
+            const viewportBottom = $(window).scrollTop() + $(window).height();
+            
+            if (elementTop < viewportBottom - 100) {
+                $(this).addClass('fade-in');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}

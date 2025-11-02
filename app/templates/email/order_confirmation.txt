@@ -1,0 +1,21 @@
+Подтверждение заказа - MainStream Shop
+
+Здравствуйте!
+
+Ваш заказ успешно создан и принят в обработку.
+
+Детали заказа:
+- Номер заказа: {{ order.generated_order_number }}
+- Сумма: {{ "%.2f"|format(order.total_amount) }} ₽
+- Статус: {{ order.status_display() }}
+
+Мы свяжемся с вами в ближайшее время для уточнения деталей.
+
+С уважением,
+команда MainStream Shop
+
+---
+MainStream Shop
+Email: support@mainstreamfs.ru
+Телефон: 79689039018
+Telegram: @mainstreamshopbot

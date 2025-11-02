@@ -1,0 +1,136 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Редактировать турнир - MainStream Shop{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Редактировать турнир</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('admin.events') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к турнирам
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о турнире</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" novalidate>
+                        <div class="mb-3">
+                            <label class="form-label">Название турнира *</label>
+                            <input type="text" class="form-control" name="name" 
+                                   value="{{ event.name }}" required>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Место проведения</label>
+                            <input type="text" class="form-control" name="place" 
+                                   value="{{ event.place or '' }}" 
+                                   placeholder="Например: Москва, Ледовый дворец">
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Дата начала</label>
+                                    <input type="date" class="form-control" name="start_date" 
+                                           value="{{ event.start_date.strftime('%Y-%m-%d') if event.start_date else '' }}">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Дата окончания</label>
+                                    <input type="date" class="form-control" name="end_date" 
+                                           value="{{ event.end_date.strftime('%Y-%m-%d') if event.end_date else '' }}">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Описание</label>
+                            <textarea class="form-control" name="description" rows="4" 
+                                      placeholder="Описание турнира...">{{ event.description or '' }}</textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="is_active" 
+                                       value="1" {{ 'checked' if event.is_active else '' }} id="is_active">
+                                <label class="form-check-label" for="is_active">
+                                    Турнир активен (доступен для продажи)
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-info">
+                            <h6><i class="fas fa-info-circle"></i> Информация:</h6>
+                            <ul class="mb-0">
+                                <li>Активные турниры доступны для заказа видео</li>
+                                <li>Неактивные турниры скрыты от клиентов</li>
+                                <li>Даты начала и окончания используются для сортировки</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Сохранить изменения
+                            </button>
+                            <a href="{{ url_for('admin.events') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Event Statistics -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Статистика турнира</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-primary">{{ event.categories|length }}</h4>
+                                <p class="text-muted mb-0">Категорий</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-success">{{ event.athletes|length if event.athletes else 0 }}</h4>
+                                <p class="text-muted mb-0">Спортсменов</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-info">{{ event.orders|length if event.orders else 0 }}</h4>
+                                <p class="text-muted mb-0">Заказов</p>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="text-center">
+                                <h4 class="text-warning">
+                                    {{ event.created_at.strftime('%d.%m.%Y') if event.created_at else 'Неизвестно' }}
+                                </h4>
+                                <p class="text-muted mb-0">Дата создания</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

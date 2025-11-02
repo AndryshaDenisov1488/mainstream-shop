@@ -1,0 +1,404 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Финансы{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">💰 Финансовая аналитика</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportFinanceData()">
+                    <i class="fas fa-download"></i> Экспорт
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">📅 Фильтры</h6>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <div class="col-md-2">
+                    <label for="period" class="form-label">Период группировки</label>
+                    <select class="form-select" id="period" name="period">
+                        <option value="day" {{ 'selected' if period == 'day' else '' }}>По дням</option>
+                        <option value="week" {{ 'selected' if period == 'week' else '' }}>По неделям</option>
+                        <option value="month" {{ 'selected' if period == 'month' else '' }}>По месяцам</option>
+                        <option value="year" {{ 'selected' if period == 'year' else '' }}>По годам</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="start_date" class="form-label">Дата начала</label>
+                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="end_date" class="form-label">Дата окончания</label>
+                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date }}">
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">&nbsp;</label>
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-filter"></i> Применить фильтры
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Key Metrics -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Общая выручка</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ "%.2f"|format(total_revenue) }} ₽</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-dollar-sign fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-success shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Выполнено заказов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ completed_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-check-circle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-warning shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Требуется возврат</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ refund_orders }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-exclamation-triangle fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-info shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Активных клиентов</div>
+                            <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_customers }}</div>
+                        </div>
+                        <div class="col-auto">
+                            <i class="fas fa-users fa-2x text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Revenue Chart -->
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">📈 Динамика выручки</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Период</th>
+                                    <th>Выручка</th>
+                                    <th>Всего заказов</th>
+                                    <th>Выполнено</th>
+                                    <th>Отменено</th>
+                                    <th>Возврат</th>
+                                    <th>Конверсия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for row in revenue_by_period %}
+                                <tr>
+                                    <td>
+                                        {% if period == 'day' %}
+                                            {{ row.period }}
+                                        {% elif period == 'week' %}
+                                            Неделя {{ row.period }}
+                                        {% elif period == 'month' %}
+                                            {% set year, month = row.period.split('-') %}
+                                            {% set month_names = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'] %}
+                                            {{ month_names[month|int - 1] }} {{ year }}
+                                        {% else %}
+                                            {{ row.period }} год
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ "%.2f"|format(row.revenue) }} ₽</span>
+                                    </td>
+                                    <td>{{ row.total_orders }}</td>
+                                    <td>
+                                        <span class="badge bg-success">{{ row.completed_orders }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-danger">{{ row.cancelled_orders }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-warning">{{ row.refund_orders }}</span>
+                                    </td>
+                                    <td>
+                                        {% set conversion = (row.completed_orders / row.total_orders * 100) if row.total_orders > 0 else 0 %}
+                                        <span class="badge bg-{{ 'success' if conversion >= 80 else 'warning' if conversion >= 60 else 'danger' }}">
+                                            {{ "%.1f"|format(conversion) }}%
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payment Status -->
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">💳 Статусы платежей</h6>
+                </div>
+                <div class="card-body">
+                    {% for stat in payment_stats %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>
+                                {% if stat.status == 'confirmed' %}
+                                    <i class="fas fa-check-circle text-success"></i> Подтверждено
+                                {% elif stat.status == 'pending' %}
+                                    <i class="fas fa-clock text-warning"></i> В ожидании
+                                {% elif stat.status == 'failed' %}
+                                    <i class="fas fa-times-circle text-danger"></i> Неудачно
+                                {% else %}
+                                    <i class="fas fa-question-circle text-secondary"></i> {{ stat.status }}
+                                {% endif %}
+                            </span>
+                            <span class="badge bg-primary">{{ stat.count }}</span>
+                        </div>
+                        <div class="text-muted">
+                            Сумма: {{ "%.2f"|format(stat.total_amount) }} ₽
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Video Type Analytics -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">🎬 Аналитика по типам видео</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Тип видео</th>
+                                    <th>Заказов</th>
+                                    <th>Выручка</th>
+                                    <th>Средний чек</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in video_type_stats %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ stat.video_type.name }}</strong><br>
+                                        <small class="text-muted">{{ stat.video_type.description[:50] }}...</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ stat.orders_count }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ "%.2f"|format(stat.revenue) }} ₽</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ "%.2f"|format(stat.average_order_value) }} ₽</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Event Analytics -->
+        <div class="col-lg-6">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">🏆 Аналитика по турнирам</h6>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Турнир</th>
+                                    <th>Заказов</th>
+                                    <th>Выручка</th>
+                                    <th>Средний чек</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for stat in event_stats %}
+                                {% if stat.orders_count > 0 %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ stat.event.name }}</strong><br>
+                                        <small class="text-muted">{{ stat.event.place or 'Место не указано' }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ stat.orders_count }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ "%.2f"|format(stat.revenue) }} ₽</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ "%.2f"|format(stat.average_order_value) }} ₽</span>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row">
+        <div class="col-lg-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">📊 Сводка по заказам</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-shopping-cart fa-2x text-primary"></i>
+                                <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Всего заказов</div>
+                                <div class="h6 mb-0 font-weight-bold text-gray-800">{{ total_orders }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-times-circle fa-2x text-danger"></i>
+                                <div class="text-xs font-weight-bold text-danger text-uppercase mb-1">Отменено</div>
+                                <div class="h6 mb-0 font-weight-bold text-gray-800">{{ cancelled_orders }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-user-plus fa-2x text-success"></i>
+                                <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Новых клиентов</div>
+                                <div class="h6 mb-0 font-weight-bold text-gray-800">{{ new_customers }}</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-undo fa-2x text-warning"></i>
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Сумма возвратов</div>
+                                <div class="h6 mb-0 font-weight-bold text-gray-800">{{ "%.2f"|format(refund_amount) }} ₽</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-8">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-primary">📈 Ключевые показатели</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <h4 class="text-success">
+                                    {% set completion_rate = (completed_orders / total_orders * 100) if total_orders > 0 else 0 %}
+                                    {{ "%.1f"|format(completion_rate) }}%
+                                </h4>
+                                <small class="text-muted">Процент выполнения заказов</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <h4 class="text-primary">
+                                    {% set avg_order_value = (total_revenue / completed_orders) if completed_orders > 0 else 0 %}
+                                    {{ "%.2f"|format(avg_order_value) }} ₽
+                                </h4>
+                                <small class="text-muted">Средний чек</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="mb-3">
+                                <h4 class="text-warning">
+                                    {% set refund_rate = (refund_orders / total_orders * 100) if total_orders > 0 else 0 %}
+                                    {{ "%.1f"|format(refund_rate) }}%
+                                </h4>
+                                <small class="text-muted">Процент возвратов</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function exportFinanceData() {
+    // Get current URL parameters
+    const params = new URLSearchParams(window.location.search);
+    params.set('export', 'csv');
+    
+    // Create download link
+    const link = document.createElement('a');
+    link.href = window.location.pathname + '?' + params.toString();
+    link.download = 'finance_report.csv';
+    link.click();
+}
+</script>
+{% endblock %}

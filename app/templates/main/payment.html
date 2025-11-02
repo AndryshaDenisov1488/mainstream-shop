@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}Оплата заказа{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>
+                        Оплата заказа {{ order.generated_order_number }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <!-- Order Summary -->
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6>Детали заказа:</h6>
+                            <p><strong>Спортсмен:</strong> {{ order.athlete.name }}</p>
+                            <p><strong>Соревнование:</strong> {{ order.event.name }}</p>
+                            <p><strong>Типы видео:</strong> 
+                                {% for video_type_id in order.video_types %}
+                                    {% set video_type = video_types.get(video_type_id) %}
+                                    {% if video_type %}{{ video_type.name }}{% if not loop.last %}, {% endif %}{% endif %}
+                                {% endfor %}
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Сумма к оплате:</h6>
+                            <div class="h4 text-primary">
+                                {{ "%.2f"|format(order.total_amount) }} RUB
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Method Selection -->
+                    <!-- Payment Buttons -->
+                    <div class="d-grid gap-3">
+                        <button type="button" class="btn btn-primary btn-lg" onclick="initiatePayment()">
+                            <i class="fas fa-credit-card me-2"></i>
+                            Оплатить картой {{ "%.2f"|format(order.total_amount) }} RUB
+                        </button>
+                        
+                        <button type="button" class="btn btn-success btn-lg" onclick="initiateSbpPayment()">
+                            <i class="fas fa-mobile-alt me-2"></i>
+                            Оплатить через СБП {{ "%.2f"|format(order.total_amount) }} RUB
+                        </button>
+                    </div>
+
+                    <!-- Payment Status -->
+                    <div id="paymentStatus" class="mt-3" style="display: none;">
+                        <div class="alert alert-info">
+                            <i class="fas fa-spinner fa-spin me-2"></i>
+                            <span id="statusText">Обработка платежа...</span>
+                        </div>
+                    </div>
+
+                    <!-- Back to Cart -->
+                    <div class="mt-4 text-center">
+                        <a href="{{ url_for('main.cart') }}" class="btn btn-outline-secondary">
+                            <i class="fas fa-arrow-left me-2"></i>Вернуться в корзину
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CloudPayments Widget Script -->
+<script src="https://widget.cloudpayments.ru/bundles/cloudpayments.js"></script>
+
+<!-- Payment data from server -->
+<script type="application/json" id="payment-data">
+{% if payment_data %}{{ payment_data | tojson | safe }}{% else %}null{% endif %}
+</script>
+
+<script>
+// Get payment data from JSON script tag
+var paymentData;
+try {
+    paymentData = JSON.parse(document.getElementById('payment-data').textContent);
+} catch (e) {
+    console.error('Error parsing payment data:', e);
+    paymentData = null;
+}
+
+var orderId = parseInt('{{ order.id }}');
+var paymentMethod = '{{ payment_method }}';
+
+// Check if payment data is valid
+if (!paymentData) {
+    console.error('Payment data is not available');
+    document.getElementById('paymentForm').innerHTML = '<div class="alert alert-danger">Ошибка загрузки платежных данных. Попробуйте обновить страницу.</div>';
+    return;
+}
+
+// Payment functions
+
+function showPaymentStatus(text) {
+    document.getElementById('statusText').textContent = text;
+    document.getElementById('paymentStatus').style.display = 'block';
+}
+
+function hidePaymentStatus() {
+    document.getElementById('paymentStatus').style.display = 'none';
+}
+
+function initiatePayment() {
+    showPaymentStatus('Инициализация платежа...');
+    
+    // Create CloudPayments widget
+    const widget = new cp.CloudPayments();
+    
+    // Payment data for card payment
+    const paymentConfig = {
+        publicId: paymentData.publicId,
+        description: paymentData.description,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        invoiceId: paymentData.invoiceId,
+        email: paymentData.email
+    };
+    
+    // Add optional fields if they exist
+    if (paymentData.accountId) {
+        paymentConfig.accountId = paymentData.accountId;
+    }
+    if (paymentData.skin) {
+        paymentConfig.skin = paymentData.skin;
+    }
+    if (paymentData.data) {
+        paymentConfig.data = paymentData.data;
+    }
+    
+    // Initiate payment
+    widget.charge(paymentConfig,
+        function (options) {
+            // Success callback - CloudPayments сам обработает результат
+            showPaymentStatus('Платеж успешно обработан!');
+            // Не перенаправляем - CloudPayments сам обработает
+        },
+        function (reason, options) {
+            // Failure callback
+            showPaymentStatus('Ошибка при обработке платежа: ' + reason);
+            // Не перенаправляем - показываем ошибку
+        }
+    );
+}
+
+function initiateSbpPayment() {
+    showPaymentStatus('Инициализация СБП платежа...');
+    
+    // Create CloudPayments widget for SBP
+    const widget = new cp.CloudPayments();
+    
+    // Payment data for SBP payment
+    const paymentConfig = {
+        publicId: paymentData.publicId,
+        description: 'СБП: ' + paymentData.description,
+        amount: paymentData.amount,
+        currency: paymentData.currency,
+        invoiceId: paymentData.invoiceId,
+        email: paymentData.email,
+        paymentMethod: 'sbp'
+    };
+    
+    // Add optional fields if they exist
+    if (paymentData.accountId) {
+        paymentConfig.accountId = paymentData.accountId;
+    }
+    if (paymentData.skin) {
+        paymentConfig.skin = paymentData.skin;
+    }
+    if (paymentData.data) {
+        paymentConfig.data = paymentData.data;
+    }
+    
+    // Initiate SBP payment
+    widget.charge(paymentConfig,
+        function (options) {
+            // Success callback - CloudPayments сам обработает результат
+            showPaymentStatus('СБП платеж успешно обработан!');
+            // Не перенаправляем - CloudPayments сам обработает
+        },
+        function (reason, options) {
+            // Failure callback
+            showPaymentStatus('Ошибка при обработке СБП платежа: ' + reason);
+            // Не перенаправляем - показываем ошибку
+        }
+    );
+}
+</script>
+{% endblock %}

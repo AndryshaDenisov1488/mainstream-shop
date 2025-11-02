@@ -1,0 +1,24 @@
+{% extends "email/base.html" %}
+
+{% block title %}Заказ отменен{% endblock %}
+
+{% block content %}
+<h2>Здравствуйте, {{ order.contact_first_name or 'Уважаемый клиент' }}!</h2>
+
+<p>К сожалению, мы вынуждены сообщить вам, что ваш заказ <strong>№{{ order.generated_order_number }}</strong> был отменен.</p>
+
+{% if cancellation_reason %}
+<div class="warning">
+    <h3>Причина отмены:</h3>
+    <p>{{ cancellation_reason }}</p>
+</div>
+{% endif %}
+
+<p>Мы искренне сожалеем о сложившейся ситуации и приносим свои извинения за причиненные неудобства.</p>
+
+<p>Если у вас возникли вопросы или вы хотите оформить новый заказ, пожалуйста, свяжитесь с нами.</p>
+
+<p>Спасибо за понимание!</p>
+
+<p>С уважением,<br>Команда MainStream Shop</p>
+{% endblock %}

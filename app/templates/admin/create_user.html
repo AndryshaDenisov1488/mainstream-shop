@@ -1,0 +1,121 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Создать пользователя - MainStream Shop{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">Создать пользователя</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Назад к списку
+            </a>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0">Информация о пользователе</h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" novalidate>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">ФИО *</label>
+                                <input type="text" class="form-control" name="full_name" required 
+                                       placeholder="Введите полное имя">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Email *</label>
+                                <input type="email" class="form-control" name="email" required 
+                                       placeholder="user@example.com">
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Телефон</label>
+                                <input type="tel" class="form-control" name="phone" 
+                                       placeholder="+7 (XXX) XXX-XX-XX">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Роль *</label>
+                                <select class="form-select" name="role" required>
+                                    <option value="">Выберите роль</option>
+                                    <option value="ADMIN">Администратор</option>
+                                    <option value="MOM">Мама</option>
+                                    <option value="OPERATOR">Оператор</option>
+                                    <option value="CUSTOMER">Клиент</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Пароль</label>
+                                <div class="input-group">
+                                    <input type="password" class="form-control" name="password" id="password"
+                                           placeholder="Оставьте пустым для автогенерации">
+                                    <button class="btn btn-outline-secondary" type="button" id="generatePassword">
+                                        <i class="fas fa-random"></i>
+                                    </button>
+                                </div>
+                                <small class="text-muted">Если оставить пустым, пароль будет сгенерирован автоматически</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Статус</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="is_active" value="1" checked id="is_active">
+                                    <label class="form-check-label" for="is_active">
+                                        Активный пользователь
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Отправить данные на email</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="send_email" value="1" checked id="send_email">
+                                    <label class="form-check-label" for="send_email">
+                                        Отправить логин и пароль на email
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Создать пользователя
+                            </button>
+                            <a href="{{ url_for('admin.users') }}" class="btn btn-secondary">
+                                <i class="fas fa-times"></i> Отмена
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('generatePassword').addEventListener('click', function() {
+    const password = generateRandomPassword();
+    document.getElementById('password').value = password;
+});
+
+function generateRandomPassword() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let password = '';
+    for (let i = 0; i < 8; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return password;
+}
+</script>
+{% endblock %}

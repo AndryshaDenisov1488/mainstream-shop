@@ -1,0 +1,42 @@
+
+/* Тестовые стили для проверки */
+body {
+    background-color: #f0f0f0 !important;
+    font-family: Arial, sans-serif !important;
+}
+
+.navbar {
+    background-color: #1A4A8F !important;
+    color: white !important;
+}
+
+.card {
+    background-color: white !important;
+    border: 1px solid #ddd !important;
+    border-radius: 8px !important;
+    padding: 20px !important;
+    margin: 10px 0 !important;
+}
+
+.btn-primary {
+    background-color: #1A4A8F !important;
+    border-color: #1A4A8F !important;
+}
+
+.alert {
+    padding: 15px !important;
+    margin: 10px 0 !important;
+    border-radius: 4px !important;
+}
+
+.alert-success {
+    background-color: #d4edda !important;
+    border-color: #c3e6cb !important;
+    color: #155724 !important;
+}
+
+.alert-danger {
+    background-color: #f8d7da !important;
+    border-color: #f5c6cb !important;
+    color: #721c24 !important;
+}

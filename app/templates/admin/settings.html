@@ -1,0 +1,210 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Настройки системы{% endblock %}
+
+{% block admin_content %}
+<div class="container-fluid">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+        <h1 class="h2">⚙️ Настройки системы</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <div class="btn-group me-2">
+                <a href="{{ url_for('admin.download_database') }}" class="btn btn-sm btn-outline-success">
+                    <i class="fas fa-download"></i> Скачать БД
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST">
+        <div class="row">
+            <!-- Price Management -->
+            <div class="col-lg-8">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">💰 Управление ценами</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle"></i> 
+                            Изменение цен влияет на все новые заказы. Существующие заказы остаются с прежними ценами.
+                        </div>
+                        
+                        {% if video_types %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>Тип видео</th>
+                                        <th>Описание</th>
+                                        <th>Текущая цена</th>
+                                        <th>Новая цена</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for video_type in video_types %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ video_type.name }}</strong>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ video_type.description }}</small>
+                                        </td>
+                                        <td>
+                                            <span class="badge bg-success">{{ "%.2f"|format(video_type.price) }} ₽</span>
+                                        </td>
+                                        <td>
+                                            <div class="input-group input-group-sm">
+                                                <input type="number" 
+                                                       class="form-control" 
+                                                       name="price_{{ video_type.id }}" 
+                                                       value="{{ "%.2f"|format(video_type.price) }}" 
+                                                       step="0.01" 
+                                                       min="0">
+                                                <span class="input-group-text">₽</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-warning">
+                            <i class="fas fa-exclamation-triangle"></i> 
+                            Типы видео не найдены. Запустите скрипт исправления БД.
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- System Settings -->
+            <div class="col-lg-4">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">🔧 Общие настройки</h6>
+                    </div>
+                    <div class="card-body">
+                        {% if settings %}
+                            {% for setting in settings %}
+                            <div class="mb-3">
+                                <label for="setting_{{ setting.key }}" class="form-label">
+                                    {{ setting.name or setting.key }}
+                                </label>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="setting_{{ setting.key }}" 
+                                       name="setting_{{ setting.key }}" 
+                                       value="{{ setting.value }}">
+                                {% if setting.description %}
+                                    <div class="form-text">{{ setting.description }}</div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle"></i> 
+                                Системные настройки не настроены.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Database Info -->
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">💾 Информация о базе данных</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-6">
+                                <div class="mb-2">
+                                    <i class="fas fa-users fa-2x text-primary"></i>
+                                    <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Клиенты</div>
+                                    <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                        {{ users_count }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-2">
+                                    <i class="fas fa-shopping-cart fa-2x text-success"></i>
+                                    <div class="text-xs font-weight-bold text-success text-uppercase mb-1">Заказы</div>
+                                    <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                        {{ orders_count }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-2">
+                                    <i class="fas fa-calendar fa-2x text-info"></i>
+                                    <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Турниры</div>
+                                    <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                        {{ events_count }}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-2">
+                                    <i class="fas fa-video fa-2x text-warning"></i>
+                                    <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Типы видео</div>
+                                    <div class="h6 mb-0 font-weight-bold text-gray-800">
+                                        {{ video_types_count }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="text-center">
+                            <a href="{{ url_for('admin.download_database') }}" 
+                               class="btn btn-success btn-sm">
+                                <i class="fas fa-download"></i> Скачать резервную копию
+                            </a>
+                            <div class="form-text mt-2">
+                                Создается полная копия базы данных с текущей датой
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Save Button -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-body text-center">
+                        <button type="submit" class="btn btn-primary btn-lg">
+                            <i class="fas fa-save"></i> Сохранить настройки
+                        </button>
+                        <div class="form-text mt-2">
+                            Все изменения будут применены немедленно
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Auto-format price inputs
+document.querySelectorAll('input[type="number"]').forEach(input => {
+    input.addEventListener('blur', function() {
+        if (this.value && !isNaN(this.value)) {
+            this.value = parseFloat(this.value).toFixed(2);
+        }
+    });
+});
+
+// Confirmation for save
+document.querySelector('form').addEventListener('submit', function(e) {
+    if (!confirm('Вы уверены, что хотите сохранить изменения? Это повлияет на все новые заказы.')) {
+        e.preventDefault();
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+
+{% block title %}О нас - MainStream Shop{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-5 fw-bold mb-4">О MainStream Shop</h1>
+                <p class="lead text-muted mb-4">
+                    Мы специализируемся на создании профессиональных видео с турниров по фигурному катанию. 
+                    Наша команда работает с лучшими операторами и использует современное оборудование 
+                    для создания качественного контента.
+                </p>
+                <div class="d-flex gap-3">
+                    <a href="{{ url_for('main.shop') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-shopping-cart me-2"></i>Заказать видео
+                    </a>
+                    <a href="{{ url_for('main.contact') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-envelope me-2"></i>Связаться с нами
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <div class="feature-icon mx-auto" style="width: 200px; height: 200px;">
+                    <i class="fas fa-video fa-5x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Our Mission -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Наша миссия</h2>
+                <p class="lead text-muted">
+                    Сохранить и передать родителям качественные записи выступлений их детей, 
+                    чтобы каждый момент был запечатлен в лучшем качестве.
+                </p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-award"></i>
+                    </div>
+                    <h4>Качество</h4>
+                    <p class="text-muted">
+                        Используем профессиональное оборудование и работаем с опытными операторами
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <h4>Скорость</h4>
+                    <p class="text-muted">
+                        Обрабатываем заказы в течение 3-4 дней с момента оплаты
+                    </p>
+                </div>
+            </div>
+            
+            <div class="col-lg-4 mb-4">
+                <div class="feature-card text-center">
+                    <div class="feature-icon">
+                        <i class="fas fa-shield-alt"></i>
+                    </div>
+                    <h4>Надежность</h4>
+                    <p class="text-muted">
+                        Гарантируем качество видео и возвращаем деньги при несоответствии
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Why Choose Us -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Почему выбирают нас</h2>
+                <p class="lead text-muted">
+                    Мы предоставляем лучший сервис для родителей юных фигуристов
+                </p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-6 mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="feature-icon" style="width: 60px; height: 60px;">
+                            <i class="fas fa-video"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Профессиональная съемка</h5>
+                        <p class="text-muted">
+                            Высококачественные записи с профессиональным оборудованием и монтажом
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="feature-icon" style="width: 60px; height: 60px;">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Быстрые сроки</h5>
+                        <p class="text-muted">
+                            Мы отправляем видео в течение 3–4 дней с даты заказа
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="feature-icon" style="width: 60px; height: 60px;">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Гарантия качества</h5>
+                        <p class="text-muted">
+                            Если видео не соответствует заявленному качеству, вернем деньги
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="d-flex">
+                    <div class="flex-shrink-0">
+                        <div class="feature-icon" style="width: 60px; height: 60px;">
+                            <i class="fas fa-cloud-download-alt"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow-1 ms-3">
+                        <h5>Удобное скачивание</h5>
+                        <p class="text-muted">
+                            Ссылки на Яндекс.Диск действуют 90 дней для удобного скачивания
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Our Process -->
+<section class="py-5">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-8 mx-auto text-center mb-5">
+                <h2 class="display-6 fw-bold mb-3">Как мы работаем</h2>
+                <p class="lead text-muted">
+                    Простой и понятный процесс от заказа до получения видео
+                </p>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">1</span>
+                    </div>
+                    <h5>Получаем заказ</h5>
+                    <p class="text-muted">Вы оформляете заказ через сайт или Telegram-бота</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">2</span>
+                    </div>
+                    <h5>Обрабатываем видео</h5>
+                    <p class="text-muted">Наши операторы монтируют и обрабатывают видео</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">3</span>
+                    </div>
+                    <h5>Загружаем на диск</h5>
+                    <p class="text-muted">Готовые видео загружаем на Яндекс.Диск</p>
+                </div>
+            </div>
+            
+            <div class="col-lg-3 col-md-6 mb-4">
+                <div class="text-center">
+                    <div class="feature-icon mx-auto mb-3">
+                        <span class="fw-bold">4</span>
+                    </div>
+                    <h5>Отправляем ссылки</h5>
+                    <p class="text-muted">Вы получаете ссылки для скачивания на email</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact CTA -->
+<section class="py-5 bg-gradient-primary text-white">
+    <div class="container text-center">
+        <div class="row">
+            <div class="col-lg-8 mx-auto">
+                <h2 class="display-5 fw-bold mb-3">Есть вопросы?</h2>
+                <p class="lead mb-4">
+                    Свяжитесь с нами, и мы с радостью ответим на все ваши вопросы
+                </p>
+                <a href="{{ url_for('main.contact') }}" class="btn btn-light btn-lg px-5">
+                    <i class="fas fa-envelope me-2"></i>Связаться с нами
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
