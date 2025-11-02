@@ -232,16 +232,6 @@
                                             </button>
                                         {% endif %}
                                         
-                                        <!-- Кнопка "Принять деньги" для links_sent и refund_required -->
-                                        {% if order.status in ['links_sent', 'refund_required'] %}
-                                            <button class="btn btn-sm btn-success confirm-payment-btn" 
-                                                    data-order-id="{{ order.id }}" 
-                                                    data-order-number="{{ order.generated_order_number }}" 
-                                                    data-order-amount="{{ order.total_amount }}" 
-                                                    title="Принять деньги">
-                                                <i class="fas fa-money-bill-wave"></i>
-                                            </button>
-                                        {% endif %}
                                         
                                         <!-- Кнопка "Обработать возврат" для refund_required -->
                                         {% if order.status == 'refund_required' %}
