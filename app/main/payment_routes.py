@@ -280,6 +280,14 @@ def register_payment_routes(bp):
             except Exception as e:
                 logger.error(f'Failed to send order confirmation email: {e}')
             
+            # Send Telegram notification about order creation (if user has telegram_id)
+            try:
+                from app.utils.telegram_notifier import send_order_created_notification
+                send_order_created_notification(order)
+            except Exception as e:
+                logger.warning(f'Failed to send Telegram notification for order creation: {e}')
+                # Don't fail the whole operation if Telegram notification fails
+            
             flash('Заказ успешно оформлен! Оператор скоро свяжется с вами.', 'success')
             return render_template('main/order_success.html', order=order)
             

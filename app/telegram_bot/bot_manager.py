@@ -879,6 +879,13 @@ class TelegramBotManager:
                 db.session.add(order)
                 db.session.commit()
                 
+                # Send Telegram notification about order creation (if user has telegram_id)
+                try:
+                    await self.send_order_created_notification(order)
+                except Exception as e:
+                    logger.warning(f'Failed to send Telegram notification for order creation: {e}')
+                    # Don't fail the whole operation if Telegram notification fails
+                
                 # Create payment URL - use order payment page
                 import os
                 site_url = os.environ.get('SITE_URL', 'https://mainstreamfs.ru')
@@ -1311,6 +1318,67 @@ class TelegramBotManager:
             reply_markup=reply_markup
         )
     
+    async def send_order_created_notification(self, order: Order):
+        """Send order created notification to client via Telegram if they are registered"""
+        from flask import has_app_context
+        
+        try:
+            # Ensure Flask app context is available
+            if not has_app_context():
+                logger.error("Flask app context not available for sending Telegram message")
+                return False
+            
+            # Find user by email
+            user = User.query.filter_by(email=order.contact_email).first()
+            if not user or not user.telegram_id:
+                logger.info(f"User {order.contact_email} not found in Telegram or not registered, skipping Telegram notification")
+                return False
+            
+            # Get video types for display
+            video_types_dict = {}
+            if order.video_types:
+                video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
+                video_types_dict = {vt.id: vt for vt in video_types}
+            
+            # Prepare message
+            message = f"✅ Ваш заказ #{order.generated_order_number} создан!\n\n"
+            message += f"🏆 Турнир: {order.event.name}\n"
+            message += f"👤 Спортсмен: {order.athlete.name}\n"
+            message += f"📂 Категория: {order.category.name}\n\n"
+            
+            if order.video_types and video_types_dict:
+                message += "🎬 Типы видео:\n"
+                for video_type_id in order.video_types:
+                    video_type = video_types_dict.get(video_type_id)
+                    if video_type:
+                        message += f"• {video_type.name}\n"
+                message += "\n"
+            
+            message += f"💰 Сумма к оплате: {int(order.total_amount)} ₽\n"
+            message += f"📅 Дата заказа: {order.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
+            
+            if order.status == 'awaiting_payment':
+                import os
+                site_url = os.environ.get('SITE_URL', 'https://mainstreamfs.ru')
+                payment_url = f"{site_url}/payment/{order.id}"
+                message += f"💳 Для оплаты перейдите по ссылке:\n{payment_url}\n\n"
+            
+            message += "📧 Подробности также отправлены на ваш email."
+            
+            # Send message
+            await self.application.bot.send_message(
+                chat_id=user.telegram_id,
+                text=message,
+                parse_mode=ParseMode.HTML
+            )
+            
+            logger.info(f"Order created notification sent to Telegram user {user.telegram_id} for order {order.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error sending order created notification to Telegram: {str(e)}", exc_info=True)
+            return False
+    
     async def send_video_links_to_client(self, order: Order):
         """Send video links to client via Telegram if they are registered"""
         from flask import has_app_context
@@ -1324,8 +1392,14 @@ class TelegramBotManager:
             # Find user by email
             user = User.query.filter_by(email=order.contact_email).first()
             if not user or not user.telegram_id:
-                logger.info(f"User {order.contact_email} not found in Telegram or not registered")
+                logger.info(f"User {order.contact_email} not found in Telegram or not registered, skipping Telegram notification")
                 return False
+            
+            # Get video types for display
+            video_types_dict = {}
+            if order.video_types:
+                video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
+                video_types_dict = {vt.id: vt for vt in video_types}
             
             # Prepare message
             message = f"🎉 Ваш заказ #{order.generated_order_number} готов!\n\n"
@@ -1333,11 +1407,15 @@ class TelegramBotManager:
             
             if order.video_links:
                 for video_type_id, link in order.video_links.items():
-                    video_type = VideoType.query.get(video_type_id)
+                    video_type = video_types_dict.get(video_type_id) or VideoType.query.get(video_type_id)
                     if video_type:
-                        message += f"• {video_type.name}: {link}\n"
+                        message += f"• {video_type.name}:\n{link}\n\n"
+                    else:
+                        message += f"• Ссылка:\n{link}\n\n"
+            else:
+                message += "Ссылки будут добавлены позже.\n\n"
             
-            message += f"\n💰 Сумма заказа: {order.total_amount} ₽\n"
+            message += f"💰 Сумма заказа: {int(order.total_amount)} ₽\n"
             message += f"📅 Дата заказа: {order.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             message += "⚠️ Ссылки действительны 90 дней с момента отправки."
             

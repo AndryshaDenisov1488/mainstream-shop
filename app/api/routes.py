@@ -557,6 +557,14 @@ def send_video_links_api(order_id):
             logger.error(f'Failed to send email: {e}')
             # Don't fail the whole operation if email fails
         
+        # Send Telegram notification with links (if user has telegram_id)
+        try:
+            from app.utils.telegram_notifier import send_video_links_notification
+            send_video_links_notification(order)
+        except Exception as e:
+            logger.warning(f'Failed to send Telegram notification with links: {e}')
+            # Don't fail the whole operation if Telegram notification fails
+        
         # Log action
         AuditLog.create_log(
             user_id=current_user.id,

@@ -54,6 +54,38 @@ def send_video_links_notification(order):
         return False
 
 
+def send_order_created_notification(order):
+    """
+    Send order created notification to user via Telegram
+    Synchronous wrapper for sending order creation notification
+    """
+    if not _bot_manager or not _bot_loop:
+        logger.warning("Telegram bot not initialized, skipping notification")
+        return False
+    
+    try:
+        # Check if event loop is running
+        try:
+            loop = asyncio.get_running_loop()
+            # If we're already in an async context, use create_task
+            loop.create_task(_bot_manager.send_order_created_notification(order))
+            return True
+        except RuntimeError:
+            # No event loop running, schedule in bot's loop
+            if _bot_loop.is_running():
+                asyncio.run_coroutine_threadsafe(
+                    _bot_manager.send_order_created_notification(order),
+                    _bot_loop
+                )
+                return True
+            else:
+                logger.error("Bot event loop is not running")
+                return False
+    except Exception as e:
+        logger.error(f"Failed to send order created Telegram notification: {str(e)}")
+        return False
+
+
 def send_order_notification(order, message_text):
     """
     Send a generic order notification to user via Telegram

@@ -209,6 +209,14 @@ def send_links(order_id):
         from app.utils.email import send_video_links_email
         send_video_links_email(order)
         
+        # Send Telegram notification with links (if user has telegram_id)
+        try:
+            from app.utils.telegram_notifier import send_video_links_notification
+            send_video_links_notification(order)
+        except Exception as e:
+            logger.warning(f'Failed to send Telegram notification with links: {e}')
+            # Don't fail the whole operation if Telegram notification fails
+        
         # Update order status
         order.status = 'links_sent'
         db.session.commit()
@@ -250,6 +258,15 @@ def resend_links(order_id):
         original_email = order.contact_email
         order.contact_email = email
         send_video_links_email(order)
+        
+        # Send Telegram notification with links (if user has telegram_id)
+        # Use original email to find user, but send notification anyway if new email matches a user
+        try:
+            from app.utils.telegram_notifier import send_video_links_notification
+            send_video_links_notification(order)
+        except Exception as e:
+            logger.warning(f'Failed to send Telegram notification with links: {e}')
+            # Don't fail the whole operation if Telegram notification fails
         # Restore original email
         order.contact_email = original_email
         
