@@ -18,18 +18,32 @@ def login():
         login_field = form.login_field.data.strip()
         
         # Determine if it's email or phone and search accordingly
+        user = None
+        login_method = None
+        
         if '@' in login_field:
             # Search by email
             user = User.query.filter_by(email=login_field.lower()).first()
+            login_method = 'email'
         else:
             # Search by phone
             try:
                 import phonenumbers
                 parsed_phone = phonenumbers.parse(login_field, "RU")
-                formatted_phone = phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
-                user = User.query.filter_by(phone=formatted_phone).first()
-            except:
-                user = None
+                if phonenumbers.is_valid_number(parsed_phone):
+                    formatted_phone = phonenumbers.format_number(parsed_phone, phonenumbers.PhoneNumberFormat.E164)
+                    user = User.query.filter_by(phone=formatted_phone).first()
+                    login_method = 'phone'
+                else:
+                    flash('Некорректный номер телефона', 'error')
+                    return render_template('auth/login.html', form=form)
+            except Exception as e:
+                # Если не удалось распарсить телефон, пытаемся найти по исходному значению
+                user = User.query.filter_by(phone=login_field).first()
+                if not user:
+                    flash('Некорректный формат email или номера телефона', 'error')
+                    return render_template('auth/login.html', form=form)
+                login_method = 'phone'
         
         if user and user.check_password(form.password.data):
             if not user.is_active:
@@ -76,7 +90,17 @@ def login():
             flash(f'Добро пожаловать, {user.full_name}!', 'success')
             return redirect(next_page)
         else:
-            flash('Неверный email или пароль', 'error')
+            if user:
+                # Пользователь найден, но пароль неверный
+                flash('Неверный пароль', 'error')
+            else:
+                # Пользователь не найден
+                if login_method == 'email':
+                    flash('Пользователь с таким email не найден', 'error')
+                elif login_method == 'phone':
+                    flash('Пользователь с таким номером телефона не найден', 'error')
+                else:
+                    flash('Неверный email/телефон или пароль', 'error')
     
     return render_template('auth/login.html', form=form)
 
