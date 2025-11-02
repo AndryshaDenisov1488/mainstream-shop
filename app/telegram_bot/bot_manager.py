@@ -633,6 +633,69 @@ class TelegramBotManager:
         await update.message.reply_text("❌ Операция отменена.")
         return ConversationHandler.END
     
+    async def profile_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /profile command"""
+        user_id = update.effective_user.id
+        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        
+        if not user:
+            await update.message.reply_text(
+                "Для просмотра профиля необходимо зарегистрироваться. Используйте команду /start"
+            )
+            return
+        
+        message = f"👤 <b>Ваш профиль:</b>\n\n"
+        message += f"📝 <b>Имя:</b> {user.full_name}\n"
+        message += f"📧 <b>Email:</b> {user.email}\n"
+        message += f"📱 <b>Телефон:</b> {user.phone or 'Не указан'}\n"
+        message += f"📅 <b>Дата регистрации:</b> {user.created_at.strftime('%d.%m.%Y')}\n"
+        if user.last_login:
+            message += f"🕐 <b>Последний вход:</b> {user.last_login.strftime('%d.%m.%Y %H:%M')}\n"
+        message += f"\nДля изменения данных обращайтесь в поддержку."
+        
+        keyboard = [
+            [InlineKeyboardButton("📞 Поддержка", callback_data="support")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup
+        )
+    
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /help command"""
+        message = (
+            "🆘 <b>Справка по MainStream Shop Bot</b>\n\n"
+            "📋 <b>Доступные команды:</b>\n"
+            "/start - Начать работу с ботом\n"
+            "/menu - Главное меню\n"
+            "/orders - Мои заказы\n"
+            "/profile - Мой профиль\n"
+            "/help - Эта справка\n\n"
+            "📹 <b>Как сделать заказ:</b>\n"
+            "1. Используйте команду /start или /menu\n"
+            "2. Выберите 'Заказать видео'\n"
+            "3. Выберите турнир, категорию и спортсмена\n"
+            "4. Выберите тип видео\n"
+            "5. Подтвердите заказ и оплатите\n\n"
+            "⏰ Видео будет готово в течение 3-4 дней.\n\n"
+            "📞 <b>Поддержка:</b> support@mainstreamfs.ru"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup
+        )
+    
     async def send_video_links_to_client(self, order: Order):
         """Send video links to client via Telegram if they are registered"""
         from flask import has_app_context
