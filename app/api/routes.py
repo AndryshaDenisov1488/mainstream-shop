@@ -558,11 +558,13 @@ def send_video_links_api(order_id):
             # Don't fail the whole operation if email fails
         
         # Send Telegram notification with links (if user has telegram_id)
+        logger.info(f"[API] About to send Telegram notification for order {order.id}, email: {order.contact_email}")
         try:
             from app.utils.telegram_notifier import send_video_links_notification
-            send_video_links_notification(order)
+            result = send_video_links_notification(order)
+            logger.info(f"[API] Telegram notification result for order {order.id}: {result}")
         except Exception as e:
-            logger.warning(f'Failed to send Telegram notification with links: {e}')
+            logger.error(f'[API] Failed to send Telegram notification with links: {e}', exc_info=True)
             # Don't fail the whole operation if Telegram notification fails
         
         # Log action
