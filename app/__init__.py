@@ -7,6 +7,9 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from config import Config
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -58,26 +61,40 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp, url_prefix='/api')
     
     # Initialize background tasks (skip if creating database)
-    if not app.debug or os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+    # Skip initialization only if explicitly requested or during database creation
+    should_skip_background = os.environ.get('SKIP_BACKGROUND_TASKS', 'false').lower() == 'true'
+    
+    if not should_skip_background:
+        # Initialize scheduler
         if not os.environ.get('SKIP_SCHEDULER'):
             try:
                 from app.tasks.scheduler import init_scheduler
                 init_scheduler(app)
+                logger.info("✅ Scheduler initialized")
             except Exception as e:
                 # Если БД еще не создана, scheduler не критичен
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
-                    raise
+                    logger.error(f"Scheduler initialization error: {e}", exc_info=True)
         
-        # Initialize Telegram bot (skip if creating database)
+        # Initialize Telegram bot
         if not os.environ.get('SKIP_TELEGRAM_BOT'):
             try:
                 from app.telegram_bot.runner import initialize_bot
-                initialize_bot(app)
+                bot_thread = initialize_bot(app)
+                if bot_thread:
+                    logger.info("✅ Telegram bot initialization started")
+                else:
+                    logger.warning("⚠️ Telegram bot initialization returned None (token may be missing)")
             except Exception as e:
                 # Если БД еще не создана или токен не настроен, бот не критичен
+                import logging
+                logger = logging.getLogger(__name__)
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
-                    import logging
-                    logging.getLogger(__name__).warning(f"Telegram bot initialization skipped: {e}")
+                    logger.warning(f"Telegram bot initialization skipped: {e}")
+                else:
+                    logger.debug(f"Telegram bot initialization skipped (DB not ready): {e}")
+    else:
+        logger.info("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag")
     
     return app
 

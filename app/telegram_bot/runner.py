@@ -59,7 +59,15 @@ def run_bot_in_thread(app: Flask):
     # Start bot in daemon thread
     bot_thread = threading.Thread(target=bot_worker, daemon=True, name="TelegramBot")
     bot_thread.start()
-    logger.info("🚀 Telegram bot thread started")
+    
+    # Give thread a moment to start and log
+    import time
+    time.sleep(0.5)  # Small delay to allow initial logging
+    
+    if bot_thread.is_alive():
+        logger.info("🚀 Telegram bot thread started and running")
+    else:
+        logger.error("❌ Telegram bot thread failed to start or died immediately")
     
     return bot_thread
 
@@ -74,6 +82,7 @@ def initialize_bot(app: Flask):
         
         if not bot_token or bot_token == 'your-telegram-bot-token':
             logger.info("⚠️ Telegram bot token not configured, bot will not start")
+            logger.info("   Set TELEGRAM_BOT_TOKEN in .env file to enable bot")
             return None
         
         # Skip bot initialization if explicitly disabled
@@ -81,11 +90,21 @@ def initialize_bot(app: Flask):
             logger.info("⚠️ Telegram bot disabled by SKIP_TELEGRAM_BOT flag")
             return None
         
+        logger.info(f"🔧 Initializing Telegram bot (token length: {len(bot_token) if bot_token else 0})")
+        
         # Start bot in separate thread
         bot_thread = run_bot_in_thread(app)
+        
+        if bot_thread:
+            logger.info("✅ Telegram bot thread created and started")
+        else:
+            logger.warning("⚠️ Telegram bot thread creation returned None")
+        
         return bot_thread
         
     except Exception as e:
         logger.error(f"❌ Failed to initialize Telegram bot: {e}", exc_info=True)
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return None
 
