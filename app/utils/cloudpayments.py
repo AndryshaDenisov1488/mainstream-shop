@@ -368,26 +368,31 @@ class CloudPaymentsAPI:
             # Также попробуем hex формат для обратной совместимости
             expected_signature_hex = expected_signature_bytes.hex()
             
-            # Логируем для отладки
-            logger.debug(f'Signature verification: data_len={len(data)}, received_len={len(clean_signature)}')
-            logger.debug(f'Expected (base64): {expected_signature_base64[:30]}...')
-            logger.debug(f'Received: {clean_signature[:30] if clean_signature else "None"}...')
+            # Логируем для отладки (всегда, не только debug)
+            logger.info(f'=== SIGNATURE VERIFICATION ===')
+            logger.info(f'Data length: {len(data)} bytes')
+            logger.info(f'Data content (first 300 chars): {data[:300]}')
+            logger.info(f'Received signature length: {len(clean_signature)}')
+            logger.info(f'Received signature (first 50 chars): {clean_signature[:50] if clean_signature else "None"}...')
+            logger.info(f'Expected signature (base64, first 50 chars): {expected_signature_base64[:50]}...')
+            logger.info(f'API secret length: {len(self.api_secret)}')
             
             # Проверяем base64 формат (основной для CloudPayments)
             is_valid = hmac.compare_digest(clean_signature, expected_signature_base64)
             
             # Если base64 не подошел, пробуем hex
             if not is_valid and len(clean_signature) == 64:  # hex обычно 64 символа
+                logger.info(f'Trying hex format comparison...')
                 is_valid = hmac.compare_digest(clean_signature, expected_signature_hex)
-                logger.debug(f'Trying hex format comparison...')
             
             if not is_valid:
-                logger.error(f'INVALID webhook signature - REJECTING.')
-                logger.error(f'Expected (base64): {expected_signature_base64[:40]}...')
-                logger.error(f'Expected (hex): {expected_signature_hex[:40]}...')
-                logger.error(f'Got: {clean_signature[:40] if clean_signature else "None"}...')
-                logger.error(f'Data preview: {data[:200]}...')
-                logger.error(f'API secret length: {len(self.api_secret)}')
+                logger.error(f'❌ INVALID webhook signature - REJECTING')
+                logger.error(f'Expected (base64, full): {expected_signature_base64}')
+                logger.error(f'Expected (hex, full): {expected_signature_hex}')
+                logger.error(f'Got (full): {clean_signature}')
+                logger.error(f'Data (full, first 500 chars): {data[:500]}')
+                logger.error(f'Signature match (base64): {clean_signature == expected_signature_base64}')
+                logger.error(f'Signature match (hex): {clean_signature == expected_signature_hex}')
                 return False  # ✅ ОТКЛОНЯЕМ НЕВЕРНУЮ ПОДПИСЬ
             
             logger.info('Webhook signature verified successfully')
