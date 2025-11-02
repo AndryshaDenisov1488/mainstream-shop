@@ -196,12 +196,16 @@ def handle_pay_notification(data):
         from sqlalchemy.exc import IntegrityError
         
         # Extract payment information
+        # CloudPayments может использовать разные поля в зависимости от формата
         transaction_id = data.get('TransactionId')
         invoice_id = data.get('InvoiceId')
-        amount = data.get('Amount')
-        currency = data.get('Currency')
-        card_mask = data.get('CardMask')
+        amount = data.get('Amount') or data.get('PaymentAmount')  # PaymentAmount - новый формат
+        currency = data.get('Currency') or data.get('PaymentCurrency')  # PaymentCurrency - новый формат
+        card_mask = data.get('CardMask') or (data.get('CardFirstSix', '') + '****' + data.get('CardLastFour', ''))
         email = data.get('Email')
+        status = data.get('Status')  # Completed, Authorized и т.д.
+        
+        logger.info(f'Processing Pay notification: transaction_id={transaction_id}, invoice_id={invoice_id}, amount={amount}, status={status}')
         
         # ✅ ИДЕМПОТЕНТНОСТЬ С БЛОКИРОВКОЙ для защиты от race condition
         try:
@@ -238,13 +242,25 @@ def handle_pay_notification(data):
                 if 'sbp' in data.get('PaymentMethod', '').lower():
                     payment_method = 'sbp'
                 
+                # Определяем статус платежа в зависимости от Status от CloudPayments
+                # Status может быть: Completed, Authorized, и т.д.
+                if status == 'Completed':
+                    payment_status = 'confirmed'  # Платеж сразу подтвержден (одностадийный)
+                    order_status = 'paid'
+                elif status == 'Authorized':
+                    payment_status = 'authorized'  # Платеж авторизован, нужна подтверждение (двухстадийный)
+                    order_status = 'paid'
+                else:
+                    payment_status = 'authorized'  # По умолчанию авторизован
+                    order_status = 'paid'
+                
                 # Create payment record
                 payment = Payment(
                     order_id=order.id,
                     cp_transaction_id=transaction_id,
-                    amount=amount,
-                    currency=currency,
-                    status='authorized',  # Two-stage payment
+                    amount=float(amount) if amount else 0.0,
+                    currency=currency or 'RUB',
+                    status=payment_status,
                     method=payment_method,
                     card_mask=card_mask,
                     email=email,
@@ -253,11 +269,13 @@ def handle_pay_notification(data):
                 
                 db.session.add(payment)
                 
-                # Update order status to paid
-                order.status = 'paid'
-                order.paid_amount = amount
+                # Update order status
+                order.status = order_status
+                order.paid_amount = float(amount) if amount else order.total_amount
                 order.payment_intent_id = transaction_id
                 order.payment_method = payment_method
+                
+                logger.info(f'Payment created: id={payment.id}, status={payment_status}, order_status={order_status}')
                 
                 # Коммит произойдет автоматически при выходе из with db.session.begin()
                 
