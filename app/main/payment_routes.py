@@ -240,7 +240,11 @@ def register_payment_routes(bp):
                 video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
                 video_types_dict = {vt.id: vt for vt in video_types}
             
-            return render_template('main/payment.html', payment_data=payment_data, order=order, video_types=video_types_dict)
+            return render_template('main/payment.html', 
+                                 payment_data=payment_data, 
+                                 order=order, 
+                                 video_types=video_types_dict,
+                                 payment_method=payment_method)
             
         except Exception as e:
             logger.error(f'Error displaying payment page: {str(e)}', exc_info=True)
