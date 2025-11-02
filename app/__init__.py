@@ -67,6 +67,17 @@ def create_app(config_class=Config):
                 # Если БД еще не создана, scheduler не критичен
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
                     raise
+        
+        # Initialize Telegram bot (skip if creating database)
+        if not os.environ.get('SKIP_TELEGRAM_BOT'):
+            try:
+                from app.telegram_bot.runner import initialize_bot
+                initialize_bot(app)
+            except Exception as e:
+                # Если БД еще не создана или токен не настроен, бот не критичен
+                if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
+                    import logging
+                    logging.getLogger(__name__).warning(f"Telegram bot initialization skipped: {e}")
     
     return app
 

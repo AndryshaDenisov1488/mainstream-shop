@@ -518,7 +518,14 @@ class TelegramBotManager:
     
     async def send_video_links_to_client(self, order: Order):
         """Send video links to client via Telegram if they are registered"""
+        from flask import has_app_context
+        
         try:
+            # Ensure Flask app context is available
+            if not has_app_context():
+                logger.error("Flask app context not available for sending Telegram message")
+                return False
+            
             # Find user by email
             user = User.query.filter_by(email=order.contact_email).first()
             if not user or not user.telegram_id:
@@ -550,7 +557,7 @@ class TelegramBotManager:
             return True
             
         except Exception as e:
-            logger.error(f"Error sending video links to Telegram: {str(e)}")
+            logger.error(f"Error sending video links to Telegram: {str(e)}", exc_info=True)
             return False
     
     def run(self):

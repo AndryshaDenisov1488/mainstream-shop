@@ -235,16 +235,8 @@ def upload_video_links(order_id):
                 
                 # Send video links to client via Telegram if registered
                 try:
-                    from app.telegram_bot.bot_manager import create_bot_manager
-                    from flask import current_app
-                    
-                    bot_token = current_app.config.get('TELEGRAM_BOT_TOKEN')
-                    if bot_token:
-                        bot_manager = create_bot_manager(bot_token)
-                        # Note: This is a sync call in an async function, 
-                        # in production you might want to use a task queue
-                        import asyncio
-                        asyncio.create_task(bot_manager.send_video_links_to_client(order))
+                    from app.utils.telegram_notifier import send_video_links_notification
+                    send_video_links_notification(order)
                 except Exception as e:
                     print(f"Failed to send video links via Telegram: {e}")
                     
