@@ -1,0 +1,35 @@
+[Unit]
+Description=MainStream Shop Flask Application
+After=network.target
+
+[Service]
+Type=notify
+User=root
+Group=root
+WorkingDirectory=/root/mainstreamfs.ru
+Environment="PATH=/root/mainstreamfs.ru/venv/bin"
+Environment="FLASK_ENV=production"
+EnvironmentFile=/root/mainstreamfs.ru/.env
+
+# Запуск через Gunicorn
+ExecStart=/root/mainstreamfs.ru/venv/bin/gunicorn -c gunicorn_config.py wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+Restart=always
+RestartSec=10
+
+# Ограничения ресурсов
+LimitNOFILE=65535
+LimitNPROC=4096
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Логирование
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=mainstreamfs
+
+[Install]
+WantedBy=multi-user.target
+

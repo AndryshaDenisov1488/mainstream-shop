@@ -40,10 +40,10 @@ mkdir -p uploads/xml
 echo -e "${YELLOW}📦 Проверка зависимостей...${NC}"
 pip install -q -r requirements.txt
 
-# Инициализация базы данных (если нужно)
+# Инициализация базы данных (SQLite)
 if [ ! -f "instance/app.db" ]; then
     echo -e "${YELLOW}🗄️  Инициализация базы данных...${NC}"
-    python3 create_database_final.py
+    SKIP_SCHEDULER=1 python3 create_database_final_v3.py
 fi
 
 # Остановка предыдущего процесса (если есть)

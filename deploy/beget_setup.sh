@@ -18,13 +18,12 @@ curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 # Install system dependencies
 sudo apt install nginx supervisor git -y
 
-# Create application directory
-sudo mkdir -p /opt/mainstreamshop
-sudo chown -R $USER:$USER /opt/mainstreamshop
-
-# Clone repository (replace with your repo URL)
-cd /opt/mainstreamshop
-# git clone <your-repo-url> .
+# Create application directory (или используйте существующую ~/mainstreamfs.ru)
+# sudo mkdir -p /opt/mainstreamshop
+# sudo chown -R $USER:$USER /opt/mainstreamshop
+# ИЛИ используйте:
+cd ~/mainstreamfs.ru
+# git clone https://github.com/AndryshaDenisov1488/mainstream-shop.git .
 
 # Create virtual environment
 python3.11 -m venv venv
@@ -40,25 +39,10 @@ mkdir -p uploads/xml logs backups
 chmod +x run.py
 chmod 755 uploads logs
 
-# Create systemd service
-sudo tee /etc/systemd/system/mainstreamshop.service > /dev/null <<EOF
-[Unit]
-Description=MainStream Shop
-After=network.target
-
-[Service]
-Type=simple
-User=$USER
-WorkingDirectory=/opt/mainstreamshop
-Environment=PATH=/opt/mainstreamshop/venv/bin
-Environment=FLASK_ENV=production
-ExecStart=/opt/mainstreamshop/venv/bin/python run.py
-Restart=always
-RestartSec=3
-
-[Install]
-WantedBy=multi-user.target
-EOF
+# Create systemd service (используйте файл mainstreamfs.service из репозитория)
+# sudo cp ~/mainstreamfs.ru/mainstreamfs.service /etc/systemd/system/
+# sudo systemctl daemon-reload
+# sudo systemctl enable mainstreamfs
 
 # Create Nginx configuration
 sudo tee /etc/nginx/sites-available/mainstreamshop > /dev/null <<EOF
@@ -92,9 +76,16 @@ server {
     
     # Static files
     location /static/ {
-        alias /opt/mainstreamshop/app/static/;
+        alias /root/mainstreamfs.ru/app/static/;
         expires 1y;
         add_header Cache-Control "public, immutable";
+    }
+    
+    # Uploads
+    location /uploads/ {
+        alias /root/mainstreamfs.ru/uploads/;
+        expires 7d;
+        add_header Cache-Control "public";
     }
     
     # Main application
