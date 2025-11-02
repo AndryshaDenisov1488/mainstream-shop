@@ -68,18 +68,49 @@ def register_cloudpayments_routes(bp):
                     logger.warning('TEST MODE: Bypassing signature verification - proceeding anyway')
             
             # Parse webhook data - CloudPayments отправляет form-urlencoded
+            logger.info(f'=== PARSING WEBHOOK DATA ===')
+            logger.info(f'Content-Type: {request.content_type}')
+            logger.info(f'request.form: {dict(request.form)}')
+            logger.info(f'request.form keys: {list(request.form.keys())}')
+            
             if request.content_type and 'application/x-www-form-urlencoded' in request.content_type:
                 # Парсим form-urlencoded данные
                 from urllib.parse import unquote
                 webhook_data = {}
                 for key, value in request.form.items():
                     # CloudPayments может отправлять некоторые значения закодированными
-                    webhook_data[key] = unquote(value) if value else value
+                    decoded_value = unquote(value) if value else value
+                    webhook_data[key] = decoded_value
+                    logger.info(f'Parsed: {key} = {decoded_value}')
+                
+                # Также попробуем парсить напрямую из raw_data если form пустой
+                if not webhook_data:
+                    logger.warning('request.form is empty, trying to parse from raw_data')
+                    from urllib.parse import parse_qs
+                    parsed_qs = parse_qs(raw_data)
+                    for key, values in parsed_qs.items():
+                        webhook_data[key] = unquote(values[0]) if values and values[0] else ''
+                        logger.info(f'Parsed from raw_data: {key} = {webhook_data[key]}')
             else:
                 # Fallback на JSON если формат другой
                 webhook_data = request.get_json() or {}
+                logger.info(f'Parsed as JSON: {webhook_data}')
+            
+            logger.info(f'Final webhook_data: {webhook_data}')
             
             notification_type = webhook_data.get('NotificationType')
+            logger.info(f'NotificationType extracted: {notification_type}')
+            
+            if not notification_type:
+                logger.error(f'⚠️ NotificationType is None! Webhook data: {webhook_data}')
+                logger.error(f'Raw data was: {raw_data[:500]}')
+                # Попробуем найти в других полях
+                for key in ['NotificationType', 'notification_type', 'type', 'Type']:
+                    if key in webhook_data:
+                        notification_type = webhook_data[key]
+                        logger.info(f'Found notification type in field {key}: {notification_type}')
+                        break
+            
             logger.info(f'Received {notification_type} webhook: {webhook_data}')
             
             # Handle different notification types
