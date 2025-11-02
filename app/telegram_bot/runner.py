@@ -42,14 +42,37 @@ def run_bot_in_thread(app: Flask):
                     
                     logger.info("✅ Telegram bot initialized successfully")
                     
+                    # Start polling in the event loop (without signal handlers for sub-thread)
+                    # Use start_polling() and idle() instead of run_polling() for thread compatibility
+                    async def run_bot():
+                        await bot_manager.application.initialize()
+                        await bot_manager.application.start()
+                        await bot_manager.application.updater.start_polling(
+                            drop_pending_updates=True,
+                            allowed_updates=None
+                        )
+                        # Keep running until stopped
+                        await bot_manager.application.updater.stop()
+                    
                     # Run the bot in the event loop
-                    loop.run_until_complete(bot_manager.application.run_polling())
+                    loop.run_until_complete(run_bot())
                     
                 except KeyboardInterrupt:
                     logger.info("🛑 Telegram bot stopped by user")
                 except Exception as bot_error:
                     logger.error(f"❌ Telegram bot error: {bot_error}", exc_info=True)
+                    import traceback
+                    logger.error(f"Traceback: {traceback.format_exc()}")
                 finally:
+                    try:
+                        # Cleanup if needed
+                        if 'bot_manager' in locals():
+                            async def cleanup():
+                                await bot_manager.application.stop()
+                                await bot_manager.application.shutdown()
+                            loop.run_until_complete(cleanup())
+                    except:
+                        pass
                     loop.close()
                     logger.info("🔌 Telegram bot event loop closed")
                     
