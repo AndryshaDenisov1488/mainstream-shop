@@ -17,7 +17,7 @@ class MenuHandler(BaseHandler):
         user = await self.get_user_from_telegram(update)
         
         if user:
-            # Existing user
+            # Existing user - already linked with Telegram
             await update.message.reply_text(
                 f"Добро пожаловать, {user.full_name}!\n\n"
                 "Выберите действие:",
@@ -25,11 +25,11 @@ class MenuHandler(BaseHandler):
             )
             return 'MENU'
         else:
-            # New user - start registration
+            # New user or existing user without telegram_id - ask for email first
             await update.message.reply_text(
                 "👋 Добро пожаловать в MainStream Shop!\n\n"
-                "Для заказа видео нам нужна ваша информация.\n"
-                "Введите ваше ФИО:"
+                "Для работы с ботом нам нужен ваш email адрес.\n"
+                "Введите ваш email:"
             )
             return 'REGISTRATION'
     

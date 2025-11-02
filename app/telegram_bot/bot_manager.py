@@ -76,11 +76,11 @@ class TelegramBotManager:
         """Handle /start command"""
         user_id = update.effective_user.id
         
-        # Check if user exists in database
+        # Check if user exists in database by telegram_id
         user = User.query.filter_by(telegram_id=str(user_id)).first()
         
         if user:
-            # Existing user
+            # Existing user - already linked with Telegram
             keyboard = [
                 [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
                 [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
@@ -95,55 +95,164 @@ class TelegramBotManager:
                 reply_markup=reply_markup
             )
         else:
-            # New user - start registration
+            # New user or existing user without telegram_id - ask for email first
             await update.message.reply_text(
                 "👋 Добро пожаловать в MainStream Shop!\n\n"
-                "Для заказа видео нам нужна ваша информация.\n"
-                "Введите ваше ФИО:"
+                "Для работы с ботом нам нужен ваш email адрес.\n"
+                "Введите ваш email:"
             )
             return REGISTRATION
     
     async def handle_registration(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle user registration process"""
-        text = update.message.text
+        """Handle user registration process - starts with email check"""
+        text = update.message.text.strip()
         user_data = context.user_data
         
-        if 'full_name' not in user_data:
-            # Store full name
-            user_data['full_name'] = text
-            await update.message.reply_text(
-                "📧 Введите ваш email адрес:"
-            )
-            return REGISTRATION
+        # First step: check email
+        if 'email' not in user_data:
+            # Validate email format
+            if '@' not in text or '.' not in text.split('@')[-1]:
+                await update.message.reply_text(
+                    "❌ Некорректный формат email. Пожалуйста, введите правильный email адрес:"
+                )
+                return REGISTRATION
+            
+            email = text.lower()
+            user_data['email'] = email
+            
+            # Check if user with this email already exists
+            existing_user = User.query.filter_by(email=email).first()
+            
+            if existing_user:
+                # User exists - link telegram_id and welcome
+                if existing_user.telegram_id and existing_user.telegram_id != str(update.effective_user.id):
+                    await update.message.reply_text(
+                        "❌ Этот email уже привязан к другому Telegram аккаунту.\n"
+                        "Обратитесь в поддержку для решения проблемы."
+                    )
+                    context.user_data.clear()
+                    return ConversationHandler.END
+                
+                # Update existing user with telegram_id
+                existing_user.telegram_id = str(update.effective_user.id)
+                
+                # Update phone if needed (optional)
+                if not existing_user.phone:
+                    await update.message.reply_text(
+                        f"✅ Добро пожаловать обратно, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт связан с Telegram.\n\n"
+                        "📱 Для завершения укажите ваш номер телефона (или отправьте /skip чтобы пропустить):"
+                    )
+                    # Stay in REGISTRATION state to get phone
+                    return REGISTRATION
+                else:
+                    db.session.commit()
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                        [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
+                        [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await update.message.reply_text(
+                        f"✅ Добро пожаловать обратно, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт связан с Telegram. Теперь вы можете заказывать видео через бота.",
+                        reply_markup=reply_markup
+                    )
+                    
+                    context.user_data.clear()
+                    return ConversationHandler.END
+            else:
+                # New user - continue registration (ask for full name)
+                await update.message.reply_text(
+                    "📝 Email не найден в системе. Давайте зарегистрируем вас!\n\n"
+                    "Введите ваше ФИО:"
+                )
+                return REGISTRATION
         
-        elif 'email' not in user_data:
-            # Store email
-            user_data['email'] = text
+        # Second step: get full name (only for new users)
+        elif 'full_name' not in user_data:
+            # Skip phone update if /skip command
+            if text.lower() == '/skip':
+                # This means we're updating existing user's phone (already handled)
+                existing_user = User.query.filter_by(email=user_data['email']).first()
+                if existing_user:
+                    existing_user.telegram_id = str(update.effective_user.id)
+                    db.session.commit()
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                        [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await update.message.reply_text(
+                        f"✅ Добро пожаловать, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт связан с Telegram.",
+                        reply_markup=reply_markup
+                    )
+                    
+                    context.user_data.clear()
+                    return ConversationHandler.END
+            
+            # Store full name for new user
+            user_data['full_name'] = text
             await update.message.reply_text(
                 "📱 Введите ваш номер телефона (например: +7 999 123 45 67):"
             )
             return REGISTRATION
         
+        # Third step: get phone and create user (only for new users)
         elif 'phone' not in user_data:
-            # Store phone and create user in database
+            # Skip phone update if /skip command
+            if text.lower() == '/skip':
+                existing_user = User.query.filter_by(email=user_data['email']).first()
+                if existing_user:
+                    existing_user.telegram_id = str(update.effective_user.id)
+                    db.session.commit()
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await update.message.reply_text(
+                        f"✅ Добро пожаловать, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт связан с Telegram.",
+                        reply_markup=reply_markup
+                    )
+                    
+                    context.user_data.clear()
+                    return ConversationHandler.END
+            
+            # Store phone for new user or update existing user's phone
             user_data['phone'] = text
             
             try:
-                # Check if user with this email already exists
-                existing_user = User.query.filter_by(email=user_data['email'].lower()).first()
+                # Check again if user exists (maybe was created between steps)
+                existing_user = User.query.filter_by(email=user_data['email']).first()
                 
                 if existing_user:
-                    # Update existing user with telegram_id
+                    # Update existing user
                     existing_user.telegram_id = str(update.effective_user.id)
-                    existing_user.phone = user_data['phone']
+                    if user_data['phone']:
+                        existing_user.phone = user_data['phone']
                     db.session.commit()
                     
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
                     await update.message.reply_text(
-                        f"✅ Добро пожаловать обратно, {existing_user.full_name}!\n\n"
-                        "Ваш аккаунт связан с Telegram. Теперь вы можете заказывать видео через бота.",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")
-                        ]])
+                        f"✅ Добро пожаловать, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт обновлен и связан с Telegram.",
+                        reply_markup=reply_markup
                     )
                     
                     context.user_data.clear()
@@ -171,23 +280,31 @@ class TelegramBotManager:
                     # Clear user data
                     context.user_data.clear()
                     
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                        [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
                     await update.message.reply_text(
                         "✅ Регистрация завершена!\n\n"
-                        f"Ваши данные для входа отправлены на email: {user.email}\n\n"
+                        f"Ваши данные для входа на сайт отправлены на email: {user.email}\n\n"
                         "Теперь вы можете заказывать видео через бота или на сайте.",
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")
-                        ]])
+                        reply_markup=reply_markup
                     )
                     
                     return ConversationHandler.END
                     
             except Exception as e:
-                logger.error(f"Registration error: {e}")
+                logger.error(f"Registration error: {e}", exc_info=True)
                 await update.message.reply_text(
                     "❌ Произошла ошибка при регистрации. Попробуйте еще раз или обратитесь в поддержку."
                 )
+                context.user_data.clear()
                 return ConversationHandler.END
+        
+        return REGISTRATION
     
     async def handle_event_selection(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle event selection"""
