@@ -232,11 +232,74 @@ class TelegramBotManager:
                     )
                     return REGISTRATION
             
-            # Second step: get full name (only for new users)
+            # Second step: get full name (only for new users) OR phone for existing user
             elif 'full_name' not in user_data:
-                # Skip phone update if /skip command
+                # Check if this is existing user updating phone (has email but no full_name in user_data)
+                existing_user = User.query.filter_by(email=user_data.get('email')).first()
+                if existing_user and not existing_user.phone:
+                    # Existing user without phone - treat input as phone number
+                    # Skip phone update if /skip command
+                    if text.lower() == '/skip':
+                        existing_user.telegram_id = str(update.effective_user.id)
+                        db.session.commit()
+                        
+                        keyboard = [
+                            [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                            [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                            [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(keyboard)
+                        
+                        await update.message.reply_text(
+                            f"✅ Добро пожаловать, {existing_user.full_name}!\n\n"
+                            "Ваш аккаунт связан с Telegram.",
+                            reply_markup=reply_markup
+                        )
+                        
+                        context.user_data.clear()
+                        return ConversationHandler.END
+                    
+                    # Normalize and validate phone number for existing user
+                    from app.utils.validators import normalize_phone
+                    
+                    normalized_phone = normalize_phone(text.strip())
+                    
+                    if not normalized_phone or (not normalized_phone.startswith('+7') or len(normalized_phone.replace('+', '')) != 11):
+                        await update.message.reply_text(
+                            "❌ Некорректный формат номера телефона. Пожалуйста, введите номер в формате:\n"
+                            "• 89060943936\n"
+                            "• 79060943936\n"
+                            "• +79060943936\n"
+                            "• 9060943936\n"
+                            "(Или отправьте /skip чтобы пропустить, /cancel для отмены)"
+                        )
+                        return REGISTRATION
+                    
+                    # Update existing user's phone
+                    existing_user.phone = normalized_phone
+                    existing_user.telegram_id = str(update.effective_user.id)
+                    db.session.commit()
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("📹 Заказать видео", callback_data="start_order")],
+                        [InlineKeyboardButton("📋 Мои заказы", callback_data="view_orders")],
+                        [InlineKeyboardButton("👤 Профиль", callback_data="view_profile")],
+                        [InlineKeyboardButton("📞 Поддержка", callback_data="support")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
+                    
+                    await update.message.reply_text(
+                        f"✅ Добро пожаловать обратно, {existing_user.full_name}!\n\n"
+                        "Ваш аккаунт обновлен и связан с Telegram. Теперь вы можете заказывать видео через бота.",
+                        reply_markup=reply_markup
+                    )
+                    
+                    context.user_data.clear()
+                    return ConversationHandler.END
+                
+                # Skip phone update if /skip command (for new users)
                 if text.lower() == '/skip':
-                    # This means we're updating existing user's phone (already handled)
+                    # This means we're updating existing user's phone (already handled above)
                     existing_user = User.query.filter_by(email=user_data['email']).first()
                     if existing_user:
                         existing_user.telegram_id = str(update.effective_user.id)
