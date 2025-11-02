@@ -20,6 +20,7 @@ def set_bot_manager(bot_manager, loop):
     global _bot_manager, _bot_loop
     _bot_manager = bot_manager
     _bot_loop = loop
+    logger.info(f"Bot manager registered: manager={bot_manager is not None}, loop={loop is not None}, loop_running={loop.is_running() if loop else False}")
 
 
 def send_video_links_notification(order):
@@ -27,30 +28,40 @@ def send_video_links_notification(order):
     Synchronous wrapper for sending video links via Telegram
     Can be called from Flask routes
     """
-    if not _bot_manager or not _bot_loop:
-        logger.warning("Telegram bot not initialized, skipping notification")
+    logger.info(f"Attempting to send video links notification for order {order.id} (email: {order.contact_email})")
+    
+    if not _bot_manager:
+        logger.warning("Telegram bot manager not initialized, skipping notification")
+        return False
+    
+    if not _bot_loop:
+        logger.warning("Telegram bot event loop not initialized, skipping notification")
         return False
     
     try:
         # Check if event loop is running
         try:
             loop = asyncio.get_running_loop()
+            logger.debug("Found running event loop, using create_task")
             # If we're already in an async context, use create_task
             loop.create_task(_bot_manager.send_video_links_to_client(order))
+            logger.info(f"Scheduled video links notification task for order {order.id}")
             return True
         except RuntimeError:
             # No event loop running, schedule in bot's loop
             if _bot_loop.is_running():
+                logger.debug("Bot event loop is running, scheduling coroutine")
                 asyncio.run_coroutine_threadsafe(
                     _bot_manager.send_video_links_to_client(order),
                     _bot_loop
                 )
+                logger.info(f"Scheduled video links notification in bot's event loop for order {order.id}")
                 return True
             else:
                 logger.error("Bot event loop is not running")
                 return False
     except Exception as e:
-        logger.error(f"Failed to send Telegram notification: {str(e)}")
+        logger.error(f"Failed to send Telegram notification: {str(e)}", exc_info=True)
         return False
 
 
@@ -59,30 +70,40 @@ def send_order_created_notification(order):
     Send order created notification to user via Telegram
     Synchronous wrapper for sending order creation notification
     """
-    if not _bot_manager or not _bot_loop:
-        logger.warning("Telegram bot not initialized, skipping notification")
+    logger.info(f"Attempting to send order created notification for order {order.id} (email: {order.contact_email})")
+    
+    if not _bot_manager:
+        logger.warning("Telegram bot manager not initialized, skipping notification")
+        return False
+    
+    if not _bot_loop:
+        logger.warning("Telegram bot event loop not initialized, skipping notification")
         return False
     
     try:
         # Check if event loop is running
         try:
             loop = asyncio.get_running_loop()
+            logger.debug("Found running event loop, using create_task for order created notification")
             # If we're already in an async context, use create_task
             loop.create_task(_bot_manager.send_order_created_notification(order))
+            logger.info(f"Scheduled order created notification task for order {order.id}")
             return True
         except RuntimeError:
             # No event loop running, schedule in bot's loop
             if _bot_loop.is_running():
+                logger.debug("Bot event loop is running, scheduling order created notification coroutine")
                 asyncio.run_coroutine_threadsafe(
                     _bot_manager.send_order_created_notification(order),
                     _bot_loop
                 )
+                logger.info(f"Scheduled order created notification in bot's event loop for order {order.id}")
                 return True
             else:
-                logger.error("Bot event loop is not running")
+                logger.error(f"Bot event loop is not running (is_running=False)")
                 return False
     except Exception as e:
-        logger.error(f"Failed to send order created Telegram notification: {str(e)}")
+        logger.error(f"Failed to send order created Telegram notification: {str(e)}", exc_info=True)
         return False
 
 
