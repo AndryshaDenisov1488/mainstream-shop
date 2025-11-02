@@ -346,20 +346,28 @@ class CloudPaymentsAPI:
             return False  # ✅ ОТКЛОНЯЕМ БЕЗ ПОДПИСИ
         
         try:
+            # Убираем префикс если есть
+            clean_signature = signature
+            if signature.startswith('sha256='):
+                clean_signature = signature[7:]
+            
+            # Вычисляем ожидаемую подпись
+            # ВАЖНО: используем байты, не строку
             expected_signature = hmac.new(
                 self.api_secret.encode('utf-8'),
                 data.encode('utf-8'),
                 hashlib.sha256
             ).hexdigest()
             
-            # CloudPayments sends signature in format: sha256=signature
-            if signature.startswith('sha256='):
-                signature = signature[7:]
+            # Логируем для отладки
+            logger.debug(f'Signature verification: expected={expected_signature[:30]}..., received={clean_signature[:30] if clean_signature else "None"}..., data_len={len(data)}')
             
-            is_valid = hmac.compare_digest(signature, expected_signature)
+            is_valid = hmac.compare_digest(clean_signature, expected_signature)
             
             if not is_valid:
-                logger.error(f'INVALID webhook signature - REJECTING. Expected: {expected_signature[:20]}..., Got: {signature[:20] if signature else "None"}...')
+                logger.error(f'INVALID webhook signature - REJECTING. Expected: {expected_signature[:30]}..., Got: {clean_signature[:30] if clean_signature else "None"}...')
+                logger.error(f'Data preview: {data[:200]}...')
+                logger.error(f'API secret length: {len(self.api_secret)}')
                 return False  # ✅ ОТКЛОНЯЕМ НЕВЕРНУЮ ПОДПИСЬ
             
             logger.info('Webhook signature verified successfully')
@@ -367,6 +375,8 @@ class CloudPaymentsAPI:
             
         except Exception as e:
             logger.error(f'Error verifying webhook signature: {str(e)} - REJECTING')
+            import traceback
+            logger.error(traceback.format_exc())
             return False  # ✅ ПРИ ОШИБКЕ ОТКЛОНЯЕМ
     
     def _get_auth_token(self) -> str:
