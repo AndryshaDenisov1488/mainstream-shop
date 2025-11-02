@@ -346,26 +346,46 @@ class CloudPaymentsAPI:
             return False  # ✅ ОТКЛОНЯЕМ БЕЗ ПОДПИСИ
         
         try:
-            # Убираем префикс если есть
-            clean_signature = signature
-            if signature.startswith('sha256='):
-                clean_signature = signature[7:]
+            import base64
             
+            # Убираем префикс если есть
+            clean_signature = signature.strip()
+            if clean_signature.startswith('sha256='):
+                clean_signature = clean_signature[7:]
+            
+            # CloudPayments отправляет подпись в формате base64, не hex
             # Вычисляем ожидаемую подпись
             # ВАЖНО: используем байты, не строку
-            expected_signature = hmac.new(
+            expected_signature_bytes = hmac.new(
                 self.api_secret.encode('utf-8'),
                 data.encode('utf-8'),
                 hashlib.sha256
-            ).hexdigest()
+            ).digest()
+            
+            # Конвертируем в base64 для сравнения
+            expected_signature_base64 = base64.b64encode(expected_signature_bytes).decode('utf-8')
+            
+            # Также попробуем hex формат для обратной совместимости
+            expected_signature_hex = expected_signature_bytes.hex()
             
             # Логируем для отладки
-            logger.debug(f'Signature verification: expected={expected_signature[:30]}..., received={clean_signature[:30] if clean_signature else "None"}..., data_len={len(data)}')
+            logger.debug(f'Signature verification: data_len={len(data)}, received_len={len(clean_signature)}')
+            logger.debug(f'Expected (base64): {expected_signature_base64[:30]}...')
+            logger.debug(f'Received: {clean_signature[:30] if clean_signature else "None"}...')
             
-            is_valid = hmac.compare_digest(clean_signature, expected_signature)
+            # Проверяем base64 формат (основной для CloudPayments)
+            is_valid = hmac.compare_digest(clean_signature, expected_signature_base64)
+            
+            # Если base64 не подошел, пробуем hex
+            if not is_valid and len(clean_signature) == 64:  # hex обычно 64 символа
+                is_valid = hmac.compare_digest(clean_signature, expected_signature_hex)
+                logger.debug(f'Trying hex format comparison...')
             
             if not is_valid:
-                logger.error(f'INVALID webhook signature - REJECTING. Expected: {expected_signature[:30]}..., Got: {clean_signature[:30] if clean_signature else "None"}...')
+                logger.error(f'INVALID webhook signature - REJECTING.')
+                logger.error(f'Expected (base64): {expected_signature_base64[:40]}...')
+                logger.error(f'Expected (hex): {expected_signature_hex[:40]}...')
+                logger.error(f'Got: {clean_signature[:40] if clean_signature else "None"}...')
                 logger.error(f'Data preview: {data[:200]}...')
                 logger.error(f'API secret length: {len(self.api_secret)}')
                 return False  # ✅ ОТКЛОНЯЕМ НЕВЕРНУЮ ПОДПИСЬ

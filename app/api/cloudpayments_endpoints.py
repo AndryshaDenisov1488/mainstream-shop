@@ -20,21 +20,25 @@ def register_cloudpayments_routes(bp):
     def cloudpayments_webhook():
         """Handle CloudPayments webhook notifications"""
         try:
-            # Get raw data for signature verification
+            # CloudPayments отправляет данные в формате application/x-www-form-urlencoded
+            # Получаем сырые данные ДО парсинга для проверки подписи
             raw_data = request.get_data(as_text=True)
             
             # CloudPayments может отправлять подпись в разных заголовках
+            # Приоритет: Content-Hmac (основной), затем X-Content-Hmac
             signature = (
-                request.headers.get('X-Content-HMAC') or
+                request.headers.get('Content-Hmac') or
+                request.headers.get('X-Content-Hmac') or
                 request.headers.get('Content-HMAC') or
+                request.headers.get('X-Content-HMAC') or
                 request.headers.get('X-Content-Signature') or
                 request.headers.get('Content-Signature')
             )
             
             # Логируем заголовки для отладки
-            logger.info(f'Webhook headers: X-Content-HMAC={request.headers.get("X-Content-HMAC")}, '
-                       f'Content-HMAC={request.headers.get("Content-HMAC")}, '
-                       f'All headers: {dict(request.headers)}')
+            logger.info(f'Webhook received. Content-Type: {request.headers.get("Content-Type")}')
+            logger.info(f'Signature headers: Content-Hmac={request.headers.get("Content-Hmac")}, '
+                       f'X-Content-Hmac={request.headers.get("X-Content-Hmac")}')
             
             # Verify signature
             cp_api = CloudPaymentsAPI()
@@ -47,8 +51,18 @@ def register_cloudpayments_routes(bp):
                 else:
                     logger.warning('TEST MODE: Bypassing signature verification')
             
-            # Parse webhook data
-            webhook_data = request.get_json()
+            # Parse webhook data - CloudPayments отправляет form-urlencoded
+            if request.content_type and 'application/x-www-form-urlencoded' in request.content_type:
+                # Парсим form-urlencoded данные
+                from urllib.parse import unquote
+                webhook_data = {}
+                for key, value in request.form.items():
+                    # CloudPayments может отправлять некоторые значения закодированными
+                    webhook_data[key] = unquote(value) if value else value
+            else:
+                # Fallback на JSON если формат другой
+                webhook_data = request.get_json() or {}
+            
             notification_type = webhook_data.get('NotificationType')
             logger.info(f'Received {notification_type} webhook: {webhook_data}')
             
