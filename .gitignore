@@ -86,8 +86,8 @@ desktop.ini
 # Скрипты для локальной разработки
 RESET_DATABASE.bat
 RESET_DATABASE.sh
-create_database_final_v3.py
 start_server.bat
+# create_database_final_v3.py - нужен на сервере, не игнорируем
 
 # Документация (опционально)
 # *.md
