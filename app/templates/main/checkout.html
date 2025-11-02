@@ -77,10 +77,11 @@
                                         </div>
                                         <div class="col-md-6">
                                             <div class="mb-3">
-                                                <label for="contact_phone" class="form-label">Телефон</label>
+                                                <label for="contact_phone" class="form-label">Телефон *</label>
                                                 <input type="tel" class="form-control" id="contact_phone" name="contact_phone" 
-                                                       value="{{ current_user.phone if current_user.is_authenticated else '' }}">
-                                                <div class="form-text">Для связи по вопросам заказа</div>
+                                                       value="{{ current_user.phone if current_user.is_authenticated else '' }}" required
+                                                       placeholder="89060943936 или +79060943936">
+                                                <div class="form-text">Для связи по вопросам заказа. Формат: 89060943936, 79060943936, +79060943936 или 9060943936</div>
                                             </div>
                                         </div>
                                     </div>
@@ -219,8 +220,15 @@ document.addEventListener('DOMContentLoaded', function() {
         };
         
         // Validate required fields
-        if (!orderData.contact_email || !orderData.contact_first_name || !orderData.contact_last_name) {
+        if (!orderData.contact_email || !orderData.contact_first_name || !orderData.contact_last_name || !orderData.contact_phone) {
             alert('Пожалуйста, заполните все обязательные поля');
+            return;
+        }
+        
+        // Basic phone validation (backend will normalize)
+        const phoneRegex = /^[\d+\s\-()]+$/;
+        if (!phoneRegex.test(orderData.contact_phone)) {
+            alert('Номер телефона содержит недопустимые символы. Используйте только цифры, +, -, (), пробелы');
             return;
         }
         

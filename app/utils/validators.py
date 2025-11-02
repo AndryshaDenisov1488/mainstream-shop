@@ -18,14 +18,56 @@ def validate_phone(form, field):
             raise ValidationError('Неверный формат номера телефона')
 
 def normalize_phone(phone_number):
-    """Normalize phone number to E164 format"""
-    if phone_number and PHONENUMBERS_AVAILABLE:
+    """
+    Normalize phone number to E164 format (+7XXXXXXXXXX)
+    Supports formats:
+    - 89060943936 -> +79060943936
+    - 79060943936 -> +79060943936
+    - +79060943936 -> +79060943936
+    - 9060943936 -> +79060943936
+    """
+    if not phone_number:
+        return None
+    
+    # Remove all non-digit characters except +
+    cleaned = re.sub(r'[^\d+]', '', str(phone_number).strip())
+    
+    if PHONENUMBERS_AVAILABLE:
         try:
-            parsed_number = phonenumbers.parse(phone_number, 'RU')
-            return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
+            # Try to parse and format
+            parsed_number = phonenumbers.parse(cleaned, 'RU')
+            if phonenumbers.is_valid_number(parsed_number):
+                return phonenumbers.format_number(parsed_number, phonenumbers.PhoneNumberFormat.E164)
         except phonenumbers.NumberParseException:
-            return phone_number
-    return phone_number
+            pass
+    
+    # Fallback: manual normalization for Russian numbers
+    # Remove + if present
+    digits_only = cleaned.replace('+', '')
+    
+    # Handle different formats
+    if digits_only.startswith('8') and len(digits_only) == 11:
+        # 89060943936 -> 79060943936
+        digits_only = '7' + digits_only[1:]
+    elif digits_only.startswith('7') and len(digits_only) == 11:
+        # 79060943936 -> already correct
+        pass
+    elif len(digits_only) == 10:
+        # 9060943936 -> 79060943936
+        digits_only = '7' + digits_only
+    elif not digits_only.startswith('7'):
+        # If doesn't start with 7 or 8, try adding 7
+        if len(digits_only) == 10:
+            digits_only = '7' + digits_only
+        elif len(digits_only) == 11 and digits_only.startswith('8'):
+            digits_only = '7' + digits_only[1:]
+    
+    # Return in E164 format
+    if digits_only.startswith('7') and len(digits_only) == 11:
+        return '+' + digits_only
+    
+    # If we can't normalize, return original (will be validated elsewhere)
+    return phone_number.strip() if phone_number else None
 
 def validate_email_domain(form, field):
     """Validate email domain"""

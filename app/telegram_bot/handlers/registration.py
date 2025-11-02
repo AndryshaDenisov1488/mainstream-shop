@@ -122,8 +122,24 @@ class RegistrationHandler(BaseHandler):
                     context.user_data.clear()
                     return 'MENU'
             
-            # Store phone for new user or update existing user's phone
-            user_data['phone'] = text
+            # Normalize and validate phone number
+            from app.utils.validators import normalize_phone
+            
+            normalized_phone = normalize_phone(text.strip())
+            
+            if not normalized_phone or (not normalized_phone.startswith('+7') or len(normalized_phone.replace('+', '')) != 11):
+                await update.message.reply_text(
+                    "❌ Некорректный формат номера телефона. Пожалуйста, введите номер в формате:\n"
+                    "• 89060943936\n"
+                    "• 79060943936\n"
+                    "• +79060943936\n"
+                    "• 9060943936\n"
+                    "(Или отправьте /skip чтобы пропустить)"
+                )
+                return 'REGISTRATION'
+            
+            # Store normalized phone for new user or update existing user's phone
+            user_data['phone'] = normalized_phone
             
             try:
                 # Check again if user exists (maybe was created between steps)

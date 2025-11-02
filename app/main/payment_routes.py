@@ -38,6 +38,20 @@ def register_payment_routes(bp):
                 flash('Email обязателен для оформления заказа', 'error')
                 return redirect(url_for('main.checkout'))
             
+            # ✅ ВАЛИДАЦИЯ И НОРМАЛИЗАЦИЯ ТЕЛЕФОНА (ОБЯЗАТЕЛЬНОЕ ПОЛЕ)
+            if not contact_phone:
+                flash('Номер телефона обязателен для оформления заказа', 'error')
+                return redirect(url_for('main.checkout'))
+            
+            from app.utils.validators import normalize_phone
+            normalized_phone = normalize_phone(contact_phone)
+            
+            if not normalized_phone or (not normalized_phone.startswith('+7') or len(normalized_phone.replace('+', '')) != 11):
+                flash('Неверный формат номера телефона. Используйте формат: 89060943936, 79060943936, +79060943936 или 9060943936', 'error')
+                return redirect(url_for('main.checkout'))
+            
+            contact_phone = normalized_phone
+            
             # Clean up any existing pending orders from session
             pending_order_id = session.get('pending_order_id')
             if pending_order_id:

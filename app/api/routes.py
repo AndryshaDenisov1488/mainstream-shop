@@ -1085,6 +1085,21 @@ def create_order():
         if not contact_email:
             return jsonify({'success': False, 'error': 'Email обязателен для оформления заказа'}), 400
         
+        # ✅ ВАЛИДАЦИЯ И НОРМАЛИЗАЦИЯ ТЕЛЕФОНА (ОБЯЗАТЕЛЬНОЕ ПОЛЕ)
+        if not contact_phone:
+            return jsonify({'success': False, 'error': 'Номер телефона обязателен для оформления заказа'}), 400
+        
+        from app.utils.validators import normalize_phone
+        normalized_phone = normalize_phone(contact_phone)
+        
+        if not normalized_phone or (not normalized_phone.startswith('+7') or len(normalized_phone.replace('+', '')) != 11):
+            return jsonify({
+                'success': False, 
+                'error': 'Неверный формат номера телефона. Используйте формат: 89060943936, 79060943936, +79060943936 или 9060943936'
+            }), 400
+        
+        contact_phone = normalized_phone
+        
         # ✅ ВАЛИДАЦИЯ EMAIL
         try:
             from email_validator import validate_email, EmailNotValidError

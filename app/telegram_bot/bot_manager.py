@@ -196,7 +196,12 @@ class TelegramBotManager:
                         await update.message.reply_text(
                             f"✅ Добро пожаловать обратно, {existing_user.full_name}!\n\n"
                             "Ваш аккаунт связан с Telegram.\n\n"
-                            "📱 Для завершения укажите ваш номер телефона (или отправьте /skip чтобы пропустить):"
+                            "📱 Для завершения укажите ваш номер телефона в любом формате:\n"
+                            "• 89060943936\n"
+                            "• 79060943936\n"
+                            "• +79060943936\n"
+                            "• 9060943936\n"
+                            "(Или отправьте /skip чтобы пропустить):"
                         )
                         # Stay in REGISTRATION state to get phone
                         return REGISTRATION
@@ -301,7 +306,9 @@ class TelegramBotManager:
                         context.user_data.clear()
                         return ConversationHandler.END
                 
-                # Validate phone (basic validation)
+                # Normalize and validate phone number
+                from app.utils.validators import normalize_phone
+                
                 if not text or len(text.strip()) < 5:
                     await update.message.reply_text(
                         "❌ Номер телефона слишком короткий. Пожалуйста, введите корректный номер:\n"
@@ -309,8 +316,22 @@ class TelegramBotManager:
                     )
                     return REGISTRATION
                 
-                # Store phone for new user or update existing user's phone
-                user_data['phone'] = text.strip()
+                # Normalize phone number
+                normalized_phone = normalize_phone(text.strip())
+                
+                if not normalized_phone or (not normalized_phone.startswith('+7') or len(normalized_phone.replace('+', '')) != 11):
+                    await update.message.reply_text(
+                        "❌ Некорректный формат номера телефона. Пожалуйста, введите номер в формате:\n"
+                        "• 89060943936\n"
+                        "• 79060943936\n"
+                        "• +79060943936\n"
+                        "• 9060943936\n"
+                        "(Или отправьте /skip чтобы пропустить, /cancel для отмены)"
+                    )
+                    return REGISTRATION
+                
+                # Store normalized phone for new user or update existing user's phone
+                user_data['phone'] = normalized_phone
                 
                 try:
                     # Check again if user exists (maybe was created between steps)
