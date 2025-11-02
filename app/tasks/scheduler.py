@@ -12,20 +12,24 @@ from flask import current_app
 
 logger = logging.getLogger(__name__)
 
-def make_job_with_context(app, func):
-    """Wrap job function with application context"""
-    def job_func():
-        with app.app_context():
-            func()
-    return job_func
-
 def init_scheduler(app):
     """Initialize APScheduler with background tasks"""
     
-    # Configure job stores and executors
-    jobstores = {
-        'default': SQLAlchemyJobStore(url=app.config['SQLALCHEMY_DATABASE_URI'])
-    }
+    # Store app reference for job execution
+    # APScheduler может сериализовать только строковые ссылки на функции
+    # Но нам нужен app context, поэтому используем другой подход
+    
+    # Configure job stores - используем memory store если SQLAlchemy вызывает проблемы
+    try:
+        jobstores = {
+            'default': SQLAlchemyJobStore(url=app.config['SQLALCHEMY_DATABASE_URI'])
+        }
+    except Exception as e:
+        logger.warning(f'Failed to use SQLAlchemy jobstore, using memory: {str(e)}')
+        from apscheduler.jobstores.memory import MemoryJobStore
+        jobstores = {
+            'default': MemoryJobStore()
+        }
     
     executors = {
         'default': ThreadPoolExecutor(20),
@@ -44,26 +48,28 @@ def init_scheduler(app):
         timezone='Europe/Moscow'
     )
     
-    # Import tasks here to avoid circular imports
-    from app.tasks.order_cleanup import cancel_expired_orders, cleanup_old_audit_logs
+    # Store app in scheduler for context creation
+    scheduler._app = app
     
-    # Add jobs with application context
+    # Add jobs using string references (APScheduler can serialize these)
     # Cancel expired orders every minute
     scheduler.add_job(
-        func=make_job_with_context(app, cancel_expired_orders),
+        func='app.tasks.order_cleanup:cancel_expired_orders_with_context',
         trigger=IntervalTrigger(minutes=1),
         id='cancel_expired_orders',
         name='Cancel expired orders',
-        replace_existing=True
+        replace_existing=True,
+        args=[app]  # Pass app as argument
     )
     
     # Clean up old audit logs daily at 3 AM
     scheduler.add_job(
-        func=make_job_with_context(app, cleanup_old_audit_logs),
+        func='app.tasks.order_cleanup:cleanup_old_audit_logs_with_context',
         trigger=CronTrigger(hour=3, minute=0),
         id='cleanup_old_audit_logs',
         name='Clean up old audit logs',
-        replace_existing=True
+        replace_existing=True,
+        args=[app]  # Pass app as argument
     )
     
     # Start scheduler

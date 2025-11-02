@@ -12,6 +12,11 @@ from app.utils.cloudpayments import CloudPaymentsAPI
 
 logger = logging.getLogger(__name__)
 
+def cancel_expired_orders_with_context(app):
+    """Wrapper that creates app context for cancel_expired_orders"""
+    with app.app_context():
+        cancel_expired_orders()
+
 def cancel_expired_orders():
     """
     Cancel orders that have expired payment deadlines
@@ -91,6 +96,11 @@ def cancel_expired_orders():
             pass  # Если нет активной сессии, просто пропускаем
         import traceback
         logger.error(traceback.format_exc())
+
+def cleanup_old_audit_logs_with_context(app):
+    """Wrapper that creates app context for cleanup_old_audit_logs"""
+    with app.app_context():
+        cleanup_old_audit_logs()
 
 def cleanup_old_audit_logs():
     """
