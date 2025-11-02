@@ -36,7 +36,10 @@ class TelegramBotManager:
         
         # Conversation handler for ordering
         conv_handler = ConversationHandler(
-            entry_points=[CommandHandler('start', self.start_command)],
+            entry_points=[
+                CommandHandler('start', self.start_command),
+                CallbackQueryHandler(self.handle_start_order_callback, pattern='^start_order$')
+            ],
             states={
                 REGISTRATION: [
                     MessageHandler(filters.TEXT & ~filters.COMMAND, self.handle_registration),
@@ -45,7 +48,8 @@ class TelegramBotManager:
                     CommandHandler('start', self.start_command),
                 ],
                 SELECTING_EVENT: [
-                    CallbackQueryHandler(self.handle_event_selection, pattern='^event_')
+                    CallbackQueryHandler(self.handle_event_selection, pattern='^event_'),
+                    CallbackQueryHandler(self.handle_event_selection, pattern='^back_to_events$')
                 ],
                 SELECTING_CATEGORY: [
                     CallbackQueryHandler(self.handle_category_selection, pattern='^category_'),
@@ -75,10 +79,7 @@ class TelegramBotManager:
         
         # Callback handlers for menu buttons (outside ConversationHandler)
         # These must be added BEFORE regular command handlers to catch callbacks
-        self.application.add_handler(CallbackQueryHandler(
-            self.handle_start_order_callback,
-            pattern='^start_order$'
-        ))
+        # Note: start_order is now handled in ConversationHandler entry_points
         self.application.add_handler(CallbackQueryHandler(
             self.handle_view_orders_callback,
             pattern='^view_orders$'
@@ -486,7 +487,7 @@ class TelegramBotManager:
         query = update.callback_query
         await query.answer()
         
-        if query.data == "start_order" or query.data == "back_to_events":
+        if query.data == "back_to_events":
             # Show events from database
             events = Event.query.filter_by(is_active=True).order_by(Event.start_date.desc()).limit(10).all()
             
@@ -500,7 +501,7 @@ class TelegramBotManager:
             for event in events:
                 keyboard.append([
                     InlineKeyboardButton(
-                        f"{event.name} ({event.start_date.strftime('%d.%m.%Y')})",
+                        f"{event.name} ({event.start_date.strftime('%d.%m.%Y') if event.start_date else 'N/A'})",
                         callback_data=f"event_{event.id}"
                     )
                 ])
@@ -944,12 +945,49 @@ class TelegramBotManager:
         )
     
     async def handle_start_order_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle start_order callback from menu"""
+        """Handle start_order callback from menu - entry point for ConversationHandler"""
         query = update.callback_query
         await query.answer()
-        # Переходим к выбору турнира через существующий метод
-        context.user_data.clear()  # Очищаем предыдущие данные
-        return await self.handle_event_selection(update, context)
+        
+        # Clear any previous data
+        context.user_data.clear()
+        
+        # Check if user is authenticated
+        user_id = update.effective_user.id
+        user = User.query.filter_by(telegram_id=str(user_id)).first()
+        
+        if not user:
+            await query.edit_message_text(
+                "❌ Для оформления заказа необходимо зарегистрироваться. Используйте команду /start"
+            )
+            return ConversationHandler.END
+        
+        # Show events from database
+        events = Event.query.filter_by(is_active=True).order_by(Event.start_date.desc()).limit(10).all()
+        
+        if not events:
+            await query.edit_message_text(
+                "❌ В данный момент нет доступных турниров."
+            )
+            return ConversationHandler.END
+        
+        keyboard = []
+        for event in events:
+            keyboard.append([
+                InlineKeyboardButton(
+                    f"{event.name} ({event.start_date.strftime('%d.%m.%Y') if event.start_date else 'N/A'})",
+                    callback_data=f"event_{event.id}"
+                )
+            ])
+        
+        keyboard.append([InlineKeyboardButton("❌ Отмена", callback_data="cancel")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "🏆 Выберите турнир:",
+            reply_markup=reply_markup
+        )
+        return SELECTING_EVENT
     
     async def handle_view_orders_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle view_orders callback button"""
