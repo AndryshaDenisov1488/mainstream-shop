@@ -584,7 +584,6 @@ def assign_operator_api(order_id):
     """Assign operator to order (only for paid orders)"""
     try:
         from sqlalchemy import select
-        from sqlalchemy.orm import with_for_update
         from sqlalchemy.exc import OperationalError
         
         # Check if user has permission (admin, mom, or operator)
