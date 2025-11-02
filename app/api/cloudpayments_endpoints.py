@@ -98,36 +98,56 @@ def register_cloudpayments_routes(bp):
             
             logger.info(f'Final webhook_data: {webhook_data}')
             
-            notification_type = webhook_data.get('NotificationType')
-            logger.info(f'NotificationType extracted: {notification_type}')
+            # CloudPayments использует OperationType вместо NotificationType
+            # Также проверяем Status для определения типа уведомления
+            operation_type = webhook_data.get('OperationType')
+            status = webhook_data.get('Status')
+            notification_type = webhook_data.get('NotificationType')  # Для обратной совместимости
             
-            if not notification_type:
-                logger.error(f'⚠️ NotificationType is None! Webhook data: {webhook_data}')
-                logger.error(f'Raw data was: {raw_data[:500]}')
-                # Попробуем найти в других полях
-                for key in ['NotificationType', 'notification_type', 'type', 'Type']:
-                    if key in webhook_data:
-                        notification_type = webhook_data[key]
-                        logger.info(f'Found notification type in field {key}: {notification_type}')
-                        break
+            logger.info(f'OperationType: {operation_type}, Status: {status}, NotificationType: {notification_type}')
             
-            logger.info(f'Received {notification_type} webhook: {webhook_data}')
+            # Определяем тип уведомления
+            if notification_type:
+                # Используем NotificationType если есть (старый формат)
+                notification_type_to_handle = notification_type
+            elif operation_type == 'Payment':
+                # Payment операция - может быть Check, Pay, Confirm
+                if status == 'Completed':
+                    notification_type_to_handle = 'Pay'  # Успешный платеж
+                elif status == 'Authorized':
+                    notification_type_to_handle = 'Pay'  # Авторизован (двухстадийный)
+                else:
+                    notification_type_to_handle = 'Check'  # Проверка перед оплатой
+            elif operation_type == 'PaymentFailed':
+                notification_type_to_handle = 'Fail'
+            elif operation_type == 'Refund':
+                notification_type_to_handle = 'Refund'
+            elif operation_type == 'Cancel':
+                notification_type_to_handle = 'Cancel'
+            else:
+                logger.error(f'⚠️ Unknown OperationType: {operation_type}, Status: {status}')
+                logger.error(f'Webhook data: {webhook_data}')
+                notification_type_to_handle = None
+            
+            logger.info(f'Determined notification type: {notification_type_to_handle}')
+            logger.info(f'Full webhook data: {webhook_data}')
             
             # Handle different notification types
-            if notification_type == 'Check':
+            if notification_type_to_handle == 'Check':
                 return handle_check_notification(webhook_data)
-            elif notification_type == 'Pay':
+            elif notification_type_to_handle == 'Pay':
                 return handle_pay_notification(webhook_data)
-            elif notification_type == 'Fail':
+            elif notification_type_to_handle == 'Fail':
                 return handle_fail_notification(webhook_data)
-            elif notification_type == 'Confirm':
+            elif notification_type_to_handle == 'Confirm':
                 return handle_confirm_notification(webhook_data)
-            elif notification_type == 'Refund':
+            elif notification_type_to_handle == 'Refund':
                 return handle_refund_notification(webhook_data)
-            elif notification_type == 'Cancel':
+            elif notification_type_to_handle == 'Cancel':
                 return handle_cancel_notification(webhook_data)
             else:
-                logger.warning(f'Unknown notification type: {notification_type}')
+                logger.warning(f'Unknown notification type: {notification_type_to_handle}')
+                logger.warning(f'OperationType: {operation_type}, Status: {status}')
                 return jsonify({'code': 13, 'message': 'Unknown notification type'}), 200
                 
         except Exception as e:
