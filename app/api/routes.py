@@ -674,102 +674,136 @@ def capture_payment(order_id):
         if capture_amount <= 0:
             return jsonify({'success': False, 'error': 'Сумма к зачету должна быть больше нуля'}), 400
         
-        # ✅ Проверка: сумма не может превышать авторизованную сумму платежа
-        authorized_payment = order.payments.filter_by(status='authorized').first()
-        if not authorized_payment:
-            return jsonify({'success': False, 'error': 'Авторизованный платеж не найден'}), 404
+        # Ищем платеж: сначала авторизованный (для capture), затем подтвержденный (для подтверждения получения денег)
+        payment = order.payments.filter_by(status='authorized').first()
+        is_already_confirmed = False
         
-        if capture_amount > float(authorized_payment.amount):
+        if not payment:
+            # Если нет авторизованного платежа, ищем подтвержденный
+            payment = order.payments.filter_by(status='confirmed').first()
+            if payment:
+                is_already_confirmed = True
+            else:
+                return jsonify({'success': False, 'error': 'Платеж не найден (ни авторизованный, ни подтвержденный)'}), 404
+        
+        # Проверка суммы
+        if capture_amount > float(payment.amount):
             return jsonify({
                 'success': False, 
-                'error': f'Сумма захвата ({capture_amount}) не может превышать авторизованную сумму ({authorized_payment.amount})'
+                'error': f'Сумма ({capture_amount}) не может превышать сумму платежа ({payment.amount})'
             }), 400
         
         if capture_amount > float(order.total_amount):
             return jsonify({
                 'success': False, 
-                'error': f'Сумма захвата ({capture_amount}) не может превышать сумму заказа ({order.total_amount})'
+                'error': f'Сумма ({capture_amount}) не может превышать сумму заказа ({order.total_amount})'
             }), 400
         
-        payment = authorized_payment
-        
-        cp_api = CloudPaymentsAPI()
-        
-        if order.payment_method == 'card':
-            # Determine if this is partial or full capture
-            is_partial_capture = capture_amount < float(order.total_amount)
-            
-            if is_partial_capture:
-                # ✅ ЧАСТИЧНЫЙ ЗАХВАТ
-                confirm_result = cp_api.confirm_payment(payment.cp_transaction_id, capture_amount)
-                if not confirm_result.get('success'):
-                    return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
-                
-                order.paid_amount = capture_amount
-                order.status = 'completed_partial_refund'  # ✅ Всегда частичный возврат при частичном захвате
-                
-                # Log partial capture
-                AuditLog.create_log(
-                    user_id=current_user.id,
-                    action='MOM_CAPTURED_PARTIAL',
-                    resource_type='Order',
-                    resource_id=str(order.id),
-                    details={
-                        'captured_amount': capture_amount,
-                        'total_amount': float(order.total_amount),
-                        'transaction_id': payment.cp_transaction_id
-                    },
-                    ip_address=request.remote_addr,
-                    user_agent=request.headers.get('User-Agent'),
-                    commit=False  # ✅ Коммитим вместе с основными изменениями
-                )
-            else:
-                # ✅ ПОЛНЫЙ ЗАХВАТ
-                confirm_result = cp_api.confirm_payment(payment.cp_transaction_id)  # Без amount = полный
-                if not confirm_result.get('success'):
-                    return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
-                
-                order.paid_amount = capture_amount
-                order.status = 'completed'  # ✅ Полный захват
-                
-                # Log full capture
-                AuditLog.create_log(
-                    user_id=current_user.id,
-                    action='MOM_CAPTURED_FULL',
-                    resource_type='Order',
-                    resource_id=str(order.id),
-                    details={
-                        'captured_amount': capture_amount,
-                        'transaction_id': payment.cp_transaction_id
-                    },
-                    ip_address=request.remote_addr,
-                    user_agent=request.headers.get('User-Agent'),
-                    commit=False  # ✅ Коммитим вместе с основными изменениями
-                )
-        else:
-            # For SBP, payments are already confirmed, just update status
+        # Если платеж уже подтвержден, просто обновляем статус заказа (подтверждение получения денег)
+        if is_already_confirmed:
             order.paid_amount = capture_amount
             if capture_amount < float(order.total_amount):
                 order.status = 'completed_partial_refund'
             else:
                 order.status = 'completed'
             
-            # Log SBP capture
+            # Log confirmation of receipt (для уже подтвержденных платежей)
             AuditLog.create_log(
                 user_id=current_user.id,
-                action='MOM_CAPTURED_SBP',
+                action='MOM_CONFIRMED_RECEIPT',
                 resource_type='Order',
                 resource_id=str(order.id),
                 details={
-                    'captured_amount': capture_amount,
-                    'payment_method': 'sbp'
+                    'confirmed_amount': capture_amount,
+                    'total_amount': float(order.total_amount),
+                    'transaction_id': payment.cp_transaction_id,
+                    'payment_method': order.payment_method
                 },
                 ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent')
+                user_agent=request.headers.get('User-Agent'),
+                commit=False
             )
+        else:
+            # Платеж авторизован - нужно сделать capture через CloudPayments API
+            cp_api = CloudPaymentsAPI()
+            
+            if order.payment_method == 'card':
+                # Determine if this is partial or full capture
+                is_partial_capture = capture_amount < float(order.total_amount)
+                
+                if is_partial_capture:
+                    # ✅ ЧАСТИЧНЫЙ ЗАХВАТ
+                    confirm_result = cp_api.confirm_payment(payment.cp_transaction_id, capture_amount)
+                    if not confirm_result.get('success'):
+                        return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
+                    
+                    order.paid_amount = capture_amount
+                    order.status = 'completed_partial_refund'  # ✅ Всегда частичный возврат при частичном захвате
+                    
+                    # Log partial capture
+                    AuditLog.create_log(
+                        user_id=current_user.id,
+                        action='MOM_CAPTURED_PARTIAL',
+                        resource_type='Order',
+                        resource_id=str(order.id),
+                        details={
+                            'captured_amount': capture_amount,
+                            'total_amount': float(order.total_amount),
+                            'transaction_id': payment.cp_transaction_id
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent'),
+                        commit=False  # ✅ Коммитим вместе с основными изменениями
+                    )
+                else:
+                    # ✅ ПОЛНЫЙ ЗАХВАТ
+                    confirm_result = cp_api.confirm_payment(payment.cp_transaction_id)  # Без amount = полный
+                    if not confirm_result.get('success'):
+                        return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
+                    
+                    order.paid_amount = capture_amount
+                    order.status = 'completed'  # ✅ Полный захват
+                    
+                    # Log full capture
+                    AuditLog.create_log(
+                        user_id=current_user.id,
+                        action='MOM_CAPTURED_FULL',
+                        resource_type='Order',
+                        resource_id=str(order.id),
+                        details={
+                            'captured_amount': capture_amount,
+                            'transaction_id': payment.cp_transaction_id
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent'),
+                        commit=False  # ✅ Коммитим вместе с основными изменениями
+                    )
+            else:
+                # For SBP, payments are already confirmed, just update status
+                order.paid_amount = capture_amount
+                if capture_amount < float(order.total_amount):
+                    order.status = 'completed_partial_refund'
+                else:
+                    order.status = 'completed'
+                
+                # Log SBP capture
+                AuditLog.create_log(
+                    user_id=current_user.id,
+                    action='MOM_CAPTURED_SBP',
+                    resource_type='Order',
+                    resource_id=str(order.id),
+                    details={
+                        'captured_amount': capture_amount,
+                        'payment_method': 'sbp'
+                    },
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent'),
+                    commit=False
+                )
         
-        # Update payment status
-        payment.status = 'confirmed'
+        # Update payment status (если еще не confirmed)
+        if not is_already_confirmed:
+            payment.status = 'confirmed'
         payment.mom_confirmed = True
         payment.confirmed_at = db.func.now()
         payment.confirmed_by = current_user.id
