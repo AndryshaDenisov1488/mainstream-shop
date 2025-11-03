@@ -194,48 +194,48 @@
     </div>
 </div>
 
-<!-- Refund Modal -->
-<div class="modal fade" id="refundModal" tabindex="-1" aria-labelledby="refundModalLabel" aria-hidden="true">
+<!-- Refund Modal Detailed -->
+<div class="modal fade" id="refundModalDetailed" tabindex="-1" aria-labelledby="refundModalDetailedLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="refundModalLabel">Обработка возврата</h5>
+                <h5 class="modal-title" id="refundModalDetailedLabel">Обработка возврата</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="refundForm">
-                    <input type="hidden" id="refundOrderId" name="order_id">
+                <form id="refundFormDetailed">
+                    <input type="hidden" id="refundOrderIdDetailed" name="order_id">
                     
                     <div class="alert alert-info">
                         <h6>Информация о заказе</h6>
-                        <p class="mb-1"><strong>Номер заказа:</strong> <span id="refundOrderNumber"></span></p>
-                        <p class="mb-0"><strong>Сумма к возврату:</strong> <span id="refundAmount"></span> ₽</p>
+                        <p class="mb-1"><strong>Номер заказа:</strong> <span id="refundOrderNumberDetailed"></span></p>
+                        <p class="mb-0"><strong>Сумма к возврату:</strong> <span id="refundAmountDetailed"></span> ₽</p>
                     </div>
                     
                     <div class="mb-3">
                         <label class="form-label">Тип возврата</label>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="refundType" id="fullRefund" value="full" checked>
-                            <label class="form-check-label" for="fullRefund">
+                            <input class="form-check-input" type="radio" name="refundType" id="fullRefundDetailed" value="full" checked>
+                            <label class="form-check-label" for="fullRefundDetailed">
                                 Полный возврат
                             </label>
                         </div>
                         <div class="form-check">
-                            <input class="form-check-input" type="radio" name="refundType" id="partialRefund" value="partial">
-                            <label class="form-check-label" for="partialRefund">
+                            <input class="form-check-input" type="radio" name="refundType" id="partialRefundDetailed" value="partial">
+                            <label class="form-check-label" for="partialRefundDetailed">
                                 Частичный возврат
                             </label>
                         </div>
                     </div>
                     
-                    <div class="mb-3" id="partialAmountDiv" style="display: none;">
-                        <label for="refundAmountInput" class="form-label">Сумма возврата (₽)</label>
-                        <input type="number" class="form-control" id="refundAmountInput" name="refund_amount" step="0.01" min="0">
+                    <div class="mb-3" id="partialAmountDivDetailed" style="display: none;">
+                        <label for="refundAmountInputDetailed" class="form-label">Сумма возврата (₽)</label>
+                        <input type="number" class="form-control" id="refundAmountInputDetailed" name="refund_amount" step="0.01" min="0">
                     </div>
                     
                     <div class="mb-3">
-                        <label for="refundReason" class="form-label">Причина возврата</label>
-                        <select class="form-select" id="refundReason" name="reason" required>
+                        <label for="refundReasonDetailed" class="form-label">Причина возврата</label>
+                        <select class="form-select" id="refundReasonDetailed" name="reason" required>
                             <option value="">Выберите причину</option>
                             <option value="customer_request">Запрос клиента</option>
                             <option value="technical_issue">Техническая проблема</option>
@@ -246,13 +246,13 @@
                     </div>
                     
                     <div class="mb-3">
-                        <label for="refundComment" class="form-label">Комментарий</label>
-                        <textarea class="form-control" id="refundComment" name="comment" rows="3" placeholder="Дополнительная информация о возврате..." required></textarea>
+                        <label for="refundCommentDetailed" class="form-label">Комментарий</label>
+                        <textarea class="form-control" id="refundCommentDetailed" name="comment" rows="3" placeholder="Дополнительная информация о возврате..." required></textarea>
                     </div>
                     
                     <div class="mb-3">
                         <label for="paymentInfo" class="form-label">Информация о платеже</label>
-                        <div id="paymentInfoContainer">
+                        <div id="paymentInfoContainerDetailed">
                             <!-- Payment info will be populated here -->
                         </div>
                     </div>
@@ -260,7 +260,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-danger" onclick="processRefund()">
+                <button type="button" class="btn btn-danger" onclick="processRefundDetailed()">
                     <i class="fas fa-undo me-1"></i>Обработать возврат
                 </button>
             </div>
@@ -632,13 +632,12 @@ function sendVideoLinks() {
     });
 }
 
-// Refund Modal Functions
-// Removed duplicate function
-
-function processRefund() {
-    const form = document.getElementById('refundForm');
+// Refund Modal Functions - Detailed modal
+function processRefundDetailed() {
+    const form = document.getElementById('refundFormDetailed');
     const formData = new FormData(form);
     
+    const orderId = formData.get('order_id');
     const refundType = formData.get('refundType');
     const refundAmount = refundType === 'full' ? null : parseFloat(formData.get('refund_amount'));
     
@@ -653,18 +652,15 @@ function processRefund() {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            order_id: parseInt(formData.get('order_id')),
-            refund_type: refundType,
-            refund_amount: refundAmount,
-            reason: formData.get('reason'),
-            comment: formData.get('comment')
+            amount: refundAmount,
+            reason: formData.get('reason')
         })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             alert('Возврат обработан успешно!');
-            bootstrap.Modal.getInstance(document.getElementById('refundModal')).hide();
+            bootstrap.Modal.getInstance(document.getElementById('refundModalDetailed')).hide();
             location.reload();
         } else {
             alert('Ошибка: ' + data.error);
@@ -682,6 +678,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const partialRefund = document.getElementById('partialRefund');
     const partialAmountDiv = document.getElementById('partialAmountDiv');
     
+    const fullRefundDetailed = document.getElementById('fullRefundDetailed');
+    const partialRefundDetailed = document.getElementById('partialRefundDetailed');
+    const partialAmountDivDetailed = document.getElementById('partialAmountDivDetailed');
+    
     if (fullRefund && partialRefund && partialAmountDiv) {
         fullRefund.addEventListener('change', function() {
             partialAmountDiv.style.display = 'none';
@@ -689,6 +689,16 @@ document.addEventListener('DOMContentLoaded', function() {
         
         partialRefund.addEventListener('change', function() {
             partialAmountDiv.style.display = 'block';
+        });
+    }
+    
+    if (fullRefundDetailed && partialRefundDetailed && partialAmountDivDetailed) {
+        fullRefundDetailed.addEventListener('change', function() {
+            partialAmountDivDetailed.style.display = 'none';
+        });
+        
+        partialRefundDetailed.addEventListener('change', function() {
+            partialAmountDivDetailed.style.display = 'block';
         });
     }
     

@@ -82,10 +82,10 @@ def create_users():
 def create_video_types():
     """Create video types"""
     video_types_data = [
-        {'name': 'Спорт2', 'description': 'Полное видео выступления', 'price': 2500.00},
-        {'name': 'ТВ', 'description': 'ТВ версия выступления', 'price': 1500.00},
-        {'name': 'Короткое видео', 'description': 'Короткая версия выступления', 'price': 1000.00},
-        {'name': 'Моменты', 'description': 'Лучшие моменты выступления', 'price': 800.00}
+        {'name': 'Видео ТВ', 'description': 'ТВ версия выступления', 'price': 1490.00},
+        {'name': 'Видео спорт', 'description': 'Спортивная версия выступления', 'price': 990.00},
+        {'name': 'Видео ТВ 2 проката', 'description': 'ТВ версия для 2 прокатов', 'price': 2490.00},
+        {'name': 'Видео спорт 2 проката', 'description': 'Спортивная версия для 2 прокатов', 'price': 1490.00}
     ]
     
     for vt_data in video_types_data:

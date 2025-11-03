@@ -293,13 +293,30 @@
                     
                     {% if order.payments %}
                         {% for payment in order.payments %}
-                            <div class="mb-2">
-                                <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }}">
-                                    {{ 'Подтвержден' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
-                                </span>
-                                <small class="text-muted d-block">{{ payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else '' }}</small>
+                            <div class="mb-3 p-3 border rounded">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }}">
+                                        {{ 'Подтвержден' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
+                                    </span>
+                                    <strong class="text-primary">{{ "%.2f"|format(payment.amount) }} ₽</strong>
+                                </div>
+                                <small class="text-muted d-block">Создан: {{ payment.created_at.strftime('%d.%m.%Y %H:%M') if payment.created_at else 'Не указано' }}</small>
+                                {% if payment.processed_at %}
+                                    <small class="text-muted d-block">Обработан: {{ payment.processed_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                                {% endif %}
+                                {% if payment.confirmed_at %}
+                                    <small class="text-muted d-block">Подтвержден: {{ payment.confirmed_at.strftime('%d.%m.%Y %H:%M') }}</small>
+                                {% endif %}
                                 {% if payment.cp_transaction_id %}
-                                    <small class="text-muted d-block">ID: {{ payment.cp_transaction_id }}</small>
+                                    <small class="text-muted d-block">ID транзакции: {{ payment.cp_transaction_id }}</small>
+                                {% endif %}
+                                {% if payment.method %}
+                                    <small class="text-muted d-block">Способ оплаты: {{ 'Карта' if payment.method == 'card' else 'СБП' if payment.method == 'sbp' else payment.method }}</small>
+                                {% endif %}
+                                {% if payment.notes %}
+                                    <div class="mt-2 p-2 bg-light rounded">
+                                        <small class="text-muted"><strong>Примечание:</strong> {{ payment.notes }}</small>
+                                    </div>
                                 {% endif %}
                             </div>
                         {% endfor %}
