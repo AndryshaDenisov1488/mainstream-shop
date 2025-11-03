@@ -79,18 +79,21 @@ def create_app(config_class=Config):
         # Initialize Telegram bot
         if not os.environ.get('SKIP_TELEGRAM_BOT'):
             try:
+                logger.info("DEBUG: Starting Telegram bot initialization...")
                 from app.telegram_bot.runner import initialize_bot
                 bot_thread = initialize_bot(app)
+                logger.info(f"DEBUG: initialize_bot returned: {bot_thread}")
                 if bot_thread:
                     logger.info("✅ Telegram bot initialization started")
                 else:
                     logger.warning("⚠️ Telegram bot initialization returned None (token may be missing)")
             except Exception as e:
                 # Если БД еще не создана или токен не настроен, бот не критичен
+                logger.error(f"DEBUG: Exception in bot initialization: {e}", exc_info=True)
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
                     logger.warning(f"Telegram bot initialization skipped: {e}")
                 else:
-                    logger.debug(f"Telegram bot initialization skipped (DB not ready): {e}")
+                    logger.warning(f"Telegram bot initialization skipped (DB not ready): {e}")
     else:
         logger.info("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag")
     
