@@ -144,7 +144,8 @@ def reports():
     from sqlalchemy import func
     
     # Get date range (last 30 days)
-    end_date = datetime.now()
+    from app.utils.datetime_utils import moscow_now_naive
+    end_date = moscow_now_naive()
     start_date = end_date - timedelta(days=30)
     
     # Get orders statistics

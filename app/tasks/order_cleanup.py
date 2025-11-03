@@ -4,11 +4,12 @@ Cancels orders that have expired payment deadlines
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 from flask import current_app
 from app import db
 from app.models import Order, AuditLog
 from app.utils.cloudpayments import CloudPaymentsAPI
+from app.utils.datetime_utils import moscow_now_naive
 
 logger = logging.getLogger(__name__)
 
@@ -36,8 +37,6 @@ def cancel_expired_orders():
     Runs every minute via APScheduler
     """
     try:
-        # Выводим в stdout для systemd journal
-        print('Starting cancel_expired_orders task', flush=True)
         logger.info('Starting cancel_expired_orders task')
         
         # Get auto_cancel_minutes from settings
@@ -51,7 +50,7 @@ def cancel_expired_orders():
         
         # Find orders with expired payment deadlines
         # Проверяем как заказы с payment_expires_at, так и старые заказы без него (созданные более auto_cancel_minutes назад)
-        current_time = datetime.utcnow()
+        current_time = moscow_now_naive()
         expired_threshold = current_time - timedelta(minutes=auto_cancel_minutes)
         
         logger.debug(f'Checking for expired orders (current_time={current_time}, expired_threshold={expired_threshold})')
@@ -163,7 +162,7 @@ def cleanup_old_audit_logs():
     Runs daily via APScheduler
     """
     try:
-        cutoff_date = datetime.utcnow() - timedelta(days=365)
+        cutoff_date = moscow_now_naive() - timedelta(days=365)
         
         # ✅ Удаляем батчами по 1000 записей для избежания проблем с памятью
         deleted_count = 0

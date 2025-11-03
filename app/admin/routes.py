@@ -17,6 +17,7 @@ except ImportError:
     import warnings
     warnings.warn("defusedxml not installed - XXE protection disabled", UserWarning)
 from datetime import datetime, timedelta
+from app.utils.datetime_utils import moscow_now_naive
 
 @bp.route('/dashboard')
 @login_required
@@ -44,17 +45,10 @@ def dashboard():
     # Recent users
     recent_users = User.query.order_by(desc(User.created_at)).limit(5).all()
     
-    # Overdue orders
-    overdue_orders = Order.query.filter(
-        Order.status == 'processing',
-        Order.created_at < datetime.utcnow() - timedelta(days=4)
-    ).count()
-    
     return render_template('admin/dashboard.html',
                          stats=stats,
                          recent_orders=recent_orders,
-                         recent_users=recent_users,
-                         overdue_orders=overdue_orders)
+                         recent_users=recent_users)
 
 @bp.route('/users')
 @login_required
@@ -820,18 +814,19 @@ def finance():
     
     # Set default date range
     if not start_date or not end_date:
+        now = moscow_now_naive()
         if period == 'day':
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
+            end_date = now.strftime('%Y-%m-%d')
+            start_date = (now - timedelta(days=30)).strftime('%Y-%m-%d')
         elif period == 'week':
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=90)).strftime('%Y-%m-%d')
+            end_date = now.strftime('%Y-%m-%d')
+            start_date = (now - timedelta(days=90)).strftime('%Y-%m-%d')
         elif period == 'month':
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
+            end_date = now.strftime('%Y-%m-%d')
+            start_date = (now - timedelta(days=365)).strftime('%Y-%m-%d')
         else:  # year
-            end_date = datetime.now().strftime('%Y-%m-%d')
-            start_date = (datetime.now() - timedelta(days=1095)).strftime('%Y-%m-%d')
+            end_date = now.strftime('%Y-%m-%d')
+            start_date = (now - timedelta(days=1095)).strftime('%Y-%m-%d')
     
     # Convert to datetime objects
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
@@ -1013,7 +1008,7 @@ def settings():
                     setting.value = new_value
                     settings_changes.append({
                         'key': setting.key,
-                        'name': setting.name or setting.key,
+                        'name': setting.description or setting.key,
                         'old_value': old_value,
                         'new_value': new_value
                     })
@@ -1069,10 +1064,8 @@ def settings():
     # Get video types for price management
     video_types = VideoType.query.filter_by(is_active=True).all()
     
-    # Get general settings (exclude payment_confirmation_days from display)
-    settings = SystemSetting.query.filter(
-        SystemSetting.key != 'payment_confirmation_days'
-    ).all()
+    # Get general settings
+    settings = SystemSetting.query.all()
     
     # Get counts for dashboard
     users_count = User.query.filter_by(role='CUSTOMER').count()
@@ -1096,7 +1089,6 @@ def download_database():
     import shutil
     from flask import send_file
     import os
-    from datetime import datetime
     
     try:
         from flask import current_app
@@ -1119,7 +1111,7 @@ def download_database():
             return redirect(url_for('admin.settings'))
         
         # Create backup filename with timestamp
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        timestamp = moscow_now_naive().strftime('%Y%m%d_%H%M%S')
         backup_filename = f'database_backup_{timestamp}.db'
         backup_path = os.path.join(current_app.instance_path, backup_filename)
         

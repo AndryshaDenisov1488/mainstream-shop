@@ -4,6 +4,7 @@ from flask_login import UserMixin
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
+from app.utils.datetime_utils import moscow_now_naive
 
 class User(UserMixin, db.Model):
     """User model with role-based access control"""
@@ -18,7 +19,7 @@ class User(UserMixin, db.Model):
     role = db.Column(db.Enum('ADMIN', 'MOM', 'OPERATOR', 'CUSTOMER', name='user_roles'), 
                      nullable=False, default='CUSTOMER')
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
     last_login = db.Column(db.DateTime)
     
     # Relationships
@@ -89,7 +90,7 @@ class Event(db.Model):
     place = db.Column(db.String(200))
     start_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
     is_active = db.Column(db.Boolean, default=True)
     
     # Relationships
@@ -197,8 +198,8 @@ class Order(db.Model):
     cancellation_reason = db.Column(db.Text)  # Reason for order cancellation
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive, index=True)
+    updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive)
     
     # Relationships
     payments = db.relationship('Payment', backref='order', lazy='dynamic')
@@ -215,7 +216,7 @@ class Order(db.Model):
         max_attempts = 10
         
         for attempt in range(max_attempts):
-            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            timestamp = moscow_now_naive().strftime('%Y%m%d%H%M%S')
             order_number = f'MS{timestamp}'
             
             # ✅ Проверка уникальности
@@ -239,7 +240,7 @@ class Order(db.Model):
         import string
         max_attempts = 10
         
-        date_str = datetime.now().strftime('%Y%m%d')
+        date_str = moscow_now_naive().strftime('%Y%m%d')
         
         for attempt in range(max_attempts):
             # ✅ Использовать более уникальный идентификатор (6 символов)
@@ -255,16 +256,10 @@ class Order(db.Model):
         unique_id = uuid.uuid4().hex[:8].upper()
         return f'MS-{date_str}-{unique_id}'
     
-    def is_overdue(self):
-        """Check if order is overdue (older than 4 days)"""
-        if self.status == 'processing':
-            return datetime.utcnow() - self.created_at > timedelta(days=4)
-        return False
-    
     def is_payment_expired(self):
         """Check if payment has expired (15 minutes TTL)"""
         if self.status == 'awaiting_payment' and self.payment_expires_at:
-            return datetime.utcnow() > self.payment_expires_at
+            return moscow_now_naive() > self.payment_expires_at
         return False
     
     def can_be_taken_by_operator(self):
@@ -336,10 +331,12 @@ class Payment(db.Model):
     mom_confirmed = db.Column(db.Boolean, default=False)
     confirmed_at = db.Column(db.DateTime)
     confirmed_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    notes = db.Column(db.Text)  # Notes for refunds, additional info
+    processed_at = db.Column(db.DateTime)  # When payment was processed
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
+    updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive)
     
     # Relationships
     confirmer = db.relationship('User', foreign_keys=[confirmed_by], backref='confirmed_payments')
@@ -349,10 +346,10 @@ class Payment(db.Model):
         """Get transaction ID for backward compatibility"""
         return self.cp_transaction_id
     
-    def can_be_voided(self):
-        """Check if payment can be voided (within 7 days)"""
-        return (self.status == 'authorized' and 
-                datetime.utcnow() - self.created_at <= timedelta(days=7))
+    @property
+    def payment_method(self):
+        """Get payment method for backward compatibility"""
+        return self.method
     
     def __repr__(self):
         return f'<Payment {self.cp_transaction_id}>'
@@ -369,7 +366,7 @@ class AuditLog(db.Model):
     details = db.Column(db.JSON)
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
     
     @staticmethod
     def create_log(user_id=None, action=None, resource_type=None, resource_id=None, 
@@ -564,7 +561,7 @@ class SystemSetting(db.Model):
     key = db.Column(db.String(100), unique=True, nullable=False)
     value = db.Column(db.Text)
     description = db.Column(db.Text)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive)
     
     def __repr__(self):
         return f'<SystemSetting {self.key}>'
@@ -575,8 +572,8 @@ class OrderChat(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('orders.id'), nullable=False, unique=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    last_message_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
+    last_message_at = db.Column(db.DateTime, default=moscow_now_naive)
     
     # Relationships
     order = db.relationship('Order', backref='chat', uselist=False)
@@ -611,7 +608,7 @@ class ChatMessage(db.Model):
     message = db.Column(db.Text, nullable=False)
     message_type = db.Column(db.Enum('user', 'system', name='message_type'), default='user')
     is_read = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive)
     
     # File attachment (optional)
     attachment_path = db.Column(db.String(500), nullable=True)

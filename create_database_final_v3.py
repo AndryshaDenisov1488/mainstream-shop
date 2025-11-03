@@ -105,10 +105,8 @@ def create_system_settings():
         {'key': 'contact_email', 'value': 'support@mainstreamfs.ru', 'description': 'Контактный email'},
         {'key': 'telegram_bot_username', 'value': '@mainstreamshopbot', 'description': 'Имя пользователя Telegram бота'},
         {'key': 'whatsapp_number', 'value': '+7 (999) 123-45-67', 'description': 'Номер WhatsApp'},
-        {'key': 'auto_cancel_hours', 'value': '24', 'description': 'Автоматическая отмена неоплаченных заказов (часы)'},
-        {'key': 'payment_confirmation_days', 'value': '7', 'description': 'Дни для подтверждения платежа'},
+        {'key': 'auto_cancel_minutes', 'value': '15', 'description': 'Автоматическая отмена неоплаченных заказов (минуты)'},
         {'key': 'video_link_expiry_days', 'value': '90', 'description': 'Дни действия ссылок на видео'},
-        {'key': 'test_mode', 'value': 'true', 'description': 'Режим тестирования (позволяет платежи без регистрации)'}
     ]
     
     for setting_data in settings_data:

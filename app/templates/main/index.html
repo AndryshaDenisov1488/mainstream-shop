@@ -196,9 +196,15 @@
                     Для заказа видео вы можете использовать нашего Telegram-бота. 
                     Быстро, удобно и доступно 24/7.
                 </p>
-                <a href="#" class="btn btn-primary btn-lg" id="telegramBotBtn">
+                {% if telegram_bot_username %}
+                <a href="https://t.me/{{ telegram_bot_username | replace('@', '') }}" class="btn btn-primary btn-lg" target="_blank">
                     <i class="fab fa-telegram me-2"></i>Открыть бота
                 </a>
+                {% else %}
+                <a href="#" class="btn btn-primary btn-lg disabled" onclick="return false;">
+                    <i class="fab fa-telegram me-2"></i>Бот временно недоступен
+                </a>
+                {% endif %}
             </div>
             <div class="col-lg-6 text-center">
                 <div class="feature-icon mx-auto" style="width: 120px; height: 120px;">
@@ -277,12 +283,6 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Telegram bot button
-    $('#telegramBotBtn').click(function(e) {
-        e.preventDefault();
-        showToast('Telegram бот будет доступен в ближайшее время', 'info');
-    });
-    
     // Add animation classes on scroll
     $(window).scroll(function() {
         $('.slide-in-left, .slide-in-right').each(function() {

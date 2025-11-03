@@ -3,6 +3,10 @@ from flask_login import login_required, current_user
 from app import db
 from app.models import Order, Payment, AuditLog
 from app.utils.decorators import admin_or_mom_required
+from app.utils.datetime_utils import moscow_now_naive
+import logging
+
+logger = logging.getLogger(__name__)
 
 def register_refund_routes(bp):
     """Register refund-related routes"""
@@ -35,6 +39,8 @@ def register_refund_routes(bp):
             })
             
         except Exception as e:
+            db.session.rollback()
+            logger.error(f'Error getting payment info: {str(e)}')
             return jsonify({'success': False, 'error': str(e)}), 500
 
     @bp.route('/order/<int:order_id>/refund', methods=['POST'])
@@ -70,14 +76,15 @@ def register_refund_routes(bp):
             is_full_refund = refund_amount >= available_for_refund
             
             # Create refund payment record
+            now = moscow_now_naive()
             refund_payment = Payment(
                 order_id=order.id,
                 amount=refund_amount,
                 status='refunded_full' if is_full_refund else 'refunded_partial',
-                payment_method='refund',
-                cp_transaction_id=f'REFUND_{order.id}_{int(db.func.now().timestamp())}',
-                created_at=db.func.now(),
-                processed_at=db.func.now(),
+                method=None,  # Refund doesn't have payment method
+                cp_transaction_id=f'REFUND_{order.id}_{int(now.timestamp())}',
+                created_at=now,
+                processed_at=now,
                 notes=f'Причина: {refund_reason}. {refund_comment}' if refund_comment else f'Причина: {refund_reason}'
             )
             
@@ -88,7 +95,7 @@ def register_refund_routes(bp):
                 order.status = 'refunded_full'
             else:
                 order.status = 'completed_partial_refund'
-            order.processed_at = db.func.now()
+            order.processed_at = now
             
             db.session.commit()
             

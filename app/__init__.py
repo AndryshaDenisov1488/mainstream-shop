@@ -63,12 +63,8 @@ def create_app(config_class=Config):
     # Initialize background tasks (skip if creating database)
     # Skip initialization only if explicitly requested or during database creation
     should_skip_background = os.environ.get('SKIP_BACKGROUND_TASKS', 'false').lower() == 'true'
-    logger.info(f"DEBUG: should_skip_background={should_skip_background}")
-    print(f"DEBUG: should_skip_background={should_skip_background}", flush=True)
     
     if not should_skip_background:
-        logger.info("DEBUG: Entering background tasks initialization")
-        print("DEBUG: Entering background tasks initialization", flush=True)
         # Initialize scheduler
         if not os.environ.get('SKIP_SCHEDULER'):
             try:
@@ -83,31 +79,20 @@ def create_app(config_class=Config):
         # Initialize Telegram bot
         if not os.environ.get('SKIP_TELEGRAM_BOT'):
             try:
-                logger.info("DEBUG: Starting Telegram bot initialization...")
-                print("DEBUG: Starting Telegram bot initialization...", flush=True)
                 from app.telegram_bot.runner import initialize_bot
                 bot_thread = initialize_bot(app)
-                logger.info(f"DEBUG: initialize_bot returned: {bot_thread}")
-                print(f"DEBUG: initialize_bot returned: {bot_thread}", flush=True)
                 if bot_thread:
                     logger.info("✅ Telegram bot initialization started")
-                    print("✅ Telegram bot initialization started", flush=True)
                 else:
                     logger.warning("⚠️ Telegram bot initialization returned None (token may be missing)")
-                    print("⚠️ Telegram bot initialization returned None (token may be missing)", flush=True)
             except Exception as e:
                 # Если БД еще не создана или токен не настроен, бот не критичен
-                logger.error(f"DEBUG: Exception in bot initialization: {e}", exc_info=True)
-                print(f"DEBUG: Exception in bot initialization: {e}", flush=True)
                 if 'unable to open database file' not in str(e) and 'no such table' not in str(e).lower():
                     logger.warning(f"Telegram bot initialization skipped: {e}")
-                    print(f"Telegram bot initialization skipped: {e}", flush=True)
                 else:
                     logger.warning(f"Telegram bot initialization skipped (DB not ready): {e}")
-                    print(f"Telegram bot initialization skipped (DB not ready): {e}", flush=True)
     else:
         logger.info("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag")
-        print("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag", flush=True)
     
     # Add context processor for settings (available in all templates)
     @app.context_processor

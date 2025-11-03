@@ -78,10 +78,11 @@ def create_default_data():
         settings = [
             SystemSetting(key='site_name', value='MainStream Shop', description='Название сайта'),
             SystemSetting(key='site_description', value='Профессиональные видео с турниров по фигурному катанию', description='Описание сайта'),
-            SystemSetting(key='contact_email', value='noreply@mainstreamshop.ru', description='Email для связи'),
-            SystemSetting(key='video_link_expiry_days', value='90', description='Срок действия ссылок на видео (дни)'),
-            SystemSetting(key='order_processing_days', value='4', description='Срок обработки заказов (дни)'),
-            SystemSetting(key='payment_confirmation_days', value='7', description='Срок подтверждения платежей (дни)'),
+            SystemSetting(key='contact_email', value='support@mainstreamfs.ru', description='Контактный email'),
+            SystemSetting(key='telegram_bot_username', value='@mainstreamshopbot', description='Имя пользователя Telegram бота'),
+            SystemSetting(key='whatsapp_number', value='+7 (999) 123-45-67', description='Номер WhatsApp'),
+            SystemSetting(key='auto_cancel_minutes', value='15', description='Автоматическая отмена неоплаченных заказов (минуты)'),
+            SystemSetting(key='video_link_expiry_days', value='90', description='Дни действия ссылок на видео'),
         ]
         
         for setting in settings:

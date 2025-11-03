@@ -121,7 +121,7 @@ def export_order_chat(order_id):
             pdf_content,
             mimetype='application/pdf',
             headers={
-                'Content-Disposition': f'attachment; filename=chat_order_{order.generated_order_number}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+                'Content-Disposition': f'attachment; filename=chat_order_{order.generated_order_number}_{moscow_now_naive().strftime("%Y%m%d_%H%M%S")}.pdf'
             }
         )
         
@@ -234,9 +234,11 @@ def export_all_chats():
         buffer.close()
         
         # Create response
-        filename = f"all_chats_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        from app.utils.datetime_utils import moscow_now_naive
+        filename = f"all_chats_{moscow_now_naive().strftime('%Y%m%d_%H%M%S')}.pdf"
         if start_date or end_date:
-            filename = f"chats_{start_date or 'all'}_{end_date or 'all'}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+            from app.utils.datetime_utils import moscow_now_naive
+            filename = f"chats_{start_date or 'all'}_{end_date or 'all'}_{moscow_now_naive().strftime('%Y%m%d_%H%M%S')}.pdf"
         
         response = current_app.response_class(
             pdf_content,

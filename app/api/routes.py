@@ -8,6 +8,7 @@ from app.models import Order, Payment, User, AuditLog, VideoType
 from app.utils.decorators import admin_or_mom_required, role_required
 from app.utils.cloudpayments import CloudPaymentsAPI
 from app.utils.email import send_order_confirmation_email
+from app.utils.datetime_utils import moscow_now_naive
 import json
 import logging
 import base64
@@ -231,13 +232,14 @@ def change_order_status(order_id):
         if new_status not in valid_statuses:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
-        # Update order
+        # Update order - save old status before changing
+        old_status = order.status
         order.status = new_status
         if operator_comment:
             order.operator_comment = operator_comment
         
         if new_status in ['completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'refunded_partial']:
-            order.processed_at = db.func.now()
+            order.processed_at = moscow_now_naive()
         
         # Если заказ отменяется, сохраняем причину и отправляем email
         if new_status in ['cancelled_unpaid', 'cancelled_manual']:
@@ -247,7 +249,7 @@ def change_order_status(order_id):
                 from app.utils.email import send_order_cancellation_email
                 send_order_cancellation_email(order, operator_comment)
             except Exception as e:
-                print(f"Error sending cancellation email: {e}")
+                logger.error(f"Error sending cancellation email: {e}")
         
         db.session.commit()
         
@@ -257,7 +259,7 @@ def change_order_status(order_id):
             action='ORDER_STATUS_CHANGE',
             resource_type='Order',
             resource_id=str(order.id),
-            details={'old_status': order.status, 'new_status': new_status, 'comment': operator_comment},
+            details={'old_status': old_status, 'new_status': new_status, 'comment': operator_comment},
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
@@ -274,6 +276,7 @@ def change_order_status(order_id):
         
     except Exception as e:
         logger.error(f'Change order status error: {str(e)}')
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/order/<int:order_id>/operator-change-status', methods=['POST'])
@@ -296,7 +299,8 @@ def operator_change_order_status(order_id):
         if new_status not in valid_statuses:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
-        # Update order
+        # Update order - save old status before changing
+        old_status = order.status
         order.status = new_status
         if operator_comment:
             order.operator_comment = operator_comment
@@ -306,7 +310,7 @@ def operator_change_order_status(order_id):
             order.operator_id = current_user.id
         
         if new_status in ['completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'refunded_partial']:
-            order.processed_at = db.func.now()
+            order.processed_at = moscow_now_naive()
         
         # Если заказ отменяется, сохраняем причину и отправляем email
         if new_status in ['cancelled_unpaid', 'cancelled_manual']:
@@ -316,7 +320,7 @@ def operator_change_order_status(order_id):
                 from app.utils.email import send_order_cancellation_email
                 send_order_cancellation_email(order, operator_comment)
             except Exception as e:
-                print(f"Error sending cancellation email: {e}")
+                logger.error(f"Error sending cancellation email: {e}")
         
         db.session.commit()
         
@@ -333,7 +337,7 @@ def operator_change_order_status(order_id):
             action='ORDER_STATUS_CHANGE',
             resource_type='Order',
             resource_id=str(order.id),
-            details={'old_status': order.status, 'new_status': new_status, 'comment': operator_comment},
+            details={'old_status': old_status, 'new_status': new_status, 'comment': operator_comment},
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
@@ -350,6 +354,7 @@ def operator_change_order_status(order_id):
         
     except Exception as e:
         logger.error(f'Operator change order status error: {str(e)}')
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/order/<int:order_id>/info', methods=['GET'])
@@ -479,6 +484,7 @@ def get_order_info(order_id):
         
     except Exception as e:
         logger.error(f'Get order info error: {str(e)}')
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @bp.route('/order/<int:order_id>/send-links', methods=['POST'])
@@ -541,7 +547,7 @@ def send_video_links_api(order_id):
             order.operator_comment = message
         
         
-        order.processed_at = db.func.now()
+        order.processed_at = moscow_now_naive()
         
         # If no operator assigned, assign current operator
         if not order.operator_id:
@@ -624,7 +630,7 @@ def assign_operator_api(order_id):
             # Назначаем оператора
             order.operator_id = current_user.id
             order.status = 'processing'
-            order.processed_at = db.func.now()
+            order.processed_at = moscow_now_naive()
             
             # Коммитим транзакцию (Flask автоматически создал её для этого request)
             db.session.commit()
@@ -815,7 +821,7 @@ def capture_payment(order_id):
         if not is_already_confirmed:
             payment.status = 'confirmed'
         payment.mom_confirmed = True
-        payment.confirmed_at = db.func.now()
+        payment.confirmed_at = moscow_now_naive()
         payment.confirmed_by = current_user.id
         
         db.session.commit()  # ✅ Коммитим все вместе: order, payment, audit_log
@@ -891,7 +897,9 @@ def refund_payment(order_id):
             return jsonify({'success': False, 'error': f'Ошибка возврата: {refund_result.get("error")}'}), 500
         
         # ✅ Определяем тип возврата и обновляем статусы
-        is_full_refund = refund_amount >= float(order.paid_amount)
+        # Сохраняем сумму до обновления для логов
+        original_paid_amount = float(order.paid_amount or 0)
+        is_full_refund = refund_amount >= original_paid_amount
         
         if is_full_refund:
             # ✅ ПОЛНЫЙ ВОЗВРАТ - заказ отменяется
@@ -905,7 +913,7 @@ def refund_payment(order_id):
                 resource_type='Order',
                 resource_id=str(order.id),
                 details={
-                    'refund_amount': float(order.paid_amount) if order.paid_amount else refund_amount,
+                    'refund_amount': original_paid_amount,
                     'transaction_id': payment.cp_transaction_id
                 },
                 ip_address=request.remote_addr,
@@ -916,7 +924,8 @@ def refund_payment(order_id):
             # ✅ ЧАСТИЧНЫЙ ВОЗВРАТ - заказ завершается с частичным возвратом
             order.status = 'completed_partial_refund'  # ✅ ПРАВИЛЬНЫЙ СТАТУС
             payment.status = 'refunded_partial'
-            order.paid_amount = float(order.paid_amount) - refund_amount  # ✅ Обновляем сумму
+            remaining_amount = original_paid_amount - refund_amount
+            order.paid_amount = remaining_amount  # ✅ Обновляем сумму
         
             AuditLog.create_log(
                 user_id=current_user.id,
@@ -925,7 +934,7 @@ def refund_payment(order_id):
                 resource_id=str(order.id),
                 details={
                     'refund_amount': refund_amount,
-                    'remaining_amount': float(order.paid_amount),
+                    'remaining_amount': remaining_amount,
                     'transaction_id': payment.cp_transaction_id
                 },
                 ip_address=request.remote_addr,
@@ -1025,10 +1034,10 @@ def create_payment_intent():
             return jsonify({'success': False, 'error': 'Order is not in checkout_initiated status'}), 409
         
         # Update order status and set payment expiration
-        from datetime import datetime, timedelta
+        from datetime import timedelta
         order.status = 'awaiting_payment'
         order.payment_method = payment_method
-        order.payment_expires_at = datetime.utcnow() + timedelta(minutes=15)
+        order.payment_expires_at = moscow_now_naive() + timedelta(minutes=15)
         
         db.session.commit()
         
@@ -1298,6 +1307,7 @@ def update_order_comments(order_id):
         })
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f'Update order comments error: {str(e)}')
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -1338,7 +1348,7 @@ def _add_status_change_message(order_id, new_status, comment, user_id):
         db.session.add(system_message)
         db.session.commit()
     except Exception as e:
-        print(f"Failed to add system message: {e}")
+        logger.error(f"Failed to add system message: {e}")
 
 # Register CloudPayments webhook routes
 register_cloudpayments_routes(bp)

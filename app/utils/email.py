@@ -2,6 +2,9 @@ from flask import current_app, render_template, url_for
 from flask_mail import Message
 from app import mail
 from app.models import User, VideoType
+import logging
+
+logger = logging.getLogger(__name__)
 
 def send_email(subject, sender, recipients, text_body, html_body):
     """Send email using Flask-Mail"""
@@ -135,7 +138,7 @@ def send_order_ready_notification(order):
         recipients.append(admin.email)
     
     if not recipients:
-        print("No mom/admin users found for notification")
+        logger.warning("No mom/admin users found for notification")
         return
     
     text_body = f"""

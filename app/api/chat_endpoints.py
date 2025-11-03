@@ -9,6 +9,7 @@ import os
 from datetime import datetime
 
 from app.utils.decorators import role_required
+from app.utils.datetime_utils import moscow_now_naive
 from app.models import Order, OrderChat, ChatMessage, User, db
 from app.utils.email import send_chat_notification_email
 
@@ -118,7 +119,8 @@ def send_chat_message(order_id):
             
             # ✅ Генерация безопасного имени файла
             filename = secure_filename(file.filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            from app.utils.datetime_utils import moscow_now_naive
+            timestamp = moscow_now_naive().strftime('%Y%m%d_%H%M%S')
             filename = f"{timestamp}_{filename}"
             
             filepath = os.path.join(abs_order_dir, filename)
@@ -144,7 +146,7 @@ def send_chat_message(order_id):
     db.session.add(message)
     
     # Update chat last message time
-    chat.last_message_at = datetime.utcnow()
+    chat.last_message_at = moscow_now_naive()
     
     db.session.commit()
     
@@ -282,7 +284,7 @@ def add_system_message(order_id):
     )
     
     db.session.add(message)
-    chat.last_message_at = datetime.utcnow()
+    chat.last_message_at = moscow_now_naive()
     db.session.commit()
     
     return jsonify({'success': True, 'message_id': message.id})

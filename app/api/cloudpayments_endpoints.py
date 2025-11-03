@@ -7,7 +7,7 @@ from flask import request, jsonify, current_app
 from app import db
 from app.models import Order, Payment, User, AuditLog
 from app.utils.cloudpayments import CloudPaymentsAPI
-from datetime import datetime
+from app.utils.datetime_utils import moscow_now_naive
 import logging
 import json
 
@@ -39,23 +39,9 @@ def register_cloudpayments_routes(bp):
                 request.headers.get('Content-Signature')
             )
             
-            # Детальное логирование для отладки
-            logger.info(f'=== WEBHOOK DEBUG START ===')
-            logger.info(f'Content-Type: {request.headers.get("Content-Type")}')
-            logger.info(f'Content-Length: {request.headers.get("Content-Length")}')
-            logger.info(f'Raw data length: {len(raw_data)} bytes')
-            logger.info(f'Raw data (first 200 chars): {raw_data[:200]}')
-            logger.info(f'Signature header (Content-Hmac): {request.headers.get("Content-Hmac")}')
-            logger.info(f'Signature header (X-Content-Hmac): {request.headers.get("X-Content-Hmac")}')
-            logger.info(f'Using signature: {signature[:40] if signature else "None"}...')
-            logger.info(f'All headers: {dict(request.headers)}')
-            
             # Verify signature
             cp_api = CloudPaymentsAPI()
             signature_valid = cp_api.verify_webhook_signature(raw_data, signature)
-            
-            logger.info(f'Signature verification result: {signature_valid}')
-            logger.info(f'=== WEBHOOK DEBUG END ===')
             
             if not signature_valid:
                 logger.warning(f'Invalid webhook signature. Raw data: {raw_data[:500]}')
@@ -233,7 +219,7 @@ def handle_pay_notification(data):
                     return jsonify({'code': 12, 'message': 'Order already processed'}), 200
                 
                 # Check if payment has expired
-                if order.payment_expires_at and datetime.utcnow() > order.payment_expires_at:
+                if order.payment_expires_at and moscow_now_naive() > order.payment_expires_at:
                     logger.error(f'Payment for order {invoice_id} has expired')
                     return jsonify({'code': 12, 'message': 'Payment expired'}), 200
                 
@@ -356,6 +342,7 @@ def handle_fail_notification(data):
         return jsonify({'code': 0, 'message': 'OK'}), 200
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f'Fail notification error: {str(e)}')
         return jsonify({'code': 13, 'message': 'Internal error'}), 200
 
@@ -375,7 +362,7 @@ def handle_confirm_notification(data):
             
             payment.status = 'confirmed'
             payment.mom_confirmed = True
-            payment.confirmed_at = datetime.utcnow()
+            payment.confirmed_at = moscow_now_naive()
             
             # Update order paid_amount if partial capture
             if amount and float(amount) != float(payment.amount):
@@ -406,6 +393,7 @@ def handle_confirm_notification(data):
         return jsonify({'code': 0, 'message': 'OK'}), 200
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f'Confirm notification error: {str(e)}')
         return jsonify({'code': 13, 'message': 'Internal error'}), 200
 
@@ -429,6 +417,7 @@ def handle_refund_notification(data):
         return jsonify({'code': 0, 'message': 'OK'}), 200
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f'Refund notification error: {str(e)}')
         return jsonify({'code': 13, 'message': 'Internal error'}), 200
 
@@ -449,5 +438,6 @@ def handle_cancel_notification(data):
         return jsonify({'code': 0, 'message': 'OK'}), 200
         
     except Exception as e:
+        db.session.rollback()
         logger.error(f'Cancel notification error: {str(e)}')
         return jsonify({'code': 13, 'message': 'Internal error'}), 200

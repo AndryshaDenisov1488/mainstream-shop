@@ -136,14 +136,18 @@ def send_contact_form():
     """Handle contact form submission"""
     from flask_mail import Message
     from app import mail
+    from app.utils.settings import get_contact_email
     
     try:
         data = request.get_json()
         
+        # Get contact email from settings
+        contact_email = get_contact_email()
+        
         # Create email message
         msg = Message(
             subject=f"Сообщение с сайта: {data.get('subject', 'Вопрос')}",
-            recipients=['support@mainstreamfs.ru'],
+            recipients=[contact_email],
             sender=current_app.config['MAIL_DEFAULT_SENDER']
         )
         

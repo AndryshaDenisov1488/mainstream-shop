@@ -53,7 +53,8 @@ def login():
             login_user(user, remember=form.remember_me.data)
             
             # Update last login
-            user.last_login = db.func.now()
+            from app.utils.datetime_utils import moscow_now_naive
+            user.last_login = moscow_now_naive()
             db.session.commit()
             
             # Log login

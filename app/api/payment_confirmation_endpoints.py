@@ -4,7 +4,7 @@ from app import db
 from app.models import Order, Payment, AuditLog
 from app.utils.decorators import role_required
 from app.utils.email import send_email
-from datetime import datetime
+from app.utils.datetime_utils import moscow_now_naive
 import logging
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ def register_payment_confirmation_routes(bp):
             total_amount = 0
             for payment in confirmed_payments:
                 payment.mom_confirmed = True
-                payment.confirmed_at = datetime.utcnow()
+                payment.confirmed_at = moscow_now_naive()
                 payment.confirmed_by = current_user.id
                 payment.status = 'confirmed'
                 total_amount += float(payment.amount)
@@ -52,7 +52,7 @@ def register_payment_confirmation_routes(bp):
             # Update order status to completed if it was links_sent
             if order.status == 'links_sent':
                 order.status = 'completed'
-                order.processed_at = datetime.utcnow()
+                order.processed_at = moscow_now_naive()
             
             db.session.commit()
             
@@ -132,17 +132,19 @@ def register_payment_confirmation_routes(bp):
             
             # Create refund payment record
             is_full_refund = refund_amount >= available_for_refund
+            now = moscow_now_naive()
             refund_payment = Payment(
                 order_id=order.id,
                 amount=refund_amount,
                 status='refunded_full' if is_full_refund else 'refunded_partial',
-                payment_method='refund',
-                cp_transaction_id=f'REFUND_{order.id}_{int(datetime.utcnow().timestamp())}',
+                method=None,  # Refund doesn't have payment method
+                cp_transaction_id=f'REFUND_{order.id}_{int(now.timestamp())}',
                 mom_confirmed=True,
-                confirmed_at=datetime.utcnow(),
+                confirmed_at=now,
                 confirmed_by=current_user.id,
-                created_at=datetime.utcnow(),
-                processed_at=datetime.utcnow()
+                created_at=now,
+                processed_at=now,
+                notes=f'Причина: {refund_reason}'
             )
             
             db.session.add(refund_payment)
@@ -152,7 +154,7 @@ def register_payment_confirmation_routes(bp):
                 order.status = 'refunded_full'
             else:
                 order.status = 'completed_partial_refund'
-            order.processed_at = datetime.utcnow()
+            order.processed_at = now
             
             db.session.commit()
             
@@ -220,6 +222,7 @@ def register_payment_confirmation_routes(bp):
             })
             
         except Exception as e:
+            db.session.rollback()
             logger.error(f'Error getting payment history: {str(e)}')
             return jsonify({'success': False, 'error': str(e)}), 500
 

@@ -69,9 +69,13 @@
                     <h3>10. Контактная информация</h3>
                     <p>Если у вас есть вопросы по настоящей Политике конфиденциальности, обращайтесь к нам:</p>
                     <ul>
-                        <li>Email: <a href="mailto:support@mainstreamfs.ru">support@mainstreamfs.ru</a></li>
-                        <li>Telegram: <a href="https://t.me/mainstreamshopbot" target="_blank">@mainstreamshopbot</a></li>
-                        <li>WhatsApp: <a href="https://wa.me/79689039018" target="_blank">+7 (968) 903-90-18</a></li>
+                        <li>Email: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></li>
+                        {% if telegram_bot_username %}
+                        <li>Telegram: <a href="https://t.me/{{ telegram_bot_username | replace('@', '') }}" target="_blank">{{ telegram_bot_username }}</a></li>
+                        {% endif %}
+                        {% if whatsapp_number %}
+                        <li>WhatsApp: <a href="https://wa.me/{{ whatsapp_number | replace('+', '') | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') }}" target="_blank">{{ whatsapp_number }}</a></li>
+                        {% endif %}
                     </ul>
                 </div>
             </div>

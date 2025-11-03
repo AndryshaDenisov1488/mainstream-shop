@@ -86,15 +86,6 @@
         </div>
     </div>
 
-    <!-- Overdue Orders Alert -->
-    {% if overdue_orders > 0 %}
-    <div class="alert alert-warning" role="alert">
-        <i class="fas fa-exclamation-triangle"></i>
-        <strong>Внимание!</strong> У вас {{ overdue_orders }} просроченных заказов (более 4 дней в обработке).
-        <a href="{{ url_for('admin.orders') }}" class="alert-link">Перейти к заказам</a>
-    </div>
-    {% endif %}
-
     <!-- Recent Orders -->
     <div class="row">
         <div class="col-lg-8 mb-4">

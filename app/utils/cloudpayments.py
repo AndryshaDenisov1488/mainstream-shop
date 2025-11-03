@@ -8,11 +8,12 @@ import hashlib
 import json
 import os
 import requests
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Dict, Optional, Any
 from flask import current_app, request
 from app.models import Order, Payment, User
 from app import db
+from app.utils.datetime_utils import moscow_now_naive
 import logging
 
 # Optional cloudpayments import
@@ -189,7 +190,7 @@ class CloudPaymentsAPI:
             elif status == 'Completed':
                 payment.status = 'confirmed'
                 payment.mom_confirmed = True
-                payment.confirmed_at = datetime.utcnow()
+                payment.confirmed_at = moscow_now_naive()
                 
             elif status == 'Voided':
                 payment.status = 'voided'
@@ -455,7 +456,7 @@ class CloudPaymentsAPI:
                 if result.get('Success'):
                     payment.status = 'confirmed'
                     payment.mom_confirmed = True
-                    payment.confirmed_at = datetime.utcnow()
+                    payment.confirmed_at = moscow_now_naive()
                     payment.confirmed_by = user_id
                     
                     db.session.commit()
@@ -493,10 +494,6 @@ class CloudPaymentsAPI:
             
             if payment.status != 'authorized':
                 return {'success': False, 'error': 'Payment is not in authorized status'}
-            
-            # Check if payment can be voided (within 7 days)
-            if not payment.can_be_voided():
-                return {'success': False, 'error': 'Payment cannot be voided (older than 7 days)'}
             
             # Prepare void request
             void_data = {

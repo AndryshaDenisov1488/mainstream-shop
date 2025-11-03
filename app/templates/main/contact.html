@@ -31,8 +31,8 @@
                         <p class="text-muted mb-3">
                             Напишите нам на email для получения консультации или решения вопросов
                         </p>
-                        <a href="mailto:support@mainstreamfs.ru" class="btn btn-outline-primary">
-                            <i class="fas fa-envelope me-2"></i>support@mainstreamfs.ru
+                        <a href="mailto:{{ contact_email }}" class="btn btn-outline-primary">
+                            <i class="fas fa-envelope me-2"></i>{{ contact_email }}
                         </a>
                     </div>
                 </div>
@@ -48,9 +48,15 @@
                         <p class="text-muted mb-3">
                             Быстрая связь через Telegram-бота или личные сообщения
                         </p>
-                        <button class="btn btn-outline-primary" id="telegramContactBtn">
+                        {% if telegram_bot_username %}
+                        <a href="https://t.me/{{ telegram_bot_username | replace('@', '') }}" class="btn btn-outline-primary" target="_blank">
                             <i class="fab fa-telegram me-2"></i>Написать в Telegram
+                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-primary disabled" onclick="return false;">
+                            <i class="fab fa-telegram me-2"></i>Бот временно недоступен
                         </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -217,12 +223,6 @@
 {% block extra_js %}
 <script>
 $(document).ready(function() {
-    // Telegram contact button
-    $('#telegramContactBtn').click(function(e) {
-        e.preventDefault();
-        showToast('Telegram контакт будет доступен в ближайшее время', 'info');
-    });
-    
     // Contact form submission
     $('#contactForm').on('submit', function(e) {
         e.preventDefault();

@@ -5,6 +5,9 @@ from app.utils.decorators import role_required
 from app.models import Order, Event, User, db, VideoType
 from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
+import logging
+
+logger = logging.getLogger(__name__)
 
 @bp.route('/dashboard')
 @login_required
@@ -200,7 +203,8 @@ def upload_video_links(order_id):
             # Update order with video links
             order.video_links = video_links
             order.status = 'links_sent'  # Mark as links sent
-            order.processed_at = db.func.now()
+            from app.utils.datetime_utils import moscow_now_naive
+            order.processed_at = moscow_now_naive()
             
             # If no operator assigned, assign current operator
             if not order.operator_id:
@@ -238,10 +242,10 @@ def upload_video_links(order_id):
                     from app.utils.telegram_notifier import send_video_links_notification
                     send_video_links_notification(order)
                 except Exception as e:
-                    print(f"Failed to send video links via Telegram: {e}")
+                    logger.error(f"Failed to send video links via Telegram: {e}")
                     
             except Exception as e:
-                print(f"Failed to add chat message or send notification: {e}")
+                logger.error(f"Failed to add chat message or send notification: {e}")
             
             flash('Ссылки на видео успешно отправлены клиенту!', 'success')
             return redirect(url_for('operator.order_detail', order_id=order_id))

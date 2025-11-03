@@ -6,6 +6,7 @@ from flask import Blueprint, render_template, request, jsonify, flash, redirect,
 from flask_login import login_required, current_user
 from sqlalchemy import desc, and_, or_
 from datetime import datetime, timedelta
+from app.utils.datetime_utils import moscow_now_naive
 from app.models import AuditLog, User, Order, Payment
 from app import db
 from app.utils.decorators import role_required
@@ -254,7 +255,7 @@ def export_audit():
     output.seek(0)
     response = make_response(output.getvalue())
     response.headers['Content-Type'] = 'text/csv; charset=utf-8'
-    response.headers['Content-Disposition'] = f'attachment; filename=audit_logs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
+    response.headers['Content-Disposition'] = f'attachment; filename=audit_logs_{moscow_now_naive().strftime("%Y%m%d_%H%M%S")}.csv'
     
     return response
 
@@ -268,7 +269,7 @@ def get_stats():
 
 def get_audit_statistics():
     """Get audit statistics"""
-    now = datetime.utcnow()
+    now = moscow_now_naive()
     today = now.date()
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
@@ -310,7 +311,7 @@ def get_audit_statistics():
 
 def get_user_audit_statistics(user_id):
     """Get user-specific audit statistics"""
-    now = datetime.utcnow()
+    now = moscow_now_naive()
     today = now.date()
     week_ago = now - timedelta(days=7)
     month_ago = now - timedelta(days=30)
