@@ -234,9 +234,9 @@ def events():
             'pending_orders': len([o for o in orders if o.status in ['checkout_initiated', 'awaiting_payment']]),
             'processing_orders': len([o for o in orders if o.status == 'processing']),
             'completed_orders': len([o for o in orders if o.status == 'completed']),
-            'cancelled_orders': len([o for o in orders if o.status.in_(['cancelled_unpaid', 'cancelled_manual'])]),
+            'cancelled_orders': len([o for o in orders if o.status in ['cancelled_unpaid', 'cancelled_manual']]),
             'refund_required_orders': len([o for o in orders if o.status == 'refund_required']),
-            'total_revenue': sum(o.total_amount for o in orders if o.status == 'completed'),
+            'total_revenue': sum(float(o.total_amount) for o in orders if o.status == 'completed'),
             'refund_reasons': {}
         }
         
