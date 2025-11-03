@@ -250,3 +250,4 @@ sudo tail -f /var/log/nginx/error.log
 3. Проверьте порт: `netstat -tulpn | grep 5002`
 4. Проверьте права: `ls -la ~/mainstreamfs.ru/app/static/`
 
+

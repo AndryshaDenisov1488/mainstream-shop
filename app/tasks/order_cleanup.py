@@ -40,10 +40,19 @@ def cancel_expired_orders():
         print('Starting cancel_expired_orders task', flush=True)
         logger.info('Starting cancel_expired_orders task')
         
+        # Get auto_cancel_minutes from settings
+        try:
+            from app.utils.settings import get_auto_cancel_minutes
+            auto_cancel_minutes = get_auto_cancel_minutes()
+            logger.debug(f'Using auto_cancel_minutes from settings: {auto_cancel_minutes} minutes')
+        except Exception as e:
+            logger.warning(f'Failed to get auto_cancel_minutes from settings, using default 15 minutes: {e}')
+            auto_cancel_minutes = 15  # Default fallback: 15 minutes
+        
         # Find orders with expired payment deadlines
-        # Проверяем как заказы с payment_expires_at, так и старые заказы без него (созданные более 15 минут назад)
+        # Проверяем как заказы с payment_expires_at, так и старые заказы без него (созданные более auto_cancel_minutes назад)
         current_time = datetime.utcnow()
-        expired_threshold = current_time - timedelta(minutes=15)
+        expired_threshold = current_time - timedelta(minutes=auto_cancel_minutes)
         
         logger.debug(f'Checking for expired orders (current_time={current_time}, expired_threshold={expired_threshold})')
         
@@ -56,7 +65,7 @@ def cancel_expired_orders():
                     Order.payment_expires_at.isnot(None),
                     Order.payment_expires_at < current_time
                 ),
-                # Либо payment_expires_at не установлен, но заказ старше 15 минут
+                # Либо payment_expires_at не установлен, но заказ старше auto_cancel_minutes
                 db.and_(
                     Order.payment_expires_at.is_(None),
                     Order.created_at < expired_threshold

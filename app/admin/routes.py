@@ -981,13 +981,25 @@ def settings():
     # Handle POST request for updating settings
     if request.method == 'POST':
         try:
+            price_changes = []
+            settings_changes = []
+            
             # Handle video type price updates
             video_types = VideoType.query.filter_by(is_active=True).all()
             for video_type in video_types:
                 new_price = request.form.get(f'price_{video_type.id}')
                 if new_price:
                     try:
-                        video_type.price = float(new_price)
+                        new_price_float = float(new_price)
+                        if new_price_float != float(video_type.price):
+                            old_price = float(video_type.price)
+                            video_type.price = new_price_float
+                            price_changes.append({
+                                'video_type_id': video_type.id,
+                                'video_type_name': video_type.name,
+                                'old_price': old_price,
+                                'new_price': new_price_float
+                            })
                     except ValueError:
                         flash(f'Некорректная цена для {video_type.name}', 'error')
                         continue
@@ -997,9 +1009,55 @@ def settings():
             for setting in settings:
                 new_value = request.form.get(f'setting_{setting.key}')
                 if new_value is not None and new_value != setting.value:
+                    old_value = setting.value
                     setting.value = new_value
+                    settings_changes.append({
+                        'key': setting.key,
+                        'name': setting.name or setting.key,
+                        'old_value': old_value,
+                        'new_value': new_value
+                    })
             
             db.session.commit()
+            
+            # Log price changes
+            if price_changes:
+                for change in price_changes:
+                    AuditLog.log_admin_action(
+                        user_id=current_user.id,
+                        action='PRICE_UPDATE',
+                        resource_type='VideoType',
+                        resource_id=str(change['video_type_id']),
+                        details={
+                            'video_type_name': change['video_type_name'],
+                            'old_price': change['old_price'],
+                            'new_price': change['new_price']
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent')
+                    )
+            
+            # Log settings changes
+            if settings_changes:
+                for change in settings_changes:
+                    AuditLog.log_admin_action(
+                        user_id=current_user.id,
+                        action='SETTINGS_UPDATE',
+                        resource_type='SystemSetting',
+                        resource_id=change['key'],
+                        details={
+                            'setting_name': change['name'],
+                            'old_value': change['old_value'],
+                            'new_value': change['new_value']
+                        },
+                        ip_address=request.remote_addr,
+                        user_agent=request.headers.get('User-Agent')
+                    )
+            
+            # Invalidate settings cache after update
+            from app.utils.settings import invalidate_cache
+            invalidate_cache()
+            
             flash('Настройки сохранены', 'success')
             return redirect(url_for('admin.settings'))
             
@@ -1011,8 +1069,10 @@ def settings():
     # Get video types for price management
     video_types = VideoType.query.filter_by(is_active=True).all()
     
-    # Get general settings
-    settings = SystemSetting.query.all()
+    # Get general settings (exclude payment_confirmation_days from display)
+    settings = SystemSetting.query.filter(
+        SystemSetting.key != 'payment_confirmation_days'
+    ).all()
     
     # Get counts for dashboard
     users_count = User.query.filter_by(role='CUSTOMER').count()
@@ -1065,6 +1125,20 @@ def download_database():
         
         # Copy database file
         shutil.copy2(db_path, backup_path)
+        
+        # Log backup action
+        AuditLog.log_admin_action(
+            user_id=current_user.id,
+            action='SYSTEM_BACKUP',
+            resource_type='Database',
+            resource_id=backup_filename,
+            details={
+                'backup_filename': backup_filename,
+                'db_path': db_path
+            },
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
         
         # Send file to user
         return send_file(

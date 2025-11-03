@@ -88,6 +88,7 @@
                     <div class="card-body">
                         {% if settings %}
                             {% for setting in settings %}
+                            {% if setting.key != 'payment_confirmation_days' %}
                             <div class="mb-3">
                                 <label for="setting_{{ setting.key }}" class="form-label">
                                     {{ setting.name or setting.key }}
@@ -101,6 +102,7 @@
                                     <div class="form-text">{{ setting.description }}</div>
                                 {% endif %}
                             </div>
+                            {% endif %}
                             {% endfor %}
                         {% else %}
                             <div class="alert alert-info">

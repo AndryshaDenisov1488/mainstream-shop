@@ -16,12 +16,12 @@
 {% endif %}
 
 Важная информация:
-- Ссылки действительны в течение 90 дней
+- Ссылки действительны в течение {{ video_link_expiry_days }} дней
 - Рекомендуем скачать видео как можно скорее
 - При возникновении проблем обращайтесь к нам
 
 Спасибо за заказ!
 
-MainStream Shop
-Email: support@mainstreamfs.ru
-Telegram: @mainstreamshopbot
+{{ site_name }}
+Email: {{ contact_email }}
+{% if telegram_bot_username %}Telegram: {{ telegram_bot_username }}{% endif %}

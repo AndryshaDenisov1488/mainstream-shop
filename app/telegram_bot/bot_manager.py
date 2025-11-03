@@ -1441,7 +1441,15 @@ class TelegramBotManager:
             
             message += f"💰 Сумма заказа: {int(order.total_amount)} ₽\n"
             message += f"📅 Дата заказа: {order.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
-            message += "⚠️ Ссылки действительны 90 дней с момента отправки."
+            
+            # Get video_link_expiry_days from settings
+            try:
+                from app.utils.settings import get_video_link_expiry_days
+                expiry_days = get_video_link_expiry_days()
+            except Exception:
+                expiry_days = 90  # Fallback to default
+            
+            message += f"⚠️ Ссылки действительны {expiry_days} дней с момента отправки."
             
             # Send message
             await self.application.bot.send_message(

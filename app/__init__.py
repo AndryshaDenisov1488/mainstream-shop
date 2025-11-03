@@ -109,6 +109,33 @@ def create_app(config_class=Config):
         logger.info("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag")
         print("⚠️ Background tasks (scheduler, bot) skipped due to SKIP_BACKGROUND_TASKS flag", flush=True)
     
+    # Add context processor for settings (available in all templates)
+    @app.context_processor
+    def inject_settings():
+        try:
+            from app.utils.settings import (
+                get_contact_email, get_telegram_bot_username, get_whatsapp_number,
+                get_site_name, get_site_description, get_video_link_expiry_days
+            )
+            return {
+                'contact_email': get_contact_email(),
+                'telegram_bot_username': get_telegram_bot_username(),
+                'whatsapp_number': get_whatsapp_number(),
+                'site_name': get_site_name(),
+                'site_description': get_site_description(),
+                'video_link_expiry_days': get_video_link_expiry_days(),
+            }
+        except Exception as e:
+            logger.error(f"Error injecting settings into template context: {e}")
+            return {
+                'contact_email': 'support@mainstreamfs.ru',
+                'telegram_bot_username': '@mainstreamshopbot',
+                'whatsapp_number': '+7 (999) 123-45-67',
+                'site_name': 'MainStream Shop',
+                'site_description': 'Профессиональные видео с турниров по фигурному катанию',
+                'video_link_expiry_days': 90,
+            }
+    
     return app
 
 from app import models

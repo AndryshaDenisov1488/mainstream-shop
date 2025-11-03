@@ -34,7 +34,7 @@
         <div style="background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <p><strong>📋 Важная информация:</strong></p>
             <ul>
-                <li>Ссылки действительны в течение 90 дней</li>
+                <li>Ссылки действительны в течение {{ video_link_expiry_days }} дней</li>
                 <li>Рекомендуем скачать видео как можно скорее</li>
                 <li>При возникновении проблем обращайтесь к нам</li>
             </ul>
@@ -42,7 +42,7 @@
         
         <div style="text-align: center; margin: 30px 0;">
             <p>Спасибо за заказ!</p>
-            <p><strong>MainStream Shop</strong></p>
+            <p><strong>{{ site_name }}</strong></p>
         </div>
         
         <hr>
@@ -52,31 +52,36 @@
                 <div style="flex: 1; min-width: 200px;">
                     <p style="margin: 5px 0; font-size: 14px;">
                         <strong>📧 Email:</strong><br>
-                        <a href="mailto:support@mainstreamfs.ru" style="color: #007bff; text-decoration: none;">
-                            support@mainstreamfs.ru
+                        <a href="mailto:{{ contact_email }}" style="color: #007bff; text-decoration: none;">
+                            {{ contact_email }}
                         </a>
                     </p>
                 </div>
+                {% if whatsapp_number %}
                 <div style="flex: 1; min-width: 200px;">
                     <p style="margin: 5px 0; font-size: 14px;">
                         <strong>📱 WhatsApp:</strong><br>
-                        <a href="https://wa.me/79689039018" style="color: #25D366; text-decoration: none;">
-                            +7 (968) 903-90-18
+                        {% set wa_number_clean = whatsapp_number | replace('+', '') | replace(' ', '') | replace('(', '') | replace(')', '') | replace('-', '') %}
+                        <a href="https://wa.me/{{ wa_number_clean }}" style="color: #25D366; text-decoration: none;">
+                            {{ whatsapp_number }}
                         </a>
                     </p>
                 </div>
+                {% endif %}
+                {% if telegram_bot_username %}
                 <div style="flex: 1; min-width: 200px;">
                     <p style="margin: 5px 0; font-size: 14px;">
                         <strong>💬 Telegram:</strong><br>
-                        <a href="https://t.me/mainstreamshopbot" style="color: #0088cc; text-decoration: none;">
-                            @mainstreamshopbot
+                        <a href="https://t.me/{{ telegram_bot_username | replace('@', '') }}" style="color: #0088cc; text-decoration: none;">
+                            {{ telegram_bot_username }}
                         </a>
                     </p>
                 </div>
+                {% endif %}
             </div>
             <hr style="margin: 15px 0;">
             <p style="font-size: 12px; color: #666; text-align: center; margin: 0;">
-                <strong>MainStream Shop</strong> - Профессиональные видео с турниров по фигурному катанию<br>
+                <strong>{{ site_name }}</strong> - {{ site_description }}<br>
                 Мы всегда готовы помочь вам с любыми вопросами!
             </p>
         </div>

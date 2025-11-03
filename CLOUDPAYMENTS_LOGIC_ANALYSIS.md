@@ -93,3 +93,4 @@ python3 test_cloudpayments_api.py
 4. Создание данных виджета
 5. Симуляцию webhook
 
+

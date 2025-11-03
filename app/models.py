@@ -279,7 +279,13 @@ class Order(db.Model):
     def get_video_links_expiry(self):
         """Get video links expiry date"""
         if self.processed_at:
-            return self.processed_at + timedelta(days=90)
+            try:
+                from app.utils.settings import get_video_link_expiry_days
+                expiry_days = get_video_link_expiry_days()
+            except Exception:
+                # Fallback to default 90 days if settings unavailable
+                expiry_days = 90
+            return self.processed_at + timedelta(days=expiry_days)
         return None
     
     def get_status_display(self):
@@ -456,51 +462,96 @@ class AuditLog(db.Model):
     def action_display(self):
         """Human-readable action description"""
         action_map = {
+            # Аутентификация
             'LOGIN': 'Вход в систему',
             'LOGOUT': 'Выход из системы',
             'REGISTER': 'Регистрация',
             'PROFILE_UPDATE': 'Обновление профиля',
             'PASSWORD_CHANGE': 'Смена пароля',
+            'PASSWORD_RESET': 'Сброс пароля',
+            
+            # Заказы
             'ORDER_CREATE': 'Создание заказа',
             'ORDER_UPDATE': 'Обновление заказа',
             'ORDER_DELETE': 'Удаление заказа',
+            'ORDER_STATUS_CHANGE': 'Изменение статуса заказа',
+            'ORDER_COMPLETE': 'Завершение заказа',
+            'ORDER_CANCELLED_MANUAL': 'Отмена заказа вручную',
+            'ORDER_AUTO_CANCELLED_TIMEOUT': 'Автоматическая отмена заказа (таймаут)',
+            'ORDER_COMMENTS_UPDATE': 'Обновление комментариев к заказу',
+            'ORDER_REFUND': 'Возврат по заказу',
+            
+            # Платежи
             'PAYMENT_CREATE': 'Создание платежа',
+            'PAYMENT_AUTHORIZED': 'Авторизация платежа',
+            'PAYMENT_CONFIRMED': 'Подтверждение платежа',
             'PAYMENT_CONFIRM': 'Подтверждение платежа',
+            'PAYMENT_FAILED': 'Неудачный платеж',
             'PAYMENT_VOID': 'Отмена платежа',
             'PAYMENT_REFUND': 'Возврат платежа',
-            'XML_UPLOAD': 'Загрузка XML файла',
+            'PAYMENT_INTENT_CREATED': 'Создание платежного намерения',
+            
+            # Пользователи
             'USER_CREATE': 'Создание пользователя',
             'USER_UPDATE': 'Обновление пользователя',
             'USER_DELETE': 'Удаление пользователя',
+            'USER_TOGGLE_STATUS': 'Изменение статуса пользователя',
+            
+            # Турниры
             'EVENT_CREATE': 'Создание турнира',
             'EVENT_UPDATE': 'Обновление турнира',
             'EVENT_DELETE': 'Удаление турнира',
+            'EVENT_TOGGLE_STATUS': 'Изменение статуса турнира',
+            'XML_UPLOAD': 'Загрузка XML файла',
+            
+            # Операторы
+            'OPERATOR_TOOK_ORDER': 'Оператор взял заказ в работу',
+            
+            # Менеджер (MOM)
+            'MOM_CONFIRMED_RECEIPT': 'Подтверждено получение денег',
+            'MOM_CAPTURED_PARTIAL': 'Частичное списание средств',
+            'MOM_CAPTURED_FULL': 'Полное списание средств',
+            'MOM_CAPTURED_SBP': 'Списание средств через СБП',
+            'MOM_REFUNDED_FULL': 'Полный возврат средств',
+            'MOM_REFUNDED_PARTIAL': 'Частичный возврат средств',
+            
+            # Telegram
             'TELEGRAM_ORDER': 'Заказ через Telegram',
             'VIDEO_LINKS_SEND': 'Отправка ссылок на видео',
+            
+            # Настройки
+            'SETTINGS_UPDATE': 'Обновление настроек системы',
+            'PRICE_UPDATE': 'Обновление цен',
+            
+            # Система
             'SYSTEM_BACKUP': 'Резервное копирование',
-            'SYSTEM_MAINTENANCE': 'Техническое обслуживание'
+            'SYSTEM_MAINTENANCE': 'Техническое обслуживание',
         }
         return action_map.get(self.action, self.action)
     
     @property
     def resource_display(self):
         """Human-readable resource description"""
-        if self.resource_type == 'user':
-            return f"Пользователь #{self.resource_id}"
-        elif self.resource_type == 'order':
-            return f"Заказ #{self.resource_id}"
-        elif self.resource_type == 'payment':
-            return f"Платеж #{self.resource_id}"
-        elif self.resource_type == 'event':
-            return f"Турнир #{self.resource_id}"
-        elif self.resource_type == 'category':
-            return f"Категория #{self.resource_id}"
-        elif self.resource_type == 'athlete':
-            return f"Спортсмен #{self.resource_id}"
-        elif self.resource_type == 'telegram':
-            return f"Telegram пользователь #{self.resource_id}"
-        else:
-            return f"{self.resource_type or 'Система'}"
+        resource_map = {
+            'user': f"Пользователь #{self.resource_id}",
+            'User': f"Пользователь #{self.resource_id}",
+            'order': f"Заказ #{self.resource_id}",
+            'Order': f"Заказ #{self.resource_id}",
+            'payment': f"Платеж #{self.resource_id}",
+            'Payment': f"Платеж #{self.resource_id}",
+            'event': f"Турнир #{self.resource_id}",
+            'Event': f"Турнир #{self.resource_id}",
+            'category': f"Категория #{self.resource_id}",
+            'Category': f"Категория #{self.resource_id}",
+            'athlete': f"Спортсмен #{self.resource_id}",
+            'Athlete': f"Спортсмен #{self.resource_id}",
+            'telegram': f"Telegram пользователь #{self.resource_id}",
+            'Telegram': f"Telegram пользователь #{self.resource_id}",
+            'VideoType': f"Тип видео #{self.resource_id}",
+            'SystemSetting': f"Настройка: {self.resource_id}",
+            'Database': f"База данных: {self.resource_id}",
+        }
+        return resource_map.get(self.resource_type, f"{self.resource_type or 'Система'}" + (f" #{self.resource_id}" if self.resource_id else ""))
     
     def __repr__(self):
         return f'<AuditLog {self.action} by {self.user_id}>'
