@@ -63,8 +63,10 @@ def create_app(config_class=Config):
     # Initialize background tasks (skip if creating database)
     # Skip initialization only if explicitly requested or during database creation
     should_skip_background = os.environ.get('SKIP_BACKGROUND_TASKS', 'false').lower() == 'true'
+    logger.info(f"DEBUG: should_skip_background={should_skip_background}")
     
     if not should_skip_background:
+        logger.info("DEBUG: Entering background tasks initialization")
         # Initialize scheduler
         if not os.environ.get('SKIP_SCHEDULER'):
             try:
