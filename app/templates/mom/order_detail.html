@@ -450,23 +450,25 @@
                         </button>
                     {% endif %}
                     
-                    <!-- Кнопка "Обработать возврат" для completed -->
-                    {% if order.status == 'completed' %}
+                    <!-- Кнопка "Возврат" для completed после принятия денег -->
+                    {% if order.status == 'completed' and order.paid_amount and order.paid_amount > 0 %}
                         <button class="btn btn-outline-danger btn-sm w-100 mb-2 refund-btn" 
                                 data-order-id="{{ order.id }}" 
                                 data-order-number="{{ order.generated_order_number }}" 
-                                data-order-amount="{{ order.total_amount }}" 
+                                data-paid-amount="{{ order.paid_amount }}" 
+                                data-total-amount="{{ order.total_amount }}" 
                                 title="Возврат">
                             <i class="fas fa-times me-1"></i>Возврат
                         </button>
                     {% endif %}
                     
                     <!-- Кнопка "Вернуть деньги" для cancelled -->
-                    {% if order.status == 'cancelled' %}
+                    {% if order.status in ['cancelled_unpaid', 'cancelled_manual'] %}
                         <button class="btn btn-outline-danger btn-sm w-100 mb-2 refund-btn" 
                                 data-order-id="{{ order.id }}" 
                                 data-order-number="{{ order.generated_order_number }}" 
-                                data-order-amount="{{ order.total_amount }}" 
+                                data-paid-amount="{{ order.paid_amount or order.total_amount }}" 
+                                data-total-amount="{{ order.total_amount }}" 
                                 title="Вернуть деньги">
                             <i class="fas fa-undo me-1"></i>Вернуть деньги
                         </button>
@@ -843,6 +845,16 @@ document.addEventListener('DOMContentLoaded', function() {
             openProcessRefundModal(orderId, orderNumber, orderAmount);
         });
     });
+    
+    // Handle refund button clicks (для кнопки возврата после принятия денег)
+    document.querySelectorAll('.refund-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const paidAmount = parseFloat(this.getAttribute('data-paid-amount'));
+            const totalAmount = parseFloat(this.getAttribute('data-total-amount'));
+            openRefundModal(orderId, paidAmount, totalAmount);
+        });
+    });
 });
 
 // Function to open confirm payment modal
@@ -877,17 +889,23 @@ function openProcessRefundModal(orderId, orderNumber, orderAmount) {
     modal.show();
 }
 
-// Function to confirm payment
+// Function to confirm payment (capture)
 function confirmPayment(orderId) {
     const confirmPaymentSubmitBtn = document.getElementById('confirmPaymentSubmitBtn');
+    const orderAmount = document.getElementById('confirmPaymentAmount').textContent.replace(/[^\d.,]/g, '').replace(',', '.');
+    
     confirmPaymentSubmitBtn.disabled = true;
     confirmPaymentSubmitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Подтверждение...';
     
-    fetch(`/api/order/${orderId}/confirm-payment`, {
+    // Используем capture endpoint который работает с authorized и confirmed платежами
+    fetch(`/api/order/${orderId}/capture`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-        }
+        },
+        body: JSON.stringify({
+            amount: parseFloat(orderAmount)
+        })
     })
     .then(response => response.json())
     .then(data => {
@@ -908,7 +926,7 @@ function confirmPayment(orderId) {
     });
 }
 
-// Function to process refund
+// Function to process refund (для refund_required статуса)
 function processRefund(orderId, form) {
     const formData = new FormData(form);
     const submitBtn = form.querySelector('button[type="submit"]');
@@ -937,6 +955,63 @@ function processRefund(orderId, form) {
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fas fa-undo me-1"></i>Обработать возврат';
     });
+}
+
+// Function to open refund modal (для возврата после принятия денег)
+function openRefundModal(orderId, paidAmount, totalAmount) {
+    if (confirm(`Вы уверены, что хотите вернуть средства по этому заказу?\n\nОплаченная сумма: ${paidAmount.toFixed(2)} ₽\nОбщая сумма заказа: ${totalAmount.toFixed(2)} ₽\n\nДля частичного возврата укажите сумму в следующем окне.`)) {
+        const refundAmount = prompt(`Введите сумму возврата (₽). Для полного возврата введите: ${paidAmount.toFixed(2)}`, paidAmount.toFixed(2));
+        
+        if (refundAmount === null) {
+            return; // Отмена
+        }
+        
+        const amount = parseFloat(refundAmount);
+        if (isNaN(amount) || amount <= 0) {
+            alert('Некорректная сумма возврата');
+            return;
+        }
+        
+        if (amount > paidAmount) {
+            alert(`Сумма возврата не может превышать оплаченную сумму (${paidAmount.toFixed(2)} ₽)`);
+            return;
+        }
+        
+        const reason = prompt('Укажите причину возврата:', '');
+        if (reason === null) {
+            return; // Отмена
+        }
+        
+        if (!reason.trim()) {
+            alert('Причина возврата обязательна');
+            return;
+        }
+        
+        // Выполняем возврат
+        fetch(`/api/order/${orderId}/refund`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                amount: amount === paidAmount ? null : amount, // null для полного возврата
+                reason: reason.trim()
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(data.message);
+                location.reload();
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при возврате');
+        });
+    }
 }
 </script>
 

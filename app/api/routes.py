@@ -536,7 +536,9 @@ def send_video_links_api(order_id):
         
         # Set status based on refund requirement
         if partial_refund:
-            order.status = 'refund_required'
+            # Для частичного возврата оставляем статус links_sent, но добавляем флаг в operator_comment
+            order.status = 'links_sent'
+            order.operator_comment = (order.operator_comment or '') + ('\n[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]' if order.operator_comment else '[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]')
             if refund_comment:
                 order.refund_reason = refund_comment
         else:

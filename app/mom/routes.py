@@ -24,8 +24,18 @@ def dashboard():
     # Нужно уточнить доп детали - заказы в статусе awaiting_info
     need_details = Order.query.filter_by(status='awaiting_info').count()
     
-    # Полный возврат - когда нужно вернуть деньги полностью
+    # Полный возврат - когда нужно вернуть деньги полностью (только статус refund_required)
+    # Частичный возврат - заказы со статусом links_sent с пометкой о частичном возврате в operator_comment
     full_refund = Order.query.filter_by(status='refund_required').count()
+    
+    # Подсчет частичных возвратов: заказы со статусом links_sent с пометкой о частичном возврате
+    partial_refund_count = Order.query.filter(
+        Order.status == 'links_sent',
+        Order.operator_comment.like('%[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]%')
+    ).count()
+    
+    # Добавляем частичные возвраты к need_payment
+    need_payment = need_payment + partial_refund_count
     
     # ✅ Eager loading для избежания N+1 запросов
     recent_orders = Order.query.options(

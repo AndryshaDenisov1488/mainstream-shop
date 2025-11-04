@@ -81,22 +81,22 @@
                                         <td>{{ order.event.name }}</td>
                                         <td>{{ order.athlete.name }}</td>
                                         <td>
-                                            {% if order.status == 'pending' %}
+                                            {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
                                                 <span class="badge bg-warning">Ожидает обработки</span>
-                                            {% elif order.status in ['processing', 'awaiting_info'] %}
-                                                <span class="badge bg-info">В обработке</span>
-                                            {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
-                                                <span class="badge bg-success">Выполнен</span>
-                                            {% elif order.status == 'refund_required' %}
-                                                <span class="badge bg-warning">Требуется возврат</span>
-                                            {% elif order.status == 'cancelled' %}
+                                            {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
+                                                <span class="badge bg-info">В работе</span>
+                                            {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund', 'refund_required', 'refunded_partial'] %}
+                                                <span class="badge bg-success">Ссылки отправлены</span>
+                                            {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
                                                 <span class="badge bg-danger">Отменен</span>
+                                            {% else %}
+                                                <span class="badge bg-info">В работе</span>
                                             {% endif %}
                                         </td>
                                         <td>{{ "{:,.0f}".format(order.total_amount) }} ₽</td>
                                         <td>{{ order.created_at.strftime('%d.%m.%Y') }}</td>
                                         <td>
-                                            {% if order.video_links and order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
+                                            {% if order.video_links %}
                                                 <div class="d-flex flex-column gap-1">
                                                     {% for video_type_id, link in order.video_links.items() %}
                                                         {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}

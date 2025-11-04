@@ -268,8 +268,8 @@ class Order(db.Model):
     
     def can_be_captured_by_mom(self):
         """Check if order can be captured by mom"""
-        # ✅ Можно принимать деньги когда ссылки отправлены или требуется частичный возврат
-        return self.status in ['links_sent', 'refund_required']
+        # ✅ Можно принимать деньги когда ссылки отправлены, требуется возврат или уже completed
+        return self.status in ['links_sent', 'refund_required', 'completed', 'completed_partial_refund']
     
     def get_video_links_expiry(self):
         """Get video links expiry date"""

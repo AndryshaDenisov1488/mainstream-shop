@@ -35,20 +35,16 @@
                                 <tr>
                                     <td><strong>Статус:</strong></td>
                                     <td>
-                                        {% if order.status in ['pending', 'pending_payment'] %}
+                                        {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
                                             <span class="badge bg-warning">Ожидает обработки</span>
-                                        {% elif order.status == 'pending_payment' %}
-                                            <span class="badge bg-secondary">Ожидание оплаты</span>
-                                        {% elif order.status in ['processing', 'awaiting_info'] %}
-                                            <span class="badge bg-info">В обработке</span>
-                                        {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
-                                            <span class="badge bg-success">Выполнен</span>
-                                        {% elif order.status == 'refund_required' %}
-                                            <span class="badge bg-warning">Требуется возврат</span>
-                                        {% elif order.status == 'cancelled' %}
+                                        {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
+                                            <span class="badge bg-info">В работе</span>
+                                        {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund', 'refund_required', 'refunded_partial'] %}
+                                            <span class="badge bg-success">Ссылки отправлены</span>
+                                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
                                             <span class="badge bg-danger">Отменен</span>
                                         {% else %}
-                                            <span class="badge bg-secondary">{{ order.get_status_display() }}</span>
+                                            <span class="badge bg-info">В работе</span>
                                         {% endif %}
                                     </td>
                                 </tr>
@@ -132,21 +128,30 @@
                 </div>
             </div>
 
-            <!-- Video Links -->
-            {% if order.video_links and order.status in ['ready', 'completed'] %}
+            <!-- Video Links - показываем всегда если есть ссылки -->
+            {% if order.video_links %}
             <div class="card mb-4">
                 <div class="card-header">
-                    <h5 class="mb-0">Ссылки на видео</h5>
+                    <h5 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h5>
                 </div>
                 <div class="card-body">
                     {% for video_type_id, link in order.video_links.items() %}
                         {% if video_type_id %}
                             {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
-                            <div class="mb-3">
-                                <strong>{{ video_type.name if video_type else 'Неизвестный тип' }}:</strong>
-                                <a href="{{ link }}" target="_blank" class="ms-2 text-decoration-none">
-                                    {{ link }}
-                                </a>
+                            <div class="mb-3 p-3 border rounded">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong>{{ video_type.name if video_type else 'Неизвестный тип' }}</strong>
+                                    <button class="btn btn-sm btn-outline-primary copy-link-btn" 
+                                            data-link="{{ link }}" 
+                                            data-video-type="{{ video_type.name if video_type else 'Видео' }}">
+                                        <i class="fas fa-copy me-1"></i>Копировать
+                                    </button>
+                                </div>
+                                <div class="text-muted small">
+                                    <a href="{{ link }}" target="_blank" class="text-decoration-none break-word">
+                                        {{ link }}
+                                    </a>
+                                </div>
                             </div>
                         {% endif %}
                     {% endfor %}
@@ -162,41 +167,35 @@
                     <h5 class="mb-0">Статус заказа</h5>
                 </div>
                 <div class="card-body">
-                    {% if order.status in ['pending', 'pending_payment'] %}
+                    {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
                         <div class="alert alert-info">
                             <i class="fas fa-clock"></i>
-                            <strong>Заказ принят</strong><br>
+                            <strong>Ожидает обработки</strong><br>
                             Ваш заказ принят в обработку. Ожидайте подтверждения.
                         </div>
-                    {% elif order.status == 'processing' %}
+                    {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
                         <div class="alert alert-warning">
                             <i class="fas fa-cogs"></i>
-                            <strong>В обработке</strong><br>
+                            <strong>В работе</strong><br>
                             Оператор работает над вашим заказом.
                         </div>
-                    {% elif order.status == 'completed' %}
-                        <div class="alert alert-success">
-                            <i class="fas fa-check"></i>
-                            <strong>Готов к отправке</strong><br>
-                            Ваши видео готовы! Ожидайте ссылки.
-                        </div>
-                    {% elif order.status == 'completed' %}
+                    {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund', 'refund_required', 'refunded_partial'] %}
                         <div class="alert alert-success">
                             <i class="fas fa-paper-plane"></i>
-                            <strong>Отправлено</strong><br>
+                            <strong>Ссылки отправлены</strong><br>
                             Ссылки на видео отправлены на ваш email.
                         </div>
-                    {% elif order.status == 'refund_required' %}
-                        <div class="alert alert-warning">
-                            <i class="fas fa-exclamation-triangle"></i>
-                            <strong>Требуется возврат</strong><br>
-                            Обрабатывается вопрос возврата средств.
-                        </div>
-                    {% elif order.status == 'cancelled' %}
+                    {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
                         <div class="alert alert-danger">
                             <i class="fas fa-times"></i>
                             <strong>Отменен</strong><br>
                             Заказ был отменен.
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-cogs"></i>
+                            <strong>В работе</strong><br>
+                            Ваш заказ обрабатывается.
                         </div>
                     {% endif %}
                     
@@ -245,4 +244,59 @@
         </div>
     </div>
 </div>
+
+<!-- Toast для уведомления о копировании -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="copyToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <i class="fas fa-check-circle text-success me-2"></i>
+            <strong class="me-auto">Ссылка скопирована!</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body">
+            Ссылка на видео скопирована в буфер обмена
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Copy link functionality
+    const copyButtons = document.querySelectorAll('.copy-link-btn');
+    const copyToast = document.getElementById('copyToast');
+    
+    copyButtons.forEach(button => {
+        button.addEventListener('click', async function() {
+            const link = this.getAttribute('data-link');
+            const videoType = this.getAttribute('data-video-type');
+            
+            try {
+                await navigator.clipboard.writeText(link);
+                
+                // Show toast notification
+                const toast = new bootstrap.Toast(copyToast);
+                toast.show();
+                
+                // Change button appearance temporarily
+                const originalText = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-check me-1"></i>Скопировано!';
+                this.classList.remove('btn-outline-primary');
+                this.classList.add('btn-success');
+                
+                setTimeout(() => {
+                    this.innerHTML = originalText;
+                    this.classList.remove('btn-success');
+                    this.classList.add('btn-outline-primary');
+                }, 2000);
+                
+            } catch (err) {
+                console.error('Failed to copy link: ', err);
+                alert('Не удалось скопировать ссылку. Попробуйте еще раз.');
+            }
+        });
+    });
+});
+</script>
 {% endblock %}

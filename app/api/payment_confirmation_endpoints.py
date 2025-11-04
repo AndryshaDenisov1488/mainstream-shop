@@ -20,19 +20,27 @@ def register_payment_confirmation_routes(bp):
         try:
             order = Order.query.get_or_404(order_id)
             
-            # Validate order status
-            if order.status not in ['completed', 'refund_required', 'links_sent']:
+            # Validate order status - можно подтвердить для links_sent (с частичным возвратом или без)
+            if order.status not in ['completed', 'refund_required', 'links_sent', 'completed_partial_refund']:
                 return jsonify({
                     'success': False, 
                     'error': 'Заказ должен быть выполнен, требовать возврата или иметь отправленные ссылки'
                 }), 400
             
-            # Get confirmed payments for this order
+            # Get confirmed payments for this order - сначала ищем authorized, потом confirmed
             confirmed_payments = Payment.query.filter(
                 Payment.order_id == order.id,
                 Payment.status == 'authorized',
                 Payment.mom_confirmed == False
             ).all()
+            
+            # Если нет authorized, но есть confirmed без mom_confirmed - тоже можно подтвердить получение
+            if not confirmed_payments:
+                confirmed_payments = Payment.query.filter(
+                    Payment.order_id == order.id,
+                    Payment.status == 'confirmed',
+                    Payment.mom_confirmed == False
+                ).all()
             
             if not confirmed_payments:
                 return jsonify({

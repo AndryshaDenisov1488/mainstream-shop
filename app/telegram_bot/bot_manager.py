@@ -1189,6 +1189,11 @@ class TelegramBotManager:
             )
             return
         
+        # Get all video types for display
+        all_video_types = VideoType.query.all()
+        video_types_dict = {vt.id: vt for vt in all_video_types}
+        video_types_dict.update({str(vt.id): vt for vt in all_video_types})
+        
         message = "📋 Ваши заказы:\n\n"
         for order in orders:
             status_emoji = {
@@ -1221,7 +1226,28 @@ class TelegramBotManager:
             message += f"   🏆 {order.event.name}\n"
             message += f"   👤 {order.athlete.name}\n"
             message += f"   💰 {int(order.total_amount)} ₽\n"
-            message += f"   📊 {status_text}\n\n"
+            message += f"   📊 {status_text}\n"
+            
+            # Добавляем ссылки на видео если заказ выполнен и есть ссылки
+            completed_statuses = ['links_sent', 'completed', 'completed_partial_refund', 'refunded_partial']
+            if order.status in completed_statuses and order.video_links:
+                message += f"   📹 Ссылки на видео:\n"
+                for video_type_id, link in order.video_links.items():
+                    # Try both int and str lookup
+                    video_type = None
+                    if isinstance(video_type_id, (str, int)):
+                        video_type = (video_types_dict.get(video_type_id) or 
+                                     video_types_dict.get(str(video_type_id)) or 
+                                     video_types_dict.get(int(video_type_id)))
+                    if not video_type:
+                        video_type = VideoType.query.get(video_type_id)
+                    
+                    if video_type:
+                        message += f"      • {video_type.name}: {link}\n"
+                    else:
+                        message += f"      • Ссылка: {link}\n"
+            
+            message += "\n"
         
         keyboard = [
             [InlineKeyboardButton("📹 Новый заказ", callback_data="start_order")],
