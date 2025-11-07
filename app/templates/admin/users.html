@@ -28,7 +28,7 @@
                     <select class="form-select" name="role">
                         <option value="">Все роли</option>
                         <option value="ADMIN" {{ 'selected' if role_filter == 'ADMIN' }}>Администратор</option>
-                        <option value="MOM" {{ 'selected' if role_filter == 'MOM' }}>Мама</option>
+                        <option value="MOM" {{ 'selected' if role_filter == 'MOM' }}>Мама Елена</option>
                         <option value="OPERATOR" {{ 'selected' if role_filter == 'OPERATOR' }}>Оператор</option>
                         <option value="CUSTOMER" {{ 'selected' if role_filter == 'CUSTOMER' }}>Клиент</option>
                     </select>
@@ -77,7 +77,7 @@
                             <td>{{ user.phone or 'Не указан' }}</td>
                             <td>
                                 <span class="badge badge-{{ 'danger' if user.role == 'ADMIN' else 'warning' if user.role == 'MOM' else 'info' if user.role == 'OPERATOR' else 'secondary' }}">
-                                    {{ user.role }}
+                                    {% if user.role == 'MOM' %}Мама Елена{% elif user.role == 'ADMIN' %}Администратор{% elif user.role == 'OPERATOR' %}Оператор{% elif user.role == 'CUSTOMER' %}Клиент{% else %}{{ user.role }}{% endif %}
                                 </span>
                             </td>
                             <td>

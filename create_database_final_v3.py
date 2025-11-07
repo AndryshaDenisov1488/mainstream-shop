@@ -63,7 +63,7 @@ def create_users():
         },
         {
             'email': 'mom@mainstreamfs.ru',
-            'full_name': 'Мама спортсмена',
+            'full_name': 'Мама Елена',
             'role': 'MOM',
             'is_active': True
         }
