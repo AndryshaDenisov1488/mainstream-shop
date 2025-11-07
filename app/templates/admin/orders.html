@@ -3,7 +3,6 @@
 {% block title %}Заказы - Панель администратора{% endblock %}
 
 {% block admin_content %}
-            <div style="margin-left: -5%; margin-right: -5%; width: 110%; max-width: none;">
             <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                 <h1 class="h2">Заказы</h1>
                 <div class="btn-toolbar mb-2 mb-md-0">
@@ -66,83 +65,71 @@
                     <h5 class="mb-0">Заказы ({{ orders.total }} найдено)</h5>
                 </div>
                 <div class="card-body">
-                    <div class="table-responsive" style="margin-left: -5%; margin-right: -5%; width: 110%;">
-                        <table class="table table-hover">
+                    <div class="table-responsive">
+                        <table class="table table-hover table-sm">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
-                                    <th>Дата</th>
-                                    <th>Клиент</th>
-                                    <th>Контакты</th>
-                                    <th>Турнир</th>
-                                    <th>Спортсмен</th>
-                                    <th>Тип видео</th>
-                                    <th>Сумма</th>
-                                    <th>Комментарий</th>
-                                    <th>Статус</th>
-                                    <th>Оператор</th>
-                                    <th>Оплата</th>
-                                    <th>Действия</th>
+                                    <th style="width: 70px;">ID</th>
+                                    <th style="width: 110px;">Дата</th>
+                                    <th style="width: 130px;">Клиент</th>
+                                    <th style="width: 140px;">Контакты</th>
+                                    <th style="width: 180px;">Турнир</th>
+                                    <th style="width: 130px;">Спортсмен</th>
+                                    <th style="width: 110px;">Тип видео</th>
+                                    <th style="width: 80px;">Сумма</th>
+                                    <th style="width: 120px;">Комментарий</th>
+                                    <th style="width: 130px;">Статус</th>
+                                    <th style="width: 110px;">Оператор</th>
+                                    <th style="width: 120px;">Оплата</th>
+                                    <th style="width: 120px;">Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if orders.items %}
                                     {% for order in orders.items %}
                                     <tr>
-                                        <td>#{{ order.id }}</td>
-                                        <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
-                                        <td>
+                                        <td style="font-size: 0.85em;">#{{ order.id }}</td>
+                                        <td style="font-size: 0.85em; white-space: nowrap;">{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
+                                        <td style="font-size: 0.85em; word-break: break-word;">
                                             {% if order.contact_first_name and order.contact_last_name %}
                                                 {{ order.contact_last_name }} {{ order.contact_first_name }}
                                             {% elif order.customer %}
                                                 {{ order.customer.full_name }}
                                             {% else %}
-                                                {{ order.contact_email }}
+                                                <small>{{ order.contact_email }}</small>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            <div class="small">
-                                                <div>{{ order.contact_email or 'Не указан' }}</div>
-                                                <div>{{ order.contact_phone or 'Телефон не указан' }}</div>
-                                            </div>
+                                        <td style="font-size: 0.8em; word-break: break-word;">
+                                            <div>{{ order.contact_email or 'Не указан' }}</div>
+                                            <div class="text-muted">{{ order.contact_phone or 'Телефон не указан' }}</div>
                                         </td>
-                                        <td>
-                                            <div class="small">
-                                                {{ order.event.name if order.event else 'Неизвестный турнир' }}
-                                            </div>
+                                        <td style="font-size: 0.85em; word-break: break-word; max-width: 180px;">{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
+                                        <td style="font-size: 0.85em; word-break: break-word;">{{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</td>
+                                        <td style="font-size: 0.85em;">
+                                            {% if order.video_types %}
+                                                {% for video_type_id in order.video_types %}
+                                                    {% if video_types_dict and video_types_dict.get(video_type_id|string) %}
+                                                        <span class="badge bg-info" style="font-size: 0.75em;">{{ video_types_dict[video_type_id|string].name }}</span>{% if not loop.last %}<br>{% endif %}
+                                                    {% else %}
+                                                        <span class="badge bg-warning" style="font-size: 0.75em;">Неизвестный</span>{% if not loop.last %}<br>{% endif %}
+                                                    {% endif %}
+                                                {% endfor %}
+                                            {% else %}
+                                                <small class="text-muted">Не указан</small>
+                                            {% endif %}
                                         </td>
-                                        <td>
-                                            <div class="small">
-                                                {{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div class="small">
-                                                {% if order.video_types %}
-                                                    {% for video_type_id in order.video_types %}
-                                                        {% if video_types_dict and video_types_dict.get(video_type_id|string) %}
-                                                            <span class="badge bg-info small me-1">{{ video_types_dict[video_type_id|string].name }}</span>
-                                                        {% else %}
-                                                            <span class="badge bg-warning small me-1">Неизвестный тип</span>
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                {% else %}
-                                                    <span class="text-muted">Не указан</span>
-                                                {% endif %}
-                                            </div>
-                                        </td>
-                                        <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
-                                        <td>
+                                        <td style="font-size: 0.85em; white-space: nowrap;"><strong>{{ "%.0f"|format(order.total_amount) }} ₽</strong></td>
+                                        <td style="font-size: 0.8em; word-break: break-word; max-width: 120px;">
                                             {% if order.comment %}
-                                                <div class="small text-muted" style="max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="{{ order.comment }}">
+                                                <div class="text-muted" style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;" title="{{ order.comment }}">
                                                     <i class="fas fa-comment text-info me-1"></i>{{ order.comment }}
                                                 </div>
                                             {% else %}
-                                                <span class="text-muted small">-</span>
+                                                <span class="text-muted">-</span>
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'secondary' if order.status == 'pending_payment' else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' }}">
+                                        <td style="font-size: 0.85em;">
+                                            <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'secondary' if order.status == 'pending_payment' else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' }}" style="font-size: 0.75em;">
                                                 {% if order.status == 'completed' %}
                                                     Выполнен
                                                 {% elif order.status == 'pending' %}
@@ -163,26 +150,24 @@
                                             </span>
                                             {% if order.operator_comment %}
                                                 {% if order.status == 'refund_required' %}
-                                                    <i class="fas fa-exclamation-triangle text-warning ms-1" title="Требуется возврат: {{ order.operator_comment }}"></i>
+                                                    <i class="fas fa-exclamation-triangle text-warning ms-1" style="font-size: 0.8em;" title="Требуется возврат: {{ order.operator_comment }}"></i>
                                                 {% else %}
-                                                    <i class="fas fa-comment text-info ms-1" title="Комментарий оператора: {{ order.operator_comment }}"></i>
+                                                    <i class="fas fa-comment text-info ms-1" style="font-size: 0.8em;" title="Комментарий оператора: {{ order.operator_comment }}"></i>
                                                 {% endif %}
                                             {% endif %}
                                         </td>
-                                        <td>
-                                            <div class="small">
-                                                {% if order.operator %}
-                                                    {{ order.operator.full_name }}
-                                                {% else %}
-                                                    <span class="text-muted">Не назначен</span>
-                                                {% endif %}
-                                            </div>
+                                        <td style="font-size: 0.85em; word-break: break-word;">
+                                            {% if order.operator %}
+                                                <small>{{ order.operator.full_name }}</small>
+                                            {% else %}
+                                                <span class="text-muted"><small>Не назначен</small></span>
+                                            {% endif %}
                                         </td>
-                                        <td>
+                                        <td style="font-size: 0.8em;">
                                             {% if order.payments %}
                                                 {% for payment in order.payments %}
-                                                    <div class="d-flex flex-column">
-                                                        <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }} small mb-1">
+                                                    <div class="d-flex flex-column mb-1">
+                                                        <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }}" style="font-size: 0.7em;">
                                                             {{ 'Оплачен' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
                                                         </span>
                                                         <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
@@ -345,5 +330,4 @@ function cancelOrder(orderId) {
 }
 
 </style>
-            </div>
 {% endblock %}
