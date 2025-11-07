@@ -30,6 +30,7 @@ class TelegramBotManager:
         self.token = token
         self.application = Application.builder().token(token).build()
         self.setup_handlers()
+        self.setup_bot_commands()
     
     def setup_handlers(self):
         """Setup bot command handlers"""
@@ -103,6 +104,23 @@ class TelegramBotManager:
         self.application.add_handler(CommandHandler('orders', self.orders_command))
         self.application.add_handler(CommandHandler('profile', self.profile_command))
         self.application.add_handler(CommandHandler('help', self.help_command))
+        self.application.add_handler(CommandHandler('contact', self.contact_command))
+    
+    async def setup_bot_commands(self):
+        """Setup bot menu commands"""
+        from telegram import BotCommand
+        commands = [
+            BotCommand("start", "Начать покупку видео"),
+            BotCommand("menu", "Главное меню"),
+            BotCommand("orders", "Мои заказы"),
+            BotCommand("help", "Помощь по использованию"),
+            BotCommand("contact", "Связаться с нами"),
+        ]
+        try:
+            await self.application.bot.set_my_commands(commands)
+            logger.info("✅ Bot commands menu configured successfully")
+        except Exception as e:
+            logger.error(f"❌ Error setting bot commands: {e}")
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command - resets conversation and starts fresh"""
@@ -1115,6 +1133,32 @@ class TelegramBotManager:
         
         keyboard = [
             [InlineKeyboardButton("📞 Поддержка", callback_data="support")],
+            [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            message,
+            parse_mode=ParseMode.HTML,
+            reply_markup=reply_markup
+        )
+    
+    async def contact_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /contact command"""
+        message = (
+            "📞 <b>Связаться с нами</b>\n\n"
+            "🆘 <b>Нужна помощь?</b>\n"
+            "Обращайтесь к нам любым удобным способом:\n\n"
+            "📧 <b>Email:</b> support@mainstreamfs.ru\n"
+            "🌐 <b>Сайт:</b> https://mainstreamfs.ru\n"
+            "📱 <b>Telegram:</b> @mainstream_support\n\n"
+            "⏰ <b>Время работы:</b>\n"
+            "Пн-Пт: 9:00 - 18:00\n"
+            "Сб-Вс: 10:00 - 16:00\n\n"
+            "💬 Мы отвечаем в течение рабочего дня!"
+        )
+        
+        keyboard = [
             [InlineKeyboardButton("🏠 Главное меню", callback_data="back_to_menu")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)

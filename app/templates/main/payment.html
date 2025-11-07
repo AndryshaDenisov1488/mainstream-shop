@@ -95,7 +95,21 @@ if (!paymentData || !paymentData.publicId) {
     console.error('Payment data is not available:', paymentData);
     const paymentContainer = document.querySelector('.card-body');
     if (paymentContainer) {
-        paymentContainer.innerHTML = '<div class="alert alert-danger">Ошибка загрузки платежных данных. Попробуйте обновить страницу или обратитесь в поддержку.</div>';
+        paymentContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <h5><i class="fas fa-exclamation-triangle"></i> Ошибка загрузки платежных данных</h5>
+                <p>Не удалось загрузить данные для оплаты. Возможные причины:</p>
+                <ul>
+                    <li>Заказ уже обработан или отменен</li>
+                    <li>Проблемы с подключением к платежной системе</li>
+                    <li>Ошибка конфигурации платежной системы</li>
+                </ul>
+                <p class="mb-0">
+                    <a href="{{ url_for('main.index') }}" class="btn btn-primary">Вернуться на главную</a>
+                    <a href="mailto:support@mainstreamfs.ru" class="btn btn-outline-secondary">Связаться с поддержкой</a>
+                </p>
+            </div>
+        `;
     }
 }
 

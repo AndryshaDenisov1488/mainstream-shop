@@ -48,6 +48,8 @@ def run_bot_in_thread(app: Flask):
                         try:
                             await bot_manager.application.initialize()
                             await bot_manager.application.start()
+                            # Setup bot commands menu
+                            await bot_manager.setup_bot_commands()
                             await bot_manager.application.updater.start_polling(
                                 drop_pending_updates=True,
                                 allowed_updates=None

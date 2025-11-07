@@ -214,8 +214,10 @@ def register_payment_routes(bp):
             order = Order.query.get_or_404(order_id)
             
             # Check if order is in valid status for payment
-            if order.status not in ['checkout_initiated', 'awaiting_payment']:
-                flash('Этот заказ уже обработан или отменен.', 'error')
+            # Разрешаем оплату для заказов в статусах: checkout_initiated, awaiting_payment, paid (если еще не подтвержден)
+            valid_statuses = ['checkout_initiated', 'awaiting_payment', 'paid']
+            if order.status not in valid_statuses:
+                flash(f'Этот заказ уже обработан или отменен. Текущий статус: {order.get_status_display()}.', 'error')
                 return redirect(url_for('main.index'))
             
             # Check if user has access (if authenticated)
@@ -226,13 +228,29 @@ def register_payment_routes(bp):
                         return redirect(url_for('main.index'))
             
             # Create payment widget data
-            cp_api = CloudPaymentsAPI()
-            payment_method = order.payment_method or 'card'
-            payment_data = cp_api.create_payment_widget_data(order, payment_method)
-            
-            if not payment_data:
-                flash('Ошибка создания платежных данных. Попробуйте позже.', 'error')
-                return redirect(url_for('main.index'))
+            try:
+                cp_api = CloudPaymentsAPI()
+                payment_method = order.payment_method or 'card'
+                payment_data = cp_api.create_payment_widget_data(order, payment_method)
+                
+                if not payment_data or not payment_data.get('publicId'):
+                    logger.error(f'Failed to create payment data for order {order.id}: payment_data={payment_data}')
+                    flash('Ошибка создания платежных данных. Проверьте настройки платежной системы или обратитесь в поддержку.', 'error')
+                    return render_template('main/payment_error.html', 
+                                         order=order,
+                                         error_message='Ошибка создания платежных данных')
+            except ValueError as e:
+                logger.error(f'CloudPayments configuration error for order {order.id}: {str(e)}')
+                flash(f'Ошибка конфигурации платежной системы: {str(e)}', 'error')
+                return render_template('main/payment_error.html', 
+                                     order=order,
+                                     error_message=str(e))
+            except Exception as e:
+                logger.error(f'Error creating payment widget data for order {order.id}: {str(e)}', exc_info=True)
+                flash('Произошла ошибка при создании платежных данных. Попробуйте позже или обратитесь в поддержку.', 'error')
+                return render_template('main/payment_error.html', 
+                                     order=order,
+                                     error_message='Ошибка создания платежных данных')
             
             # Get video types for display
             video_types_dict = {}
