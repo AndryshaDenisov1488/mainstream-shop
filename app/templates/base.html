@@ -89,6 +89,9 @@
                                     <li><a class="dropdown-item" href="{{ url_for('operator.dashboard') }}">
                                         <i class="fas fa-tasks me-2"></i>Заказы
                                     </a></li>
+                                    <li><a class="dropdown-item" href="{{ url_for('operator.statistics') }}">
+                                        <i class="fas fa-chart-line me-2"></i>Статистика и заработок
+                                    </a></li>
                                 {% elif current_user.role == 'CUSTOMER' %}
                                     <li><a class="dropdown-item" href="{{ url_for('customer.dashboard') }}">
                                         <i class="fas fa-user me-2"></i>Мои заказы

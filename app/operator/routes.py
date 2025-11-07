@@ -328,3 +328,116 @@ def upload_video_links(order_id):
     video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
     
     return render_template('operator/upload_links.html', order=order, video_types=video_types)
+
+@bp.route('/statistics')
+@login_required
+@role_required('OPERATOR')
+def statistics():
+    """Operator statistics and earnings"""
+    # Get all completed orders for this operator
+    completed_orders = Order.query.filter(
+        Order.operator_id == current_user.id,
+        Order.status.in_(['completed', 'links_sent', 'completed_partial_refund'])
+    ).options(
+        joinedload(Order.event),
+        joinedload(Order.category),
+        joinedload(Order.athlete)
+    ).order_by(desc(Order.created_at)).all()
+    
+    # Get all video types
+    video_types = VideoType.query.all()
+    video_types_dict = {str(vt.id): vt for vt in video_types}
+    
+    # Calculate earnings
+    total_earnings = 0
+    orders_earnings = []
+    sport_videos_count = 0
+    tv_videos_count = 0
+    
+    for order in completed_orders:
+        if not order.video_types:
+            continue
+            
+        order_earnings = 0
+        sport_count = 0
+        tv_count = 0
+        
+        # Count video types in this order
+        for video_type_id in order.video_types:
+            if not video_type_id:
+                continue
+                
+            video_type = video_types_dict.get(str(video_type_id))
+            if not video_type:
+                continue
+            
+            # Determine if it's sport or TV video
+            video_name_lower = video_type.name.lower()
+            # Проверяем наличие "2 проката" - это считается как 2 видео
+            is_two_runs = '2 проката' in video_name_lower or '2 прокат' in video_name_lower
+            
+            if 'спорт' in video_name_lower:
+                if is_two_runs:
+                    sport_count += 2  # 2 проката = 2 видео
+                else:
+                    sport_count += 1
+            elif 'тв' in video_name_lower or 'tv' in video_name_lower:
+                if is_two_runs:
+                    tv_count += 2  # 2 проката = 2 видео
+                else:
+                    tv_count += 1
+        
+        # Calculate earnings for this order
+        # Спорт: 100₽ за 1, 200₽ за 2+
+        if sport_count >= 1:
+            if sport_count == 1:
+                order_earnings += 100
+            else:  # 2 или больше
+                order_earnings += 200  # Максимум 200₽ за спорт
+        
+        # ТВ: 300₽ за 1, 600₽ за 2+
+        if tv_count >= 1:
+            if tv_count == 1:
+                order_earnings += 300
+            else:  # 2 или больше
+                order_earnings += 600  # Максимум 600₽ за ТВ
+        
+        if order_earnings > 0:
+            total_earnings += order_earnings
+            sport_videos_count += sport_count
+            tv_videos_count += tv_count
+            
+            orders_earnings.append({
+                'order': order,
+                'earnings': order_earnings,
+                'sport_count': sport_count,
+                'tv_count': tv_count
+            })
+    
+    # Statistics by period (this month, last month, all time)
+    from datetime import datetime, timedelta
+    from app.utils.datetime_utils import moscow_now_naive
+    
+    now = moscow_now_naive()
+    first_day_this_month = datetime(now.year, now.month, 1)
+    first_day_last_month = (first_day_this_month - timedelta(days=1)).replace(day=1)
+    
+    # This month earnings
+    this_month_orders = [oe for oe in orders_earnings if oe['order'].created_at >= first_day_this_month]
+    this_month_earnings = sum(oe['earnings'] for oe in this_month_orders)
+    
+    # Last month earnings
+    last_month_orders = [oe for oe in orders_earnings 
+                        if oe['order'].created_at >= first_day_last_month 
+                        and oe['order'].created_at < first_day_this_month]
+    last_month_earnings = sum(oe['earnings'] for oe in last_month_orders)
+    
+    return render_template('operator/statistics.html',
+                         total_earnings=total_earnings,
+                         this_month_earnings=this_month_earnings,
+                         last_month_earnings=last_month_earnings,
+                         orders_earnings=orders_earnings,
+                         sport_videos_count=sport_videos_count,
+                         tv_videos_count=tv_videos_count,
+                         total_orders=len(orders_earnings),
+                         video_types_dict=video_types_dict)

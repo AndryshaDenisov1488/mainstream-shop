@@ -8,8 +8,13 @@
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h1 class="h2">Панель оператора</h1>
-                <div class="text-muted">
-                    Добро пожаловать, {{ current_user.full_name }}!
+                <div class="d-flex align-items-center gap-3">
+                    <a href="{{ url_for('operator.statistics') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-chart-line me-1"></i> Статистика и заработок
+                    </a>
+                    <div class="text-muted">
+                        Добро пожаловать, {{ current_user.full_name }}!
+                    </div>
                 </div>
             </div>
         </div>

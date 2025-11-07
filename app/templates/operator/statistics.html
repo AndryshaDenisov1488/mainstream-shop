@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+
+{% block title %}Статистика оператора - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">📊 Статистика и заработок</h1>
+                <a href="{{ url_for('operator.dashboard') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left"></i> Назад к панели
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earnings Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Общий заработок</h6>
+                    <h2 class="mb-0">{{ "%.0f"|format(total_earnings) }} ₽</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card bg-success text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Этот месяц</h6>
+                    <h2 class="mb-0">{{ "%.0f"|format(this_month_earnings) }} ₽</h2>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4 col-md-6 mb-3">
+            <div class="card bg-info text-white">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Прошлый месяц</h6>
+                    <h2 class="mb-0">{{ "%.0f"|format(last_month_earnings) }} ₽</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Всего заказов</h6>
+                    <h3 class="mb-0">{{ total_orders }}</h3>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Видео спорт</h6>
+                    <h3 class="mb-0">{{ sport_videos_count }}</h3>
+                    <small class="text-muted">× 100₽ = {{ sport_videos_count * 100 }}₽</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Видео ТВ</h6>
+                    <h3 class="mb-0">{{ tv_videos_count }}</h3>
+                    <small class="text-muted">× 300₽ = {{ tv_videos_count * 300 }}₽</small>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3 col-md-6 mb-3">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h6 class="text-muted">Средний заказ</h6>
+                    <h3 class="mb-0">
+                        {% if total_orders > 0 %}
+                            {{ "%.0f"|format(total_earnings / total_orders) }} ₽
+                        {% else %}
+                            0 ₽
+                        {% endif %}
+                    </h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Earnings Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Детализация по заказам</h5>
+                </div>
+                <div class="card-body">
+                    {% if orders_earnings %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>ID заказа</th>
+                                    <th>Дата</th>
+                                    <th>Клиент</th>
+                                    <th>Турнир</th>
+                                    <th>Видео спорт</th>
+                                    <th>Видео ТВ</th>
+                                    <th>Заработок</th>
+                                    <th>Статус</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in orders_earnings %}
+                                <tr>
+                                    <td>
+                                        <a href="{{ url_for('operator.order_detail', order_id=item.order.id) }}">
+                                            #{{ item.order.generated_order_number }}
+                                        </a>
+                                    </td>
+                                    <td>{{ item.order.created_at.strftime('%d.%m.%Y %H:%M') if item.order.created_at else 'Не указано' }}</td>
+                                    <td>
+                                        {% if item.order.contact_first_name and item.order.contact_last_name %}
+                                            {{ item.order.contact_last_name }} {{ item.order.contact_first_name }}
+                                        {% elif item.order.customer %}
+                                            {{ item.order.customer.full_name }}
+                                        {% else %}
+                                            {{ item.order.contact_email }}
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ item.order.event.name if item.order.event else 'Неизвестный турнир' }}</td>
+                                    <td>
+                                        {% if item.sport_count > 0 %}
+                                            <span class="badge bg-info">{{ item.sport_count }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if item.tv_count > 0 %}
+                                            <span class="badge bg-primary">{{ item.tv_count }}</span>
+                                        {% else %}
+                                            <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <strong class="text-success">{{ "%.0f"|format(item.earnings) }} ₽</strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ 'success' if item.order.status == 'completed' else 'primary' if item.order.status == 'links_sent' else 'info' }}">
+                                            {{ item.order.get_status_display() }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr class="table-success">
+                                    <th colspan="6" class="text-end">Итого:</th>
+                                    <th>{{ "%.0f"|format(total_earnings) }} ₽</th>
+                                    <th></th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-line fa-3x mb-3"></i>
+                        <p>Пока нет завершенных заказов</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payment Rules Info -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Правила расчета заработка</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-video me-2 text-info"></i>Видео спорт</h6>
+                            <ul>
+                                <li>1 видео = <strong>100 ₽</strong></li>
+                                <li>2 видео = <strong>200 ₽</strong></li>
+                                <li>3+ видео = <strong>200 ₽</strong> (максимум)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-tv me-2 text-primary"></i>Видео ТВ</h6>
+                            <ul>
+                                <li>1 видео = <strong>300 ₽</strong></li>
+                                <li>2 видео = <strong>600 ₽</strong></li>
+                                <li>3+ видео = <strong>600 ₽</strong> (максимум)</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="alert alert-info mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        <strong>Примечание:</strong> Заработок начисляется только за заказы со статусом "Ссылки отправлены", "Выполнен" или "Выполнен с частичным возвратом".
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
