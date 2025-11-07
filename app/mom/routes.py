@@ -485,3 +485,69 @@ def full_refund_orders():
     )
     
     return render_template('mom/full_refund_orders.html', orders=orders, search=search)
+
+@bp.route('/refund-statistics')
+@login_required
+@role_required('MOM')
+def refund_statistics():
+    """Refund statistics dashboard"""
+    from datetime import timedelta
+    from app.utils.datetime_utils import moscow_now_naive
+    from sqlalchemy import func
+    
+    # Период для статистики (последние 30 дней)
+    period_start = moscow_now_naive() - timedelta(days=30)
+    
+    # Все возвраты за последний месяц
+    refunds_query = Payment.query.filter(
+        Payment.status.in_(['refunded_partial', 'refunded_full']),
+        Payment.created_at >= period_start
+    )
+    
+    refunds = refunds_query.all()
+    
+    # Общая статистика
+    total_refunds = len(refunds)
+    total_refund_amount = sum(p.amount for p in refunds)
+    
+    # Группировка по статусу
+    refunds_by_status = {
+        'refunded_partial': 0,
+        'refunded_full': 0
+    }
+    amount_by_status = {
+        'refunded_partial': 0,
+        'refunded_full': 0
+    }
+    
+    for payment in refunds:
+        refunds_by_status[payment.status] += 1
+        amount_by_status[payment.status] += payment.amount
+    
+    # Заказы с возвратами
+    orders_with_refunds = Order.query.filter(
+        Order.status.in_(['refund_required', 'completed_partial_refund', 'cancelled_manual']),
+        Order.created_at >= period_start
+    ).all()
+    
+    # Причины возвратов (из комментариев заказов)
+    refund_reasons = {}
+    for order in orders_with_refunds:
+        if order.comment:
+            reason = order.comment[:50]  # Первые 50 символов
+            refund_reasons[reason] = refund_reasons.get(reason, 0) + 1
+    
+    # Сортировка причин по частоте
+    refund_reasons = dict(sorted(refund_reasons.items(), key=lambda x: x[1], reverse=True)[:10])
+    
+    stats = {
+        'total_refunds': total_refunds,
+        'total_amount': total_refund_amount,
+        'by_status': refunds_by_status,
+        'amount_by_status': amount_by_status,
+        'orders_with_refunds': len(orders_with_refunds),
+        'refund_reasons': refund_reasons,
+        'period_days': 30
+    }
+    
+    return render_template('mom/refund_statistics.html', stats=stats, orders=orders_with_refunds)

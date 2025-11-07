@@ -181,7 +181,17 @@ function initiatePayment() {
         onFail: function (reason, options) {
             console.error('Payment failed:', reason, options);
             let errorMessage = 'Неизвестная ошибка';
-            if (reason) {
+            
+            // ✅ Обработка 3DS ошибок
+            if (reason === '3ds_failed' || (reason && reason.includes && reason.includes('3DS'))) {
+                errorMessage = '3D Secure аутентификация не пройдена. Проверьте SMS от банка или попробуйте другую карту.';
+            } else if (reason === 'InsufficientFunds') {
+                errorMessage = 'Недостаточно средств на карте';
+            } else if (reason === 'CardExpired') {
+                errorMessage = 'Срок действия карты истек';
+            } else if (reason === 'InvalidCard') {
+                errorMessage = 'Неверные данные карты';
+            } else if (reason) {
                 if (typeof reason === 'string') {
                     errorMessage = reason;
                 } else if (reason.message) {
@@ -190,6 +200,7 @@ function initiatePayment() {
                     errorMessage = reason.description;
                 }
             }
+            
             showPaymentStatus('Ошибка: ' + errorMessage);
             // Re-enable buttons
             if (cardBtn) cardBtn.disabled = false;
@@ -256,7 +267,13 @@ function initiateSbpPayment() {
         onFail: function (reason, options) {
             console.error('SBP payment failed:', reason, options);
             let errorMessage = 'Неизвестная ошибка';
-            if (reason) {
+            
+            // ✅ Обработка ошибок СБП
+            if (reason === 'InsufficientFunds') {
+                errorMessage = 'Недостаточно средств';
+            } else if (reason === 'BankDeclined') {
+                errorMessage = 'Банк отклонил операцию';
+            } else if (reason) {
                 if (typeof reason === 'string') {
                     errorMessage = reason;
                 } else if (reason.message) {
@@ -265,6 +282,7 @@ function initiateSbpPayment() {
                     errorMessage = reason.description;
                 }
             }
+            
             showPaymentStatus('Ошибка: ' + errorMessage);
             // Re-enable buttons
             if (cardBtn) cardBtn.disabled = false;

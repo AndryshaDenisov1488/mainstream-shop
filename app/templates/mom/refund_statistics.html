@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Статистика возвратов - Панель MOM{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h2">📊 Статистика возвратов</h1>
+                <div>
+                    <a href="{{ url_for('mom.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> Назад к панели
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Всего возвратов</h5>
+                    <h2 class="text-danger">{{ stats.total_refunds }}</h2>
+                    <small class="text-muted">За последние {{ stats.period_days }} дней</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Сумма возвратов</h5>
+                    <h2 class="text-danger">{{ "%.2f"|format(stats.total_amount) }} ₽</h2>
+                    <small class="text-muted">Общая сумма</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Полных возвратов</h5>
+                    <h2 class="text-warning">{{ stats.by_status.refunded_full }}</h2>
+                    <small class="text-muted">{{ "%.2f"|format(stats.amount_by_status.refunded_full) }} ₽</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h5 class="card-title text-muted">Частичных возвратов</h5>
+                    <h2 class="text-info">{{ stats.by_status.refunded_partial }}</h2>
+                    <small class="text-muted">{{ "%.2f"|format(stats.amount_by_status.refunded_partial) }} ₽</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refund Reasons -->
+    {% if stats.refund_reasons %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">🔍 Топ причин возвратов</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Причина</th>
+                                    <th class="text-center">Количество</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for reason, count in stats.refund_reasons.items() %}
+                                <tr>
+                                    <td>{{ reason }}</td>
+                                    <td class="text-center">
+                                        <span class="badge bg-danger">{{ count }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Orders with Refunds -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Заказы с возвратами ({{ stats.orders_with_refunds }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if orders %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Номер заказа</th>
+                                    <th>Дата</th>
+                                    <th>Клиент</th>
+                                    <th>Сумма</th>
+                                    <th>Статус</th>
+                                    <th>Действия</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for order in orders %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ order.generated_order_number }}</strong>
+                                    </td>
+                                    <td>{{ order.created_at.strftime('%d.%m.%Y') if order.created_at else 'N/A' }}</td>
+                                    <td>{{ order.contact_email }}</td>
+                                    <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'danger' if order.status == 'refund_required' else 'warning' if order.status == 'completed_partial_refund' else 'secondary' }}">
+                                            {{ order.get_status_display() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-eye"></i> Просмотр
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> Нет заказов с возвратами за выбранный период
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

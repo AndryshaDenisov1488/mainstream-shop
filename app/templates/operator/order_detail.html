@@ -1159,6 +1159,26 @@ document.getElementById('loadMoreMessagesBtn').addEventListener('click', functio
 // Auto-refresh unread count every 2 minutes
 setInterval(updateUnreadCount, 120000);
 
+// ✅ Auto-refresh chat messages every 10 seconds when chat tab is active
+let chatRefreshInterval = null;
+
+document.getElementById('chat-tab').addEventListener('shown.bs.tab', function() {
+    // Start auto-refresh when chat is opened
+    if (!chatRefreshInterval) {
+        chatRefreshInterval = setInterval(function() {
+            loadChatMessages(1);
+        }, 10000); // Обновление каждые 10 секунд
+    }
+});
+
+document.getElementById('chat-tab').addEventListener('hidden.bs.tab', function() {
+    // Stop auto-refresh when chat is closed
+    if (chatRefreshInterval) {
+        clearInterval(chatRefreshInterval);
+        chatRefreshInterval = null;
+    }
+});
+
 // Initial load of unread count
 updateUnreadCount();
 </script>

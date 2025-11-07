@@ -107,6 +107,18 @@ def register_payment_routes(bp):
                 flash('В корзине товары для разных спортсменов. Пожалуйста, оформляйте заказы отдельно для каждого спортсмена.', 'error')
                 return redirect(url_for('main.checkout'))
             
+            # ✅ Проверка: минимальная и максимальная сумма заказа
+            MIN_ORDER_AMOUNT = 500  # 500 рублей
+            MAX_ORDER_AMOUNT = 50000  # 50,000 рублей
+            
+            if total_amount < MIN_ORDER_AMOUNT:
+                flash(f'Минимальная сумма заказа {MIN_ORDER_AMOUNT} ₽', 'error')
+                return redirect(url_for('main.checkout'))
+            
+            if total_amount > MAX_ORDER_AMOUNT:
+                flash(f'Максимальная сумма заказа {MAX_ORDER_AMOUNT} ₽. Для больших заказов свяжитесь с нами.', 'error')
+                return redirect(url_for('main.checkout'))
+            
             # Get contact information
             contact_first_name = request.form.get('contact_first_name', '').strip()
             contact_last_name = request.form.get('contact_last_name', '').strip()

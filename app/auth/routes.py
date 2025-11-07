@@ -1,6 +1,6 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_user, logout_user, current_user, login_required
-from app import db
+from app import db, limiter
 from app.auth import bp
 from app.auth.forms import (LoginForm, RegistrationForm, PasswordResetForm, 
                            PasswordResetConfirmForm, ChangePasswordForm)
@@ -9,6 +9,7 @@ from app.utils.decorators import role_required
 from app.utils.email import send_password_reset_email, send_user_credentials_email, send_new_password_email
 
 @bp.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # ✅ Максимум 5 попыток входа в минуту
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('main.index'))

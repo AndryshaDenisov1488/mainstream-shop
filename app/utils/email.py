@@ -120,7 +120,7 @@ def send_payment_success_email(order):
 
 def send_order_ready_notification(order):
     """Send notification about ready order to mom/admin"""
-    subject = f'Заказ готов к отправке: {order.generated_order_number}'
+    subject = f'✅ Заказ готов к приёму денег: {order.generated_order_number}'
     sender = current_app.config['MAIL_DEFAULT_SENDER']
     
     # Get mom and admin emails
@@ -142,14 +142,15 @@ def send_order_ready_notification(order):
         return
     
     text_body = f"""
-Заказ {order.generated_order_number} готов к отправке!
+✅ Заказ {order.generated_order_number} готов к приёму денег!
 
 Спортсмен: {order.athlete.name}
 Турнир: {order.event.name}
 Клиент: {order.contact_email}
+Сумма: {order.total_amount:.2f} ₽
 
-Ссылки на видео загружены оператором.
-Необходимо отправить ссылки клиенту.
+Ссылки на видео отправлены клиенту.
+Необходимо подтвердить получение денег в панели MOM.
 
 Войти в панель: {url_for('mom.dashboard', _external=True)}
 """
@@ -159,11 +160,11 @@ def send_order_ready_notification(order):
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Заказ готов к отправке</title>
+    <title>Заказ готов к приёму денег</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
     <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
-        <h2 style="color: #28a745;">🎉 Заказ готов к отправке!</h2>
+        <h2 style="color: #28a745;">✅ Заказ готов к приёму денег!</h2>
         
         <div style="background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0;">
             <h3>Информация о заказе:</h3>
@@ -171,11 +172,12 @@ def send_order_ready_notification(order):
             <p><strong>Спортсмен:</strong> {order.athlete.name}</p>
             <p><strong>Турнир:</strong> {order.event.name}</p>
             <p><strong>Клиент:</strong> {order.contact_email}</p>
+            <p><strong>Сумма:</strong> {order.total_amount:.2f} ₽</p>
         </div>
         
         <div style="background: #d4edda; padding: 15px; border-radius: 5px; margin: 20px 0;">
-            <p><strong>✅ Ссылки на видео загружены оператором</strong></p>
-            <p>Необходимо отправить ссылки клиенту через панель управления.</p>
+            <p><strong>✅ Ссылки на видео отправлены клиенту</strong></p>
+            <p>Необходимо подтвердить получение денег в панели MOM.</p>
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
