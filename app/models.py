@@ -507,7 +507,7 @@ class AuditLog(db.Model):
             
             # Менеджер (MOM)
             'MOM_CONFIRMED_RECEIPT': 'Подтверждено получение денег',
-            'MOM_CAPTURED_PARTIAL': 'Частичное списание средств',
+            'MOM_CAPTURED_PARTIAL': 'Частичный зачет (часть автоматически возвращена)',
             'MOM_CAPTURED_FULL': 'Полное списание средств',
             'MOM_CAPTURED_SBP': 'Списание средств через СБП',
             'MOM_REFUNDED_FULL': 'Полный возврат средств',

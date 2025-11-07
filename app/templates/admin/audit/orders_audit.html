@@ -47,6 +47,17 @@
                                         </td>
                                         <td>
                                             <span class="badge bg-info">{{ log.action_display or log.action }}</span>
+                                            {% if log.action == 'MOM_CAPTURED_PARTIAL' and log.details %}
+                                                {% set details = log.details if log.details is mapping else (log.details|from_json if log.details is string else {}) %}
+                                                {% if details.captured_amount and details.refunded_amount %}
+                                                    <br><small class="text-success">
+                                                        <i class="fas fa-check-circle"></i> Принято: {{ "%.2f"|format(details.captured_amount) }} ₽
+                                                    </small>
+                                                    <br><small class="text-warning">
+                                                        <i class="fas fa-undo"></i> Автоматически возвращено: {{ "%.2f"|format(details.refunded_amount) }} ₽
+                                                    </small>
+                                                {% endif %}
+                                            {% endif %}
                                         </td>
                                         <td>
                                             {% if log.resource_id %}
@@ -65,8 +76,9 @@
                                             {% if log.details %}
                                                 <button class="btn btn-sm btn-outline-secondary" 
                                                         data-log-details="{{ log.details | tojson | safe }}" 
-                                                        data-action="show-details">
-                                                    <i class="fas fa-eye"></i> Показать
+                                                        data-action="show-details"
+                                                        title="Показать полные детали действия">
+                                                    <i class="fas fa-eye"></i> Показать в деталях
                                                 </button>
                                             {% else %}
                                                 <span class="text-muted">-</span>
