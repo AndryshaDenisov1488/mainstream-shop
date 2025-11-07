@@ -4,8 +4,10 @@
 # Хранит бэкапы 14 дней
 
 # Настройки
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKUP_DIR="/var/backups/mainstream"
-DB_PATH="instance/app.db"
+DB_PATH="$PROJECT_DIR/instance/app.db"
+VENV_PATH="$PROJECT_DIR/venv"
 DATE=$(date +%Y%m%d_%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/app_$DATE.db"
 LOG_FILE="/var/log/mainstream_backup.log"
@@ -18,12 +20,26 @@ log() {
 
 log "========================================="
 log "Starting database backup"
+log "Project directory: $PROJECT_DIR"
 
-# Проверяем что скрипт запущен из корня проекта
+# Переходим в директорию проекта
+cd "$PROJECT_DIR" || {
+    log "ERROR: Cannot change to project directory: $PROJECT_DIR"
+    exit 1
+}
+
+# Активируем виртуальное окружение (если существует)
+if [ -f "$VENV_PATH/bin/activate" ]; then
+    log "Activating virtual environment..."
+    source "$VENV_PATH/bin/activate"
+    log "✅ Virtual environment activated"
+else
+    log "⚠️ Virtual environment not found at $VENV_PATH, continuing without it"
+fi
+
+# Проверяем что база данных существует
 if [ ! -f "$DB_PATH" ]; then
     log "ERROR: Database file not found at $DB_PATH"
-    log "Current directory: $(pwd)"
-    log "Please run this script from the project root directory"
     exit 1
 fi
 

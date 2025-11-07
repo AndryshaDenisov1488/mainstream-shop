@@ -34,6 +34,13 @@ sudo chown $USER:$USER /var/log/mainstream_backup.log
 ### 4. Протестируйте скрипт вручную
 
 ```bash
+# Скрипт автоматически определит свою директорию и активирует venv
+/path/to/mainstream-shop/backup_database.sh
+```
+
+Или из директории проекта:
+
+```bash
 cd /path/to/mainstream-shop
 ./backup_database.sh
 ```
@@ -53,12 +60,14 @@ cat /var/log/mainstream_backup.log
 crontab -e
 ```
 
-Добавьте строку (замените `/path/to/mainstream-shop` на реальный путь):
+Добавьте строку (замените `/path/to/mainstream-shop` на реальный путь, например `/root/mainstreamfs.ru`):
 
 ```cron
 # Бэкап базы данных MainStream Shop каждый день в 00:30
-30 0 * * * cd /path/to/mainstream-shop && ./backup_database.sh >> /var/log/mainstream_backup.log 2>&1
+30 0 * * * /root/mainstreamfs.ru/backup_database.sh >> /var/log/mainstream_backup.log 2>&1
 ```
+
+**Примечание:** Скрипт автоматически определит свою директорию и активирует venv, поэтому не нужно использовать `cd`.
 
 Сохраните и закройте редактор.
 
