@@ -388,19 +388,11 @@ def statistics():
                     tv_count += 1
         
         # Calculate earnings for this order
-        # Спорт: 100₽ за 1, 200₽ за 2+
-        if sport_count >= 1:
-            if sport_count == 1:
-                order_earnings += 100
-            else:  # 2 или больше
-                order_earnings += 200  # Максимум 200₽ за спорт
+        # Каждое спорт видео = 100₽ (независимо от количества)
+        order_earnings += sport_count * 100
         
-        # ТВ: 300₽ за 1, 600₽ за 2+
-        if tv_count >= 1:
-            if tv_count == 1:
-                order_earnings += 300
-            else:  # 2 или больше
-                order_earnings += 600  # Максимум 600₽ за ТВ
+        # Каждое ТВ видео = 300₽ (независимо от количества)
+        order_earnings += tv_count * 300
         
         if order_earnings > 0:
             total_earnings += order_earnings
