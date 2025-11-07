@@ -48,6 +48,7 @@ def get_chat_messages(order_id):
         'success': True,
         'messages': [{
             'id': msg.id,
+            'sender_id': msg.sender_id,
             'sender_name': msg.sender.full_name,
             'sender_role': msg.sender.role,
             'message': msg.message,
