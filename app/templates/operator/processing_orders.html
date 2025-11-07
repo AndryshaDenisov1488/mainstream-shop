@@ -33,13 +33,22 @@
                         {% for order in orders.items %}
                         <tr>
                             <td>#{{ order.id }}</td>
-                            <td>{{ order.customer.full_name if order.customer else 'Гость' }} ({{ order.contact_email }})</td>
+                            <td>
+                                {% if order.customer %}
+                                    {{ order.customer.full_name }}
+                                {% elif order.contact_first_name or order.contact_last_name %}
+                                    {{ order.contact_last_name }} {{ order.contact_first_name }}
+                                {% else %}
+                                    Гость
+                                {% endif %}
+                                ({{ order.contact_email }})
+                            </td>
                             <td>{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
                             <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
                             <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td>
-                                <a href="{{ url_for('operator.mark_ready', order_id=order.id) }}" class="btn btn-sm btn-success">
-                                    <i class="fas fa-check"></i> Готово
+                                <a href="{{ url_for('operator.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-eye"></i> Просмотр
                                 </a>
                             </td>
                         </tr>

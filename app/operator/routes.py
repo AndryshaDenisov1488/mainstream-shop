@@ -130,9 +130,19 @@ def new_orders():
 def processing_orders():
     """Processing orders - orders where money is not yet accepted"""
     page = request.args.get('page', 1, type=int)
-    orders = Order.query.filter(
+    
+    # ✅ Eager loading для избежания N+1 запросов
+    query = Order.query.filter(
         Order.status.in_(['processing', 'awaiting_info', 'links_sent', 'refund_required'])
-    ).order_by(desc(Order.created_at)).paginate(
+    ).options(
+        joinedload(Order.event),
+        joinedload(Order.category),
+        joinedload(Order.athlete),
+        joinedload(Order.operator),
+        joinedload(Order.customer)
+    )
+    
+    orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
