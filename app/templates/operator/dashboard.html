@@ -390,12 +390,11 @@ function populateVideoLinks(order) {
         
         // Подсчитываем количество каждого типа для правильного отображения
         const videoTypeCounts = {};
-        if (order.video_types && order.video_types.length > 0) {
-            order.video_types.forEach(videoTypeId => {
-                const id = videoTypeId.toString();
-                videoTypeCounts[id] = (videoTypeCounts[id] || 0) + 1;
-            });
-        }
+        const videoTypesList = order.video_types || [];
+        videoTypesList.forEach(videoTypeId => {
+            const id = videoTypeId.toString();
+            videoTypeCounts[id] = (videoTypeCounts[id] || 0) + 1;
+        });
         
         const videoTypeIndexes = {};
         Object.entries(order.video_links).forEach(([fieldKey, link]) => {
@@ -446,7 +445,9 @@ function populateVideoLinks(order) {
     // Создаем индексы для каждого типа видео
     const videoTypeIndexes = {};
     if (order.video_types && order.video_types.length > 0) {
-        order.video_types.forEach((videoTypeId, index) => {
+        order.video_types.forEach((videoType, index) => {
+            // Поддерживаем как массив ID, так и массив объектов
+            const videoTypeId = typeof videoType === 'object' && videoType.id ? videoType.id : videoType;
             const id = videoTypeId.toString();
             if (!videoTypeIndexes[id]) {
                 videoTypeIndexes[id] = 0;
