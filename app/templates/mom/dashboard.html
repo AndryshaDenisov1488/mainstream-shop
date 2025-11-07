@@ -164,17 +164,25 @@
                                             {% set total = total_counts.get(order.id, 0) %}
                                             {% if total > 0 %}
                                                 {% if unread > 0 %}
-                                                    <span class="badge bg-danger" style="font-size: 0.9em; padding: 0.35em 0.65em;" title="Непрочитанных: {{ unread }} из {{ total }}">
+                                                    <span class="badge bg-danger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                          title="Непрочитанных: {{ unread }} из {{ total }}. Нажмите, чтобы открыть чат"
+                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                         <span class="badge bg-dark ms-1">{{ unread }}</span>
                                                     </span>
                                                 {% else %}
-                                                    <span class="badge bg-secondary" style="font-size: 0.9em; padding: 0.35em 0.65em;" title="Всего сообщений: {{ total }}">
+                                                    <span class="badge bg-secondary" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                          title="Всего сообщений: {{ total }}. Нажмите, чтобы открыть чат"
+                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                     </span>
                                                 {% endif %}
                                             {% else %}
-                                                <span class="text-muted"><i class="fas fa-comments"></i> 0</span>
+                                                <span class="text-muted" style="cursor: pointer;" 
+                                                      title="Нажмите, чтобы открыть чат"
+                                                      onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                    <i class="fas fa-comments"></i> 0
+                                                </span>
                                             {% endif %}
                                         </td>
                                         <td>
@@ -237,4 +245,255 @@
         </div>
     </div>
 </div>
+
+<!-- Chat Modal -->
+<div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="chatModalLabel">Чат по заказу <span id="chatOrderNumber"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Chat Messages -->
+                <div id="chatModalMessages" class="border rounded p-3 mb-3" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-spinner fa-spin"></i> Загрузка сообщений...
+                    </div>
+                </div>
+                
+                <!-- Chat Input -->
+                <div class="chat-input-container">
+                    <div class="mb-2">
+                        <textarea class="form-control" id="chatModalMessageInput" rows="2" placeholder="Введите сообщение..." maxlength="5000"></textarea>
+                        <small class="text-muted">
+                            <span id="chatModalCharCount">0/5000</span> символов
+                        </small>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <input type="file" id="chatModalFileInput" style="display: none;" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx,.txt">
+                            <button class="btn btn-sm btn-outline-secondary" id="chatModalAttachBtn" onclick="document.getElementById('chatModalFileInput').click()">
+                                <i class="fas fa-paperclip"></i> Прикрепить файл
+                            </button>
+                            <span id="chatModalFileName" class="ms-2 text-muted small"></span>
+                        </div>
+                        <button class="btn btn-primary" id="chatModalSendBtn">
+                            <i class="fas fa-paper-plane me-1"></i>Отправить
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentChatOrderId = null;
+let currentChatPage = 1;
+let isLoadingChatMessages = false;
+
+function openChatModal(orderId, orderNumber) {
+    currentChatOrderId = orderId;
+    currentChatPage = 1;
+    document.getElementById('chatOrderNumber').textContent = orderNumber;
+    document.getElementById('chatModalMessages').innerHTML = '<div class="text-center text-muted"><i class="fas fa-spinner fa-spin"></i> Загрузка сообщений...</div>';
+    document.getElementById('chatModalMessageInput').value = '';
+    document.getElementById('chatModalFileInput').value = '';
+    document.getElementById('chatModalFileName').textContent = '';
+    document.getElementById('chatModalCharCount').textContent = '0/5000';
+    
+    const modal = new bootstrap.Modal(document.getElementById('chatModal'));
+    modal.show();
+    
+    // Load messages when modal is shown
+    document.getElementById('chatModal').addEventListener('shown.bs.modal', function() {
+        loadChatModalMessages(true);
+        markChatAsRead();
+    }, { once: true });
+}
+
+function loadChatModalMessages(scrollToBottom = false) {
+    if (!currentChatOrderId || isLoadingChatMessages) return;
+    
+    isLoadingChatMessages = true;
+    const messagesContainer = document.getElementById('chatModalMessages');
+    
+    fetch(`/api/chat/order/${currentChatOrderId}/messages?page=${currentChatPage}&per_page=50`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                if (currentChatPage === 1) {
+                    messagesContainer.innerHTML = '';
+                }
+                
+                if (data.messages.length === 0 && currentChatPage === 1) {
+                    messagesContainer.innerHTML = '<div class="text-center text-muted"><i class="fas fa-comments me-2"></i>Пока нет сообщений</div>';
+                    return;
+                }
+                
+                data.messages.forEach(message => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `mb-3 p-2 rounded ${message.message_type === 'system' ? 'bg-light border-start border-info border-3' : 'bg-white border'}`;
+                    
+                    const isCurrentUser = message.sender_id === parseInt('{{ current_user.id }}');
+                    const alignment = isCurrentUser ? 'text-end' : 'text-start';
+                    
+                    let messageContent = '';
+                    if (message.message_type === 'system') {
+                        messageContent = `
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-info-circle text-info me-2"></i>
+                                <div>
+                                    <strong>Система:</strong>
+                                    <div>${message.message || ''}</div>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        messageContent = `
+                            <div class="${alignment}">
+                                <div class="d-flex ${isCurrentUser ? 'justify-content-end' : 'justify-content-start'} mb-1">
+                                    <small class="text-muted">
+                                        <strong>${message.sender_name}</strong> • ${new Date(message.created_at).toLocaleString('ru-RU', {timeZone: 'Europe/Moscow'})}
+                                    </small>
+                                </div>
+                                <div class="message-content">
+                                    ${message.message ? message.message.replace(/\n/g, '<br>') : ''}
+                                    ${message.attachment_path ? `<div class="mt-2"><a href="/uploads/chat/${message.attachment_path}" target="_blank" class="btn btn-sm btn-outline-primary"><i class="fas fa-download me-1"></i>Скачать файл: ${message.attachment_name || 'файл'}</a></div>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    messageDiv.innerHTML = messageContent;
+                    messagesContainer.appendChild(messageDiv);
+                });
+                
+                if (scrollToBottom) {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+                
+                currentChatPage++;
+            } else {
+                messagesContainer.innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Ошибка загрузки сообщений</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading messages:', error);
+            messagesContainer.innerHTML = '<div class="text-center text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Ошибка загрузки сообщений</div>';
+        })
+        .finally(() => {
+            isLoadingChatMessages = false;
+        });
+}
+
+function markChatAsRead() {
+    if (!currentChatOrderId) return;
+    
+    fetch(`/api/chat/order/${currentChatOrderId}/mark-read`, {
+        method: 'POST'
+    })
+    .then(() => {
+        // Reload page to update unread counts
+        setTimeout(() => {
+            location.reload();
+        }, 1000);
+    })
+    .catch(error => {
+        console.error('Error marking as read:', error);
+    });
+}
+
+// Send message from modal
+document.getElementById('chatModalSendBtn').addEventListener('click', function() {
+    if (!currentChatOrderId) return;
+    
+    const messageInput = document.getElementById('chatModalMessageInput');
+    const fileInput = document.getElementById('chatModalFileInput');
+    const message = messageInput.value.trim();
+    
+    if (!message && !fileInput.files[0]) {
+        alert('Введите сообщение или прикрепите файл');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('message', message);
+    if (fileInput.files[0]) {
+        formData.append('attachment', fileInput.files[0]);
+    }
+    
+    const sendBtn = document.getElementById('chatModalSendBtn');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+    
+    fetch(`/api/chat/order/${currentChatOrderId}/send`, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || `HTTP ${response.status}`);
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            messageInput.value = '';
+            fileInput.value = '';
+            document.getElementById('chatModalFileName').textContent = '';
+            document.getElementById('chatModalCharCount').textContent = '0/5000';
+            currentChatPage = 1;
+            loadChatModalMessages(true);
+        } else {
+            alert('Ошибка отправки сообщения: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    })
+    .catch(error => {
+        console.error('Error sending message:', error);
+        alert('Произошла ошибка при отправке сообщения: ' + error.message);
+    })
+    .finally(() => {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Отправить';
+    });
+});
+
+// Character counter
+document.getElementById('chatModalMessageInput').addEventListener('input', function() {
+    const length = this.value.length;
+    const charCount = document.getElementById('chatModalCharCount');
+    charCount.textContent = `${length}/5000`;
+    
+    if (length > 4500) {
+        charCount.style.color = '#dc3545';
+    } else if (length > 4000) {
+        charCount.style.color = '#fd7e14';
+    } else {
+        charCount.style.color = '#6c757d';
+    }
+});
+
+// File input handler
+document.getElementById('chatModalFileInput').addEventListener('change', function() {
+    const fileName = document.getElementById('chatModalFileName');
+    if (this.files[0]) {
+        fileName.textContent = this.files[0].name;
+        fileName.style.color = '#28a745';
+    } else {
+        fileName.textContent = '';
+    }
+});
+
+// Enter key to send
+document.getElementById('chatModalMessageInput').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        document.getElementById('chatModalSendBtn').click();
+    }
+});
+</script>
 {% endblock %}
