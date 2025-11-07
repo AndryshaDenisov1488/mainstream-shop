@@ -120,7 +120,7 @@ def send_chat_message(order_id):
                 
                 # ✅ Генерация безопасного имени файла
                 filename = secure_filename(file.filename)
-                from app.utils.datetime_utils import moscow_now_naive
+                # moscow_now_naive уже импортирован в начале файла
                 timestamp = moscow_now_naive().strftime('%Y%m%d_%H%M%S')
                 filename = f"{timestamp}_{filename}"
                 
@@ -143,26 +143,37 @@ def send_chat_message(order_id):
             return jsonify({'error': 'Сообщение слишком длинное (максимум 5000 символов)'}), 400
         
         # Create message
-        message = ChatMessage(
-            chat_id=chat.id,
-            sender_id=current_user.id,
-            message=message_text,
-            attachment_path=attachment_path,
-            attachment_name=attachment_name
-        )
-        
-        db.session.add(message)
-        
-        # Update chat last message time
-        chat.last_message_at = moscow_now_naive()
-        
         try:
-            db.session.commit()
-            current_app.logger.info(f"Chat message saved: message_id={message.id}, order_id={order_id}")
+            message = ChatMessage(
+                chat_id=chat.id,
+                sender_id=current_user.id,
+                message=message_text,
+                attachment_path=attachment_path,
+                attachment_name=attachment_name
+            )
+            
+            db.session.add(message)
+            
+            # Update chat last message time
+            try:
+                last_message_time = moscow_now_naive()
+                chat.last_message_at = last_message_time
+                current_app.logger.debug(f"Updated chat last_message_at: {last_message_time}")
+            except Exception as e:
+                current_app.logger.error(f"Failed to set last_message_at: {e}", exc_info=True)
+                # Не критично, продолжаем
+            
+            try:
+                db.session.commit()
+                current_app.logger.info(f"Chat message saved: message_id={message.id}, order_id={order_id}")
+            except Exception as e:
+                db.session.rollback()
+                current_app.logger.error(f"Failed to save chat message: {e}", exc_info=True)
+                return jsonify({'error': f'Ошибка при сохранении сообщения: {str(e)}'}), 500
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Failed to save chat message: {e}", exc_info=True)
-            return jsonify({'error': f'Ошибка при сохранении сообщения: {str(e)}'}), 500
+            current_app.logger.error(f"Failed to create chat message object: {e}", exc_info=True)
+            return jsonify({'error': f'Ошибка при создании сообщения: {str(e)}'}), 500
         
         # Send notifications to other participants
         try:
