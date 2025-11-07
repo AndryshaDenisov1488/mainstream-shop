@@ -186,9 +186,20 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Подробнее">
-                                                <i class="fas fa-eye"></i>
-                                            </a>
+                                            <div class="btn-group" role="group">
+                                                <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Подробнее">
+                                                    <i class="fas fa-eye"></i>
+                                                </a>
+                                                {% if order.status in ['links_sent', 'refund_required', 'completed', 'completed_partial_refund'] %}
+                                                    <button class="btn btn-sm btn-success confirm-payment-btn" 
+                                                            data-order-id="{{ order.id }}" 
+                                                            data-order-number="{{ order.generated_order_number }}" 
+                                                            data-order-amount="{{ order.total_amount }}" 
+                                                            title="Принять деньги">
+                                                        <i class="fas fa-money-bill-wave"></i>
+                                                    </button>
+                                                {% endif %}
+                                            </div>
                                         </td>
                                     </tr>
                                     {% endfor %}
@@ -516,5 +527,20 @@ document.getElementById('chatModalMessageInput').addEventListener('keypress', fu
         document.getElementById('chatModalSendBtn').click();
     }
 });
+
+// Обработчик для кнопки "Принять деньги"
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.confirm-payment-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderAmount = this.getAttribute('data-order-amount');
+            openCaptureModal(orderId, orderAmount);
+        });
+    });
+});
 </script>
+
+<!-- Подключение модальных окон для принятия денег -->
+{% include 'mom/order_modals.html' %}
+
 {% endblock %}
