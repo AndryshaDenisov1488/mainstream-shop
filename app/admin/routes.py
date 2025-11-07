@@ -925,6 +925,12 @@ def finance():
         Order.created_at <= end_dt
     ).scalar() or 0
     
+    # Convert to float if Decimal
+    if total_revenue is None:
+        total_revenue = 0
+    else:
+        total_revenue = float(total_revenue)
+    
     # Calculate tax (6%) and profit
     tax_rate = 0.06  # 6%
     total_tax = total_revenue * tax_rate
@@ -932,7 +938,7 @@ def finance():
     
     total_orders = base_query.count()
     completed_orders = base_query.filter_by(status='completed').count()
-    cancelled_orders = base_query.filter_by(status='cancelled').count()
+    cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual'])).count()
     refund_orders = base_query.filter_by(status='refund_required').count()
     
     # Refund analytics
@@ -963,9 +969,9 @@ def finance():
                          payment_stats=payment_stats,
                          video_type_stats=video_type_stats,
                          event_stats=event_stats,
-                         total_revenue=float(total_revenue),
-                         total_tax=float(total_tax),
-                         total_profit=float(total_profit),
+                         total_revenue=total_revenue,
+                         total_tax=total_tax,
+                         total_profit=total_profit,
                          total_orders=total_orders,
                          completed_orders=completed_orders,
                          cancelled_orders=cancelled_orders,
