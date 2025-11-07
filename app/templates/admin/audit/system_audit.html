@@ -152,16 +152,42 @@
 
 <script>
 function showDetails(details) {
-    document.getElementById('detailsContent').textContent = JSON.stringify(details, null, 2);
-    new bootstrap.Modal(document.getElementById('detailsModal')).show();
+    const modal = document.getElementById('detailsModal');
+    const content = document.getElementById('detailsContent');
+    
+    if (!modal || !content) {
+        console.error('Modal or content element not found');
+        alert('Ошибка: не найдено модальное окно');
+        return;
+    }
+    
+    try {
+        const detailsObj = typeof details === 'string' ? JSON.parse(details) : details;
+        content.textContent = JSON.stringify(detailsObj, null, 2);
+        new bootstrap.Modal(modal).show();
+    } catch (e) {
+        console.error('Error parsing details:', e);
+        content.textContent = typeof details === 'string' ? details : JSON.stringify(details);
+        new bootstrap.Modal(modal).show();
+    }
 }
 
 // Event listeners
 document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('[data-action="show-details"]').forEach(button => {
         button.addEventListener('click', function() {
-            const details = JSON.parse(this.getAttribute('data-log-details'));
-            showDetails(details);
+            try {
+                const detailsStr = this.getAttribute('data-log-details');
+                if (!detailsStr) {
+                    alert('Детали отсутствуют');
+                    return;
+                }
+                const details = JSON.parse(detailsStr);
+                showDetails(details);
+            } catch (e) {
+                console.error('Error parsing details from button:', e);
+                alert('Ошибка при загрузке деталей: ' + e.message);
+            }
         });
     });
 });

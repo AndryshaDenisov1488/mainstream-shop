@@ -110,10 +110,16 @@ def orders_audit():
     page = request.args.get('page', 1, type=int)
     
     # Get order-related audit logs
+    # Учитываем оба варианта: 'order' и 'Order' (разные части кода используют разные варианты)
+    # Также учитываем действия, связанные с заказами
     logs = AuditLog.query.filter(
         or_(
-            AuditLog.resource_type == 'order',
-            AuditLog.action.ilike('%ORDER_%')
+            AuditLog.resource_type.in_(['order', 'Order']),
+            AuditLog.action.ilike('%ORDER_%'),
+            AuditLog.action.in_(['LINKS_SENT', 'MOM_CAPTURED_PARTIAL', 'MOM_CAPTURED_FULL', 
+                                'MOM_CAPTURED_SBP', 'MOM_REFUNDED_FULL', 'MOM_REFUNDED_PARTIAL',
+                                'MOM_CONFIRMED_RECEIPT', 'OPERATOR_TOOK_ORDER', 'ORDER_COMMENTS_UPDATE',
+                                'ORDER_REFUND', 'ORDER_CANCELLED_MANUAL', 'ORDER_AUTO_CANCELLED_TIMEOUT'])
         )
     ).order_by(desc(AuditLog.created_at)).paginate(
         page=page, per_page=50, error_out=False
