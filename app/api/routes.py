@@ -1260,7 +1260,40 @@ def create_order():
         )
         
         db.session.add(order)
-        db.session.commit()
+        
+        # Commit with retry logic for SQLite database locked errors
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
+        max_retries = 5
+        retry_delay = 0.1
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in API create_order, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    db.session.add(order)  # Re-add after rollback
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error creating order via API after {attempt + 1} attempts: {str(e)}')
+                    return jsonify({
+                        'success': False, 
+                        'error': 'База данных временно недоступна. Попробуйте еще раз через несколько секунд.'
+                    }), 503
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f'Error creating order via API: {str(e)}', exc_info=True)
+                return jsonify({
+                    'success': False, 
+                    'error': f'Ошибка создания заказа: {str(e)}'
+                }), 500
         
         # Store order ID in session
         session['pending_order_id'] = order.id
@@ -1272,7 +1305,7 @@ def create_order():
         })
         
     except Exception as e:
-        logger.error(f'Create order error: {str(e)}')
+        logger.error(f'Create order error: {str(e)}', exc_info=True)
         db.session.rollback()
         return jsonify({'success': False, 'error': f'Ошибка создания заказа: {str(e)}'}), 500
 
