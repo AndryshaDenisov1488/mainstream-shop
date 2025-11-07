@@ -970,15 +970,29 @@ def finance():
     cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual', 'refunded_full'])).count()
     refund_orders = base_query.filter(Order.status.in_(['refund_required', 'refunded_partial', 'refunded_full'])).count()
     
-    # Refund analytics - суммируем все фактические возвраты из Payment
-    # Учитываем Payment со статусом refunded_partial и refunded_full
-    refund_amount = db.session.query(
+    # Refund analytics - суммируем все фактические возвраты
+    # 1. Возвраты из Payment (refunded_partial, refunded_full)
+    refund_from_payments = db.session.query(
         func.sum(Payment.amount)
     ).join(Order).filter(
         Payment.status.in_(['refunded_partial', 'refunded_full']),
         Order.created_at >= start_dt,
         Order.created_at <= end_dt
     ).scalar() or 0
+    
+    # 2. Автоматические возвраты при частичном capture (разница между total_amount и paid_amount)
+    # для заказов со статусом completed_partial_refund
+    auto_refunds = db.session.query(
+        func.sum(Order.total_amount - Order.paid_amount)
+    ).filter(
+        Order.status == 'completed_partial_refund',
+        Order.created_at >= start_dt,
+        Order.created_at <= end_dt,
+        Order.paid_amount.isnot(None)
+    ).scalar() or 0
+    
+    # Общая сумма возвратов
+    refund_amount = (refund_from_payments or 0) + (auto_refunds or 0)
     
     # Convert to float if Decimal
     if refund_amount is None:
