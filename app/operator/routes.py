@@ -50,8 +50,7 @@ def dashboard():
         joinedload(Order.event),
         joinedload(Order.category),
         joinedload(Order.athlete),
-        joinedload(Order.operator),
-        joinedload(Order.chat)
+        joinedload(Order.operator)
     )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
@@ -61,11 +60,21 @@ def dashboard():
     # Get unread message counts for each order
     from app.models import OrderChat
     unread_counts = {}
-    for order in orders.items:
-        if order.chat:
-            unread_counts[order.id] = order.chat.get_unread_count_for_user(current_user.id)
-        else:
-            unread_counts[order.id] = 0
+    order_ids = [order.id for order in orders.items]
+    if order_ids:
+        chats = OrderChat.query.filter(OrderChat.order_id.in_(order_ids)).all()
+        chat_dict = {chat.order_id: chat for chat in chats}
+        for order in orders.items:
+            chat = chat_dict.get(order.id)
+            if chat:
+                try:
+                    unread_counts[order.id] = chat.get_unread_count_for_user(current_user.id)
+                except Exception:
+                    unread_counts[order.id] = 0
+            else:
+                unread_counts[order.id] = 0
+    else:
+        unread_counts = {}
     
     # Get video types for display
     video_types = VideoType.query.all()
