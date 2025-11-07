@@ -141,8 +141,6 @@ def register_payment_routes(bp):
             for old_order in existing_pending_orders:
                 db.session.delete(old_order)
             
-            db.session.commit()  # Clean up old orders first
-            
             # Create order in database FIRST
             # Create order in database with pending_payment status
             # For multiple items, we need to handle this differently
@@ -171,13 +169,38 @@ def register_payment_routes(bp):
             # For simplicity, we'll work with the first order
             main_order = orders[0]
             
-            try:
-                db.session.commit()  # Save orders to get IDs
-            except Exception as e:
-                db.session.rollback()
-                logger.error(f'Error creating order: {str(e)}')
-                flash('Ошибка создания заказа. Попробуйте еще раз.', 'error')
-                return redirect(url_for('main.checkout'))
+            # Commit all changes in one transaction (cleanup + new orders)
+            # Use retry logic for SQLite database locked errors
+            import time
+            import random
+            from sqlalchemy.exc import OperationalError
+            
+            max_retries = 5
+            retry_delay = 0.1  # Start with 100ms
+            
+            for attempt in range(max_retries):
+                try:
+                    db.session.commit()  # Save orders to get IDs
+                    break  # Success, exit retry loop
+                except OperationalError as e:
+                    if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                        db.session.rollback()
+                        wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                        logger.warning(f'Database locked, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                        time.sleep(wait_time)
+                        # Re-add orders after rollback
+                        for order in orders:
+                            db.session.add(order)
+                    else:
+                        db.session.rollback()
+                        logger.error(f'Error creating order after {attempt + 1} attempts: {str(e)}')
+                        flash('Ошибка создания заказа. База данных временно недоступна. Попробуйте еще раз через несколько секунд.', 'error')
+                        return redirect(url_for('main.checkout'))
+                except Exception as e:
+                    db.session.rollback()
+                    logger.error(f'Error creating order: {str(e)}', exc_info=True)
+                    flash('Ошибка создания заказа. Попробуйте еще раз.', 'error')
+                    return redirect(url_for('main.checkout'))
             
             # Store order ID in session for success/failure handling
             session['pending_order_id'] = main_order.id

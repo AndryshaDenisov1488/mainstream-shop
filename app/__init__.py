@@ -27,6 +27,24 @@ def create_app(config_class=Config):
     
     # Initialize extensions with app
     db.init_app(app)
+    
+    # Configure SQLite for better concurrency handling
+    if app.config.get('SQLALCHEMY_DATABASE_URI', '').startswith('sqlite'):
+        from sqlalchemy import event
+        from sqlalchemy.engine import Engine
+        
+        @event.listens_for(Engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            """Set SQLite pragmas for better concurrency"""
+            cursor = dbapi_conn.cursor()
+            # Enable WAL mode for better concurrency (allows multiple readers)
+            cursor.execute("PRAGMA journal_mode=WAL")
+            # Increase timeout for database locks (default is 5 seconds)
+            cursor.execute("PRAGMA busy_timeout=10000")  # 10 seconds
+            # Enable foreign keys
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
+    
     migrate.init_app(app, db)
     login_manager.init_app(app)
     mail.init_app(app)
