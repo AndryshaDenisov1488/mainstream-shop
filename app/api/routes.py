@@ -761,8 +761,13 @@ def capture_payment(order_id):
                     if not confirm_result.get('success'):
                         return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
                     
+                    # ✅ ВАЖНО: При частичном capture остаток автоматически отменяется в CloudPayments
+                    # Но нужно обновить статус платежа и заказа
                     order.paid_amount = capture_amount
                     order.status = 'completed_partial_refund'  # ✅ Всегда частичный возврат при частичном захвате
+                    
+                    # Обновляем сумму платежа на захваченную сумму
+                    payment.amount = capture_amount
                     
                     # Log partial capture
                     AuditLog.create_log(
@@ -772,8 +777,10 @@ def capture_payment(order_id):
                         resource_id=str(order.id),
                         details={
                             'captured_amount': capture_amount,
+                            'refunded_amount': float(order.total_amount) - capture_amount,
                             'total_amount': float(order.total_amount),
-                            'transaction_id': payment.cp_transaction_id
+                            'transaction_id': payment.cp_transaction_id,
+                            'note': f'Принято {capture_amount}₽, остаток {float(order.total_amount) - capture_amount}₽ автоматически возвращен'
                         },
                         ip_address=request.remote_addr,
                         user_agent=request.headers.get('User-Agent'),
