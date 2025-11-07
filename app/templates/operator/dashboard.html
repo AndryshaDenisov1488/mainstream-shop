@@ -3,7 +3,7 @@
 {% block title %}Панель оператора - MainStream Shop{% endblock %}
 
 {% block content %}
-<div class="container-fluid py-5">
+<div class="container py-5">
     <div class="row">
         <div class="col-12">
             <div class="d-flex justify-content-between align-items-center mb-4">
@@ -103,53 +103,53 @@
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-hover table-sm">
+                        <table class="table table-hover">
                             <thead>
                                 <tr>
-                                    <th style="width: 80px;">ID</th>
-                                    <th style="width: 120px;">Дата</th>
-                                    <th style="width: 150px;">Клиент</th>
-                                    <th style="width: 200px;">Турнир</th>
-                                    <th style="width: 150px;">Спортсмен</th>
-                                    <th style="width: 120px;">Тип видео</th>
-                                    <th style="width: 90px;">Сумма</th>
-                                    <th style="width: 130px;">Статус</th>
-                                    <th style="width: 100px;">Сообщения</th>
-                                    <th style="width: 140px;">Действия</th>
+                                    <th>ID</th>
+                                    <th>Дата</th>
+                                    <th>Клиент</th>
+                                    <th>Турнир</th>
+                                    <th>Спортсмен</th>
+                                    <th>Тип видео</th>
+                                    <th>Сумма</th>
+                                    <th>Статус</th>
+                                    <th>Сообщения</th>
+                                    <th>Действия</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {% if orders.items %}
                                     {% for order in orders.items %}
                                     <tr>
-                                        <td style="font-size: 0.85em;">#{{ order.generated_order_number }}</td>
-                                        <td style="font-size: 0.85em; white-space: nowrap;">{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
-                                        <td style="font-size: 0.85em; word-break: break-word;">
+                                        <td>#{{ order.generated_order_number }}</td>
+                                        <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
+                                        <td>
                                             {% if order.contact_first_name and order.contact_last_name %}
                                                 {{ order.contact_last_name }} {{ order.contact_first_name }}
                                             {% elif order.customer %}
                                                 {{ order.customer.full_name }}
                                             {% else %}
-                                                <small>{{ order.contact_email }}</small>
+                                                {{ order.contact_email }}
                                             {% endif %}
                                         </td>
-                                        <td style="font-size: 0.85em; word-break: break-word; max-width: 200px;">{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
-                                        <td style="font-size: 0.85em; word-break: break-word;">{{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</td>
-                                        <td style="font-size: 0.85em;">
+                                        <td>{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
+                                        <td>{{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</td>
+                                        <td>
                                             {% if order.video_types %}
                                                 {% for video_type_id in order.video_types %}
                                                     {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
                                                     {% if video_type %}
-                                                        <span class="badge bg-info">{{ video_type.name }}</span>{% if not loop.last %}<br>{% endif %}
+                                                        {{ video_type.name }}{% if not loop.last %}, {% endif %}
                                                     {% else %}
-                                                        <span class="badge bg-secondary">Неизвестный</span>{% if not loop.last %}<br>{% endif %}
+                                                        Неизвестный тип{% if not loop.last %}, {% endif %}
                                                     {% endif %}
                                                 {% endfor %}
                                             {% else %}
-                                                <small class="text-muted">Не указано</small>
+                                                Не указано
                                             {% endif %}
                                         </td>
-                                        <td style="font-size: 0.85em; white-space: nowrap;"><strong>{{ "%.0f"|format(order.total_amount) }} ₽</strong></td>
+                                        <td>{{ "%.0f"|format(order.total_amount) }} ₽</td>
                                         <td>
                                             {% if order.status == 'paid' %}
                                                 <span class="badge bg-info">Оплачен</span>
