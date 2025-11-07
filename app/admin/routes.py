@@ -261,23 +261,29 @@ def customers():
     
     # Build query - показываем всех пользователей с ролью CUSTOMER
     # ИЛИ пользователей, у которых есть заказы (даже если роль не CUSTOMER)
+    # ИЛИ пользователей, у которых email совпадает с contact_email из заказов
     from sqlalchemy import or_, exists
+    
     # Получаем все уникальные customer_id из заказов
     order_customer_ids = db.session.query(Order.customer_id).filter(
         Order.customer_id.isnot(None)
     ).distinct().all()
     order_customer_ids = [row[0] for row in order_customer_ids]
     
-    # Строим запрос: пользователи с ролью CUSTOMER ИЛИ пользователи, у которых есть заказы
+    # Получаем все уникальные contact_email из заказов
+    order_emails = db.session.query(Order.contact_email).distinct().all()
+    order_emails = [row[0] for row in order_emails if row[0]]
+    
+    # Строим запрос: пользователи с ролью CUSTOMER ИЛИ пользователи, у которых есть заказы ИЛИ email совпадает с contact_email
+    conditions = [User.role == 'CUSTOMER']
+    
     if order_customer_ids:
-        query = User.query.filter(
-            or_(
-                User.role == 'CUSTOMER',
-                User.id.in_(order_customer_ids)
-            )
-        )
-    else:
-        query = User.query.filter(User.role == 'CUSTOMER')
+        conditions.append(User.id.in_(order_customer_ids))
+    
+    if order_emails:
+        conditions.append(User.email.in_(order_emails))
+    
+    query = User.query.filter(or_(*conditions))
     
     # Search functionality
     if search:
@@ -746,7 +752,13 @@ def analytics():
 def customer_details(customer_id):
     """Get detailed customer information"""
     try:
-        customer = User.query.filter_by(id=customer_id, role='CUSTOMER').first_or_404()
+        # Показываем клиента, если у него есть заказы ИЛИ роль CUSTOMER
+        customer = User.query.filter_by(id=customer_id).first_or_404()
+        
+        # Проверяем, что это клиент (есть заказы или роль CUSTOMER)
+        has_orders = Order.query.filter_by(customer_id=customer_id).first() is not None
+        if customer.role != 'CUSTOMER' and not has_orders:
+            return jsonify({'success': False, 'error': 'Пользователь не является клиентом'}), 404
         
         # Get all orders for this customer
         orders = Order.query.filter_by(customer_id=customer_id).order_by(Order.created_at.desc()).all()
