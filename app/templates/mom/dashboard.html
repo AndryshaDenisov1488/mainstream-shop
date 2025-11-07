@@ -199,23 +199,26 @@
                                             {% set total = total_counts.get(order.id, 0) %}
                                             {% if total > 0 %}
                                                 {% if unread > 0 %}
-                                                    <span class="badge bg-danger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                    <span class="badge bg-danger chat-trigger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
                                                           title="Непрочитанных: {{ unread }} из {{ total }}. Нажмите, чтобы открыть чат"
-                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                          data-order-id="{{ order.id }}"
+                                                          data-order-number="{{ order.generated_order_number }}">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                         <span class="badge bg-dark ms-1">{{ unread }}</span>
                                                     </span>
                                                 {% else %}
-                                                    <span class="badge bg-secondary" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                    <span class="badge bg-secondary chat-trigger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
                                                           title="Всего сообщений: {{ total }}. Нажмите, чтобы открыть чат"
-                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                          data-order-id="{{ order.id }}"
+                                                          data-order-number="{{ order.generated_order_number }}">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                     </span>
                                                 {% endif %}
                                             {% else %}
-                                                <span class="text-muted" style="cursor: pointer;" 
+                                                <span class="text-muted chat-trigger" style="cursor: pointer;" 
                                                       title="Нажмите, чтобы открыть чат"
-                                                      onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                      data-order-id="{{ order.id }}"
+                                                      data-order-number="{{ order.generated_order_number }}">
                                                     <i class="fas fa-comments"></i> 0
                                                 </span>
                                             {% endif %}
@@ -225,6 +228,16 @@
                                                 <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Подробнее">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
+                                                {% if order.can_be_refunded_by_mom() %}
+                                                    <button class="btn btn-sm btn-danger refund-money-btn"
+                                                            data-order-id="{{ order.id }}"
+                                                            data-order-number="{{ order.generated_order_number }}"
+                                                            data-order-amount="{{ order.total_amount | default(0) }}"
+                                                            data-paid-amount="{{ order.paid_amount | default(0) }}"
+                                                            title="Вернуть деньги">
+                                                        <i class="fas fa-undo"></i>
+                                                    </button>
+                                                {% endif %}
                                                 {% if order.can_be_captured_by_mom() %}
                                                     <button class="btn btn-sm btn-success confirm-payment-btn" 
                                                             data-order-id="{{ order.id }}" 
@@ -458,13 +471,14 @@ document.getElementById('chatModal').addEventListener('hidden.bs.modal', functio
             .then(data => {
                 if (data.success) {
                     // Find and update the badge in the table
-                    const badge = document.querySelector(`[onclick*="openChatModal(${currentChatOrderId}"]`);
-                    if (badge && data.unread_count === 0) {
-                        // Remove red badge, make it gray
-                        badge.className = badge.className.replace('bg-danger', 'bg-secondary');
+                    const badge = document.querySelector(`[data-order-id="${currentChatOrderId}"]`);
+                    if (badge) {
                         const unreadBadge = badge.querySelector('.badge.bg-dark');
                         if (unreadBadge) {
                             unreadBadge.remove();
+                        }
+                        if (data.unread_count === 0) {
+                            badge.className = badge.className.replace('bg-danger', 'bg-secondary');
                         }
                     }
                 }
@@ -565,11 +579,36 @@ document.getElementById('chatModalMessageInput').addEventListener('keypress', fu
 
 // Обработчик для кнопки "Принять деньги"
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.chat-trigger').forEach(element => {
+        element.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            openChatModal(orderId, orderNumber);
+        });
+    });
+
     document.querySelectorAll('.confirm-payment-btn').forEach(button => {
         button.addEventListener('click', function() {
             const orderId = this.getAttribute('data-order-id');
             const orderAmount = this.getAttribute('data-order-amount');
             openCaptureModal(orderId, orderAmount);
+        });
+    });
+
+    document.querySelectorAll('.refund-money-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const paidAmount = parseFloat(this.getAttribute('data-paid-amount') || this.getAttribute('data-order-amount') || '0');
+
+            if (typeof openRefundMoneyModal === 'function') {
+                const orderNumber = this.getAttribute('data-order-number');
+                const orderAmount = parseFloat(this.getAttribute('data-order-amount') || '0');
+                openRefundMoneyModal(orderId, orderNumber, orderAmount, paidAmount);
+            } else if (typeof openRefundModal === 'function') {
+                openRefundModal(orderId, paidAmount);
+            } else {
+                alert('Форма возврата недоступна. Откройте карточку заказа, чтобы обработать возврат.');
+            }
         });
     });
 });

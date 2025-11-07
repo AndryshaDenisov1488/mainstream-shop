@@ -270,6 +270,11 @@ class Order(db.Model):
         """Check if mom can still capture (accept) payment"""
         # ✅ Принимать можно только пока оплата не закрыта окончательно
         return self.status in ['links_sent', 'refund_required']
+
+    def can_be_refunded_by_mom(self):
+        """Check if mom can initiate or complete a refund"""
+        refundable_statuses = ['refund_required', 'completed', 'completed_partial_refund']
+        return self.status in refundable_statuses
     
     def get_video_links_expiry(self):
         """Get video links expiry date"""
