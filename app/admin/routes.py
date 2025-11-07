@@ -970,13 +970,21 @@ def finance():
     cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual'])).count()
     refund_orders = base_query.filter_by(status='refund_required').count()
     
-    # Refund analytics
+    # Refund analytics - суммируем все фактические возвраты из Payment
+    # Учитываем Payment со статусом refunded_partial и refunded_full
     refund_amount = db.session.query(
-        func.sum(case((Order.status == 'refund_required', Order.total_amount), else_=0))
-    ).filter(
+        func.sum(Payment.amount)
+    ).join(Order).filter(
+        Payment.status.in_(['refunded_partial', 'refunded_full']),
         Order.created_at >= start_dt,
         Order.created_at <= end_dt
     ).scalar() or 0
+    
+    # Convert to float if Decimal
+    if refund_amount is None:
+        refund_amount = 0
+    else:
+        refund_amount = float(refund_amount)
     
     # Customer analytics
     new_customers = User.query.filter(
