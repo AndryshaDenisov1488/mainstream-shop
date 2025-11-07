@@ -16,26 +16,16 @@ logger = logging.getLogger(__name__)
 def dashboard():
     """Mom dashboard"""
     # Get statistics for mom
-    # Нужно принять деньги - заказы где ссылки отправлены + требуется частичный возврат
+    # Нужно принять деньги - заказы где ссылки отправлены (но БЕЗ refund_required)
     need_payment = Order.query.filter(
-        Order.status.in_(['links_sent', 'completed_partial_refund'])
+        Order.status == 'links_sent'
     ).count()
     
     # Нужно уточнить доп детали - заказы в статусе awaiting_info
     need_details = Order.query.filter_by(status='awaiting_info').count()
     
-    # Полный возврат - когда нужно вернуть деньги полностью (только статус refund_required)
-    # Частичный возврат - заказы со статусом links_sent с пометкой о частичном возврате в operator_comment
+    # Требуется возврат - заказы со статусом refund_required (частичный или полный)
     full_refund = Order.query.filter_by(status='refund_required').count()
-    
-    # Подсчет частичных возвратов: заказы со статусом links_sent с пометкой о частичном возврате
-    partial_refund_count = Order.query.filter(
-        Order.status == 'links_sent',
-        Order.operator_comment.like('%[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]%')
-    ).count()
-    
-    # Добавляем частичные возвраты к need_payment
-    need_payment = need_payment + partial_refund_count
     
     # Get all orders with pagination (like in orders page)
     page = request.args.get('page', 1, type=int)

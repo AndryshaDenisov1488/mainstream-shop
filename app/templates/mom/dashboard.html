@@ -40,10 +40,10 @@
         </div>
         
         <div class="col-lg-4 col-md-6 mb-3">
-            <a href="{{ url_for('mom.full_refund_orders') }}" class="text-decoration-none">
-                <div class="card bg-danger text-white" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
+            <a href="{{ url_for('mom.dashboard', status='refund_required') }}" class="text-decoration-none">
+                <div class="card bg-warning text-white" style="cursor: pointer; transition: transform 0.2s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
                     <div class="card-body text-center">
-                        <h6 class="card-title">Полный возврат</h6>
+                        <h6 class="card-title">Требуется возврат</h6>
                         <h3 class="mb-0">{{ full_refund }}</h3>
                     </div>
                 </div>
@@ -119,7 +119,7 @@
                             <tbody>
                                 {% if orders.items %}
                                     {% for order in orders.items %}
-                                    <tr>
+                                    <tr {% if order.status == 'refund_required' %}class="table-warning" style="background-color: #fff3cd !important;"{% endif %}>
                                         <td>#{{ order.id }}</td>
                                         <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
                                         <td>
@@ -148,9 +148,25 @@
                                         </td>
                                         <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
                                         <td>
-                                            <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'secondary' if order.status == 'awaiting_info' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }}">
-                                                {{ order.get_status_display() }}
-                                            </span>
+                                            <div class="d-flex flex-column">
+                                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'secondary' if order.status == 'awaiting_info' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }}">
+                                                    {{ order.get_status_display() }}
+                                                </span>
+                                                {% if order.status == 'refund_required' %}
+                                                    {% if order.refund_reason %}
+                                                        <small class="text-warning mt-1 d-block" style="font-size: 0.75rem; font-weight: 600;">
+                                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                                            <strong>Причина возврата:</strong> {{ order.refund_reason[:80] }}{% if order.refund_reason|length > 80 %}...{% endif %}
+                                                        </small>
+                                                    {% endif %}
+                                                    {% if order.operator_comment %}
+                                                        <small class="text-warning mt-1 d-block" style="font-size: 0.75rem;">
+                                                            <i class="fas fa-comment-dots me-1"></i>
+                                                            <strong>От оператора:</strong> {{ order.operator_comment[:80] }}{% if order.operator_comment|length > 80 %}...{% endif %}
+                                                        </small>
+                                                    {% endif %}
+                                                {% endif %}
+                                            </div>
                                         </td>
                                         <td>
                                             {% if order.operator %}
