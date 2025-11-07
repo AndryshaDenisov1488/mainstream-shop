@@ -123,94 +123,100 @@ def register_payment_routes(bp):
             contact_first_name = request.form.get('contact_first_name', '').strip()
             contact_last_name = request.form.get('contact_last_name', '').strip()
             
-            # Get or create customer user
-            customer_id = None
-            if current_user.is_authenticated:
-                customer_id = current_user.id
-            else:
-                # Check if user already exists
-                existing_user = User.query.filter_by(email=contact_email).first()
-                if existing_user:
-                    customer_id = existing_user.id
+            # ✅ ВСЕ ОПЕРАЦИИ В ОДНОЙ ТРАНЗАКЦИИ
+            try:
+                # Get or create customer user
+                customer_id = None
+                if current_user.is_authenticated:
+                    customer_id = current_user.id
                 else:
-                    # Create new user
-                    import secrets
-                    password = secrets.token_urlsafe(12)
-                    
-                    new_user = User(
-                        email=contact_email,
-                        full_name=f"{contact_first_name} {contact_last_name}".strip(),
-                        phone=contact_phone,
-                        role='CUSTOMER',
-                        is_active=True
-                    )
-                    new_user.set_password(password)
-                    
-                    db.session.add(new_user)
-                    db.session.flush()  # Get the ID
-                    customer_id = new_user.id
-            
-            # Clean up any existing pending orders for this customer
-            existing_pending_orders = Order.query.filter_by(
-                customer_id=customer_id,
-                status='awaiting_payment'
-            ).all()
-            
-            for old_order in existing_pending_orders:
-                db.session.delete(old_order)
-            
-            # ✅ Create ONE order with all items from cart (for same athlete)
-            first_athlete = cart_items[0]['athlete']
-            
-            order = Order(
-                order_number=Order.generate_order_number(),
-                generated_order_number=Order.generate_human_order_number(),
-                customer_id=customer_id,
-                event_id=first_athlete.category.event_id,
-                category_id=first_athlete.category_id,
-                athlete_id=first_athlete.id,
-                video_types=all_video_types,  # All video types from cart
-                total_amount=total_amount,  # Total amount for all items
-                status='awaiting_payment',
-                contact_email=contact_email,
-                contact_phone=contact_phone,
-                contact_first_name=contact_first_name,
-                contact_last_name=contact_last_name,
-                comment=comment
-            )
-            db.session.add(order)
-            
-            # Commit all changes in one transaction (cleanup + new order)
-            # Use retry logic for SQLite database locked errors
-            import time
-            import random
-            from sqlalchemy.exc import OperationalError
-            
-            max_retries = 5
-            retry_delay = 0.1  # Start with 100ms
-            
-            for attempt in range(max_retries):
-                try:
-                    db.session.commit()  # Save order to get ID
-                    break  # Success, exit retry loop
-                except OperationalError as e:
-                    if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
-                        db.session.rollback()
-                        wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
-                        logger.warning(f'Database locked, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
-                        time.sleep(wait_time)
-                        # Re-add order after rollback
-                        db.session.add(order)
+                    # Check if user already exists
+                    existing_user = User.query.filter_by(email=contact_email).first()
+                    if existing_user:
+                        customer_id = existing_user.id
                     else:
+                        # Create new user
+                        import secrets
+                        password = secrets.token_urlsafe(12)
+                        
+                        new_user = User(
+                            email=contact_email,
+                            full_name=f"{contact_first_name} {contact_last_name}".strip(),
+                            phone=contact_phone,
+                            role='CUSTOMER',
+                            is_active=True
+                        )
+                        new_user.set_password(password)
+                        
+                        db.session.add(new_user)
+                        db.session.flush()  # Get the ID without committing
+                        customer_id = new_user.id
+                
+                # Clean up any existing pending orders for this customer
+                existing_pending_orders = Order.query.filter_by(
+                    customer_id=customer_id,
+                    status='awaiting_payment'
+                ).all()
+                
+                for old_order in existing_pending_orders:
+                    db.session.delete(old_order)
+                
+                # Create ONE order with all items from cart (for same athlete)
+                first_athlete = cart_items[0]['athlete']
+                
+                order = Order(
+                    order_number=Order.generate_order_number(),
+                    generated_order_number=Order.generate_human_order_number(),
+                    customer_id=customer_id,
+                    event_id=first_athlete.category.event_id,
+                    category_id=first_athlete.category_id,
+                    athlete_id=first_athlete.id,
+                    video_types=all_video_types,  # All video types from cart
+                    total_amount=total_amount,  # Total amount for all items
+                    status='awaiting_payment',
+                    contact_email=contact_email,
+                    contact_phone=contact_phone,
+                    contact_first_name=contact_first_name,
+                    contact_last_name=contact_last_name,
+                    comment=comment
+                )
+                db.session.add(order)
+                
+                # ✅ ОДИН КОММИТ ДЛЯ ВСЕХ ОПЕРАЦИЙ (user + cleanup + order)
+                # Use retry logic for SQLite database locked errors
+                import time
+                import random
+                from sqlalchemy.exc import OperationalError
+                
+                max_retries = 5
+                retry_delay = 0.1  # Start with 100ms
+                
+                for attempt in range(max_retries):
+                    try:
+                        db.session.commit()  # Save all changes atomically
+                        break  # Success, exit retry loop
+                    except OperationalError as e:
+                        if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                            db.session.rollback()
+                            wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                            logger.warning(f'Database locked, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                            time.sleep(wait_time)
+                        else:
+                            db.session.rollback()
+                            logger.error(f'Error creating order after {attempt + 1} attempts: {str(e)}')
+                            flash('Ошибка создания заказа. База данных временно недоступна. Попробуйте еще раз через несколько секунд.', 'error')
+                            return redirect(url_for('main.checkout'))
+                    except Exception as e:
                         db.session.rollback()
-                        logger.error(f'Error creating order after {attempt + 1} attempts: {str(e)}')
-                        flash('Ошибка создания заказа. База данных временно недоступна. Попробуйте еще раз через несколько секунд.', 'error')
+                        logger.error(f'Error creating order: {str(e)}', exc_info=True)
+                        flash('Ошибка создания заказа. Попробуйте еще раз.', 'error')
                         return redirect(url_for('main.checkout'))
-                except Exception as e:
-                    db.session.rollback()
-                    logger.error(f'Error creating order: {str(e)}', exc_info=True)
-                    flash('Ошибка создания заказа. Попробуйте еще раз.', 'error')
-                    return redirect(url_for('main.checkout'))
+                
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f'Error in order creation transaction: {str(e)}', exc_info=True)
+                flash('Ошибка создания заказа. Попробуйте еще раз.', 'error')
+                return redirect(url_for('main.checkout'))
             
             # Store order ID in session for success/failure handling
             session['pending_order_id'] = order.id

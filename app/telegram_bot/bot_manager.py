@@ -4,12 +4,15 @@ Handles bot integration with web service database
 """
 
 import logging
+import time
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler, 
     MessageHandler, filters, ContextTypes, ConversationHandler
 )
 from telegram.constants import ParseMode
+from telegram.error import RetryAfter, TimedOut, NetworkError, TelegramError
 from app.models import User, Event, Category, Athlete, Order, VideoType, Payment
 from app import db
 from app.utils.cloudpayments import CloudPaymentsAPI
@@ -31,6 +34,85 @@ class TelegramBotManager:
         self.application = Application.builder().token(token).build()
         self.setup_handlers()
         self.setup_bot_commands()
+    
+    async def send_message_with_retry(self, chat_id, text, parse_mode=None, reply_markup=None, max_retries=3):
+        """
+        ✅ Send message with retry logic and exponential backoff
+        
+        Args:
+            chat_id: Telegram chat ID
+            text: Message text
+            parse_mode: Parse mode (HTML, Markdown)
+            reply_markup: Reply markup (keyboard)
+            max_retries: Maximum number of retries
+            
+        Returns:
+            True if message sent successfully, False otherwise
+        """
+        for attempt in range(max_retries):
+            try:
+                await self.application.bot.send_message(
+                    chat_id=chat_id,
+                    text=text,
+                    parse_mode=parse_mode,
+                    reply_markup=reply_markup
+                )
+                return True
+                
+            except RetryAfter as e:
+                # Rate limit - wait as requested by Telegram
+                wait_time = e.retry_after
+                logger.warning(f'Rate limit hit for chat {chat_id}, waiting {wait_time} seconds')
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f'Failed to send message after {max_retries} retries (rate limit)')
+                    return False
+                    
+            except TimedOut as e:
+                # Timeout - retry with exponential backoff
+                wait_time = 2 ** attempt
+                logger.warning(f'Timeout sending message to chat {chat_id}, retrying in {wait_time}s (attempt {attempt + 1}/{max_retries})')
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f'Failed to send message after {max_retries} retries (timeout)')
+                    return False
+                    
+            except NetworkError as e:
+                # Network error - retry with exponential backoff
+                wait_time = 2 ** attempt
+                logger.warning(f'Network error sending message to chat {chat_id}: {str(e)}, retrying in {wait_time}s')
+                if attempt < max_retries - 1:
+                    await asyncio.sleep(wait_time)
+                    continue
+                else:
+                    logger.error(f'Failed to send message after {max_retries} retries (network error)')
+                    return False
+                    
+            except TelegramError as e:
+                # Other Telegram errors
+                if 'bot was blocked by the user' in str(e).lower() or 'user is deactivated' in str(e).lower():
+                    # ✅ Пользователь заблокировал бота - просто логируем и пропускаем
+                    logger.info(f'Bot blocked by user {chat_id} or user deactivated')
+                    return False
+                elif 'chat not found' in str(e).lower():
+                    logger.info(f'Chat {chat_id} not found')
+                    return False
+                else:
+                    logger.error(f'Telegram error sending message to chat {chat_id}: {str(e)}')
+                    if attempt < max_retries - 1:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+                    return False
+                    
+            except Exception as e:
+                logger.error(f'Unexpected error sending message to chat {chat_id}: {str(e)}')
+                return False
+        
+        return False
     
     def setup_handlers(self):
         """Setup bot command handlers"""
@@ -1517,15 +1599,16 @@ class TelegramBotManager:
             
             message += "📧 Подробности также отправлены на ваш email."
             
-            # Send message
-            await self.application.bot.send_message(
+            # ✅ Send message with retry logic
+            success = await self.send_message_with_retry(
                 chat_id=user.telegram_id,
                 text=message,
                 parse_mode=ParseMode.HTML
             )
             
-            logger.info(f"Order created notification sent to Telegram user {user.telegram_id} for order {order.id}")
-            return True
+            if success:
+                logger.info(f"Order created notification sent to Telegram user {user.telegram_id} for order {order.id}")
+            return success
             
         except Exception as e:
             logger.error(f"Error sending order created notification to Telegram: {str(e)}", exc_info=True)
@@ -1597,12 +1680,16 @@ class TelegramBotManager:
             
             message += f"⚠️ Ссылки действительны {expiry_days} дней с момента отправки."
             
-            # Send message
-            await self.application.bot.send_message(
+            # ✅ Send message with retry logic
+            success = await self.send_message_with_retry(
                 chat_id=user.telegram_id,
                 text=message,
                 parse_mode=ParseMode.HTML
             )
+            
+            if not success:
+                logger.error(f"Failed to send video links to Telegram user {user.telegram_id}")
+                return False
             
             logger.info(f"Video links sent to Telegram user {user.telegram_id} for order {order.id}")
             return True

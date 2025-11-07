@@ -39,8 +39,14 @@ def dashboard():
         'cancelled_orders': Order.query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual'])).count(),
     }
     
-    # Recent orders
-    recent_orders = Order.query.order_by(desc(Order.created_at)).limit(10).all()
+    # Recent orders (✅ с eager loading для избежания N+1)
+    recent_orders = Order.query.options(
+        joinedload(Order.customer),
+        joinedload(Order.event),
+        joinedload(Order.category),
+        joinedload(Order.athlete),
+        joinedload(Order.operator)
+    ).order_by(desc(Order.created_at)).limit(10).all()
     
     # Recent users
     recent_users = User.query.order_by(desc(User.created_at)).limit(5).all()

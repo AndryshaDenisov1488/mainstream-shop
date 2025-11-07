@@ -8,6 +8,7 @@ from app import db
 from app.models import Order, Payment, User, AuditLog
 from app.utils.cloudpayments import CloudPaymentsAPI
 from app.utils.datetime_utils import moscow_now_naive
+from sqlalchemy.exc import IntegrityError
 import logging
 import json
 
@@ -193,19 +194,14 @@ def handle_pay_notification(data):
         
         logger.info(f'Processing Pay notification: transaction_id={transaction_id}, invoice_id={invoice_id}, amount={amount}, status={status}')
         
-        # ✅ ИДЕМПОТЕНТНОСТЬ С БЛОКИРОВКОЙ для защиты от race condition
+        # ✅ ИДЕМПОТЕНТНОСТЬ через try/except IntegrityError
+        # Проверяем существование платежа БЕЗ блокировки (быстрее)
+        existing_payment = Payment.query.filter_by(cp_transaction_id=transaction_id).first()
+        if existing_payment:
+            logger.info(f'Payment {transaction_id} already processed, skipping')
+            return jsonify({'code': 0, 'message': 'Already processed'}), 200
+        
         try:
-            # Блокируем проверку существования платежа
-            # Flask-SQLAlchemy уже создает транзакцию автоматически
-            stmt = select(Payment).where(
-                Payment.cp_transaction_id == transaction_id
-            ).with_for_update()
-            
-            existing_payment = db.session.scalar(stmt)
-            
-            if existing_payment:
-                logger.info(f'Payment {transaction_id} already processed, skipping')
-                return jsonify({'code': 0, 'message': 'Already processed'}), 200
             
             # Find order in database
             order = Order.query.filter_by(order_number=invoice_id).first()
@@ -266,9 +262,10 @@ def handle_pay_notification(data):
             
             logger.info(f'Payment created: id={payment.id}, status={payment_status}, order_status={order_status}')
                 
-        except IntegrityError:
-            # Если произошла ошибка уникальности (двойной webhook)
-            logger.warning(f'Duplicate payment {transaction_id} detected (IntegrityError)')
+        except IntegrityError as e:
+            # ✅ Если произошла ошибка уникальности (двойной webhook) - это нормально
+            db.session.rollback()
+            logger.warning(f'Duplicate payment {transaction_id} detected (IntegrityError): {str(e)}')
             return jsonify({'code': 0, 'message': 'Already processed'}), 200
         
         # Логирование после успешного коммита

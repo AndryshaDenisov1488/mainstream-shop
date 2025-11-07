@@ -190,7 +190,7 @@ class Order(db.Model):
     
     # Processing information
     operator_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
-    processed_at = db.Column(db.DateTime)
+    processed_at = db.Column(db.DateTime, index=True)  # ✅ Индекс для фильтрации истекших ссылок
     video_links = db.Column(db.JSON)  # Dict with video type IDs as keys and links as values
     notes = db.Column(db.Text)  # Notes from operator to mom
     operator_comment = db.Column(db.Text)  # Comments from operator about the order
@@ -199,7 +199,7 @@ class Order(db.Model):
     
     # Timestamps
     created_at = db.Column(db.DateTime, default=moscow_now_naive, index=True)
-    updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive)
+    updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive, index=True)  # ✅ Индекс для сортировки
     
     # Relationships
     payments = db.relationship('Payment', backref='order', lazy='dynamic')
@@ -340,7 +340,7 @@ class Payment(db.Model):
     processed_at = db.Column(db.DateTime)  # When payment was processed
     
     # Timestamps
-    created_at = db.Column(db.DateTime, default=moscow_now_naive)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive, index=True)  # ✅ Индекс для статистики
     updated_at = db.Column(db.DateTime, default=moscow_now_naive, onupdate=moscow_now_naive)
     
     # Relationships
@@ -371,7 +371,7 @@ class AuditLog(db.Model):
     details = db.Column(db.JSON)
     ip_address = db.Column(db.String(45))
     user_agent = db.Column(db.Text)
-    created_at = db.Column(db.DateTime, default=moscow_now_naive)
+    created_at = db.Column(db.DateTime, default=moscow_now_naive, index=True)  # ✅ Индекс для очистки старых логов
     
     @staticmethod
     def create_log(user_id=None, action=None, resource_type=None, resource_id=None, 
