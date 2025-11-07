@@ -867,8 +867,8 @@ def finance():
         ).label('revenue'),
         func.count(Order.id).label('total_orders'),
         func.count(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), 1), else_=None)).label('completed_orders'),
-        func.count(case((Order.status.in_(['cancelled_unpaid', 'cancelled_manual']), 1), else_=None)).label('cancelled_orders'),
-        func.count(case((Order.status == 'refund_required', 1), else_=None)).label('refund_orders')
+        func.count(case((Order.status.in_(['cancelled_unpaid', 'cancelled_manual', 'refunded_full']), 1), else_=None)).label('cancelled_orders'),
+        func.count(case((Order.status.in_(['refund_required', 'refunded_partial', 'refunded_full']), 1), else_=None)).label('refund_orders')
     ).filter(
         Order.created_at >= start_dt,
         Order.created_at <= end_dt
@@ -967,8 +967,8 @@ def finance():
     
     total_orders = base_query.count()
     completed_orders = base_query.filter(Order.status.in_(['completed', 'links_sent', 'completed_partial_refund'])).count()
-    cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual'])).count()
-    refund_orders = base_query.filter_by(status='refund_required').count()
+    cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual', 'refunded_full'])).count()
+    refund_orders = base_query.filter(Order.status.in_(['refund_required', 'refunded_partial', 'refunded_full'])).count()
     
     # Refund analytics - суммируем все фактические возвраты из Payment
     # Учитываем Payment со статусом refunded_partial и refunded_full

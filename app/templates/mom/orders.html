@@ -136,7 +136,26 @@
                                         {% endif %}
                                     </div>
                                 </td>
-                                <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
+                                <td>
+                                    {% if order.status == 'completed_partial_refund' and order.paid_amount %}
+                                        <div class="d-flex flex-column">
+                                            <strong>{{ "%.2f"|format(order.paid_amount) }} ₽</strong>
+                                            <small class="text-warning">
+                                                <i class="fas fa-arrow-down"></i> Возвращено: {{ "%.2f"|format(order.total_amount - order.paid_amount) }} ₽
+                                            </small>
+                                            <small class="text-muted">из {{ "%.2f"|format(order.total_amount) }} ₽</small>
+                                        </div>
+                                    {% elif order.status == 'refunded_full' %}
+                                        <div class="d-flex flex-column">
+                                            <span class="text-danger"><s>{{ "%.2f"|format(order.total_amount) }} ₽</s></span>
+                                            <small class="text-danger">
+                                                <i class="fas fa-undo"></i> Полный возврат
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        {{ "%.2f"|format(order.total_amount) }} ₽
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'secondary' if order.status == 'awaiting_info' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }}" 
                                           style="cursor: pointer;" 
@@ -165,17 +184,38 @@
                                 </td>
                                 <td>
                                     {% if order.payments %}
-                                        {% for payment in order.payments %}
-                                            <div class="d-flex flex-column">
-                                                <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }} small mb-1">
-                                                    {{ 'Подтвержден' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
-                                                </span>
-                                                <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
+                                        {% set confirmed_payments = order.payments|selectattr('status', 'equalto', 'confirmed')|list %}
+                                        {% set refunded_payments = order.payments|selectattr('status', 'in', ['refunded_partial', 'refunded_full'])|list %}
+                                        {% for payment in confirmed_payments %}
+                                            <div class="d-flex flex-column mb-2">
+                                                <span class="badge bg-success small mb-1">Подтвержден</span>
+                                                <small class="text-success"><strong>{{ "%.2f"|format(payment.amount) }} ₽</strong></small>
                                                 {% if payment.cp_transaction_id %}
                                                     <small class="text-muted">{{ payment.cp_transaction_id[:8] }}...</small>
                                                 {% endif %}
                                             </div>
                                         {% endfor %}
+                                        {% for payment in refunded_payments %}
+                                            <div class="d-flex flex-column mb-2">
+                                                <span class="badge bg-danger small mb-1">Возвращено</span>
+                                                <small class="text-danger">
+                                                    <i class="fas fa-undo"></i> {{ "%.2f"|format(payment.amount) }} ₽
+                                                </small>
+                                            </div>
+                                        {% endfor %}
+                                        {% if not confirmed_payments and not refunded_payments %}
+                                            {% for payment in order.payments %}
+                                                <div class="d-flex flex-column">
+                                                    <span class="badge bg-{{ 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'secondary' }} small mb-1">
+                                                        {{ 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else payment.status }}
+                                                    </span>
+                                                    <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
+                                                    {% if payment.cp_transaction_id %}
+                                                        <small class="text-muted">{{ payment.cp_transaction_id[:8] }}...</small>
+                                                    {% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        {% endif %}
                                     {% else %}
                                         <div class="d-flex flex-column">
                                             <span class="badge bg-secondary small mb-1">Не оплачен</span>
