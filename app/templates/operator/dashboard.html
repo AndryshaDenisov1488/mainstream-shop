@@ -652,15 +652,36 @@ function markChatAsRead() {
         method: 'POST'
     })
     .then(() => {
-        // Reload page to update unread counts
-        setTimeout(() => {
-            location.reload();
-        }, 1000);
+        // Update unread counts without reloading page
+        // We'll update the badge when modal is closed
     })
     .catch(error => {
         console.error('Error marking as read:', error);
     });
 }
+
+// Update unread counts when modal is closed
+document.getElementById('chatModal').addEventListener('hidden.bs.modal', function() {
+    // Update unread counts for the order
+    if (currentChatOrderId) {
+        fetch(`/api/chat/order/${currentChatOrderId}/unread-count`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Find and update the badge in the table
+                    const badge = document.querySelector(`[onclick*="openChatModal(${currentChatOrderId}"]`);
+                    if (badge && data.unread_count === 0) {
+                        // Remove red badge, make it gray
+                        badge.className = badge.className.replace('bg-danger', 'bg-secondary');
+                        const unreadBadge = badge.querySelector('.badge.bg-dark');
+                        if (unreadBadge) {
+                            unreadBadge.remove();
+                        }
+                    }
+                }
+            });
+    }
+});
 
 // Send message from modal
 document.getElementById('chatModalSendBtn').addEventListener('click', function() {

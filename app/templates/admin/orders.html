@@ -181,8 +181,8 @@
                                             {% if order.payments %}
                                                 {% for payment in order.payments %}
                                                     <div class="d-flex flex-column">
-                                                        <span class="badge bg-{{ 'success' if payment.status == 'completed' else 'warning' if payment.status == 'pending' else 'danger' }} small mb-1">
-                                                            {{ 'Оплачен' if payment.status == 'completed' else 'В ожидании' if payment.status == 'pending' else 'Отменен' }}
+                                                        <span class="badge bg-{{ 'success' if payment.status == 'confirmed' else 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'info' if payment.status in ['refunded_partial', 'refunded_full'] else 'secondary' }} small mb-1">
+                                                            {{ 'Оплачен' if payment.status == 'confirmed' else 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else 'Возвращен' if payment.status in ['refunded_partial', 'refunded_full'] else payment.status }}
                                                         </span>
                                                         <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
                                                     </div>

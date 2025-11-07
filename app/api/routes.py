@@ -578,10 +578,16 @@ def send_video_links_api(order_id):
         # Log action
         AuditLog.create_log(
             user_id=current_user.id,
-            action='ORDER_COMPLETE',
+            action='LINKS_SENT',
             resource_type='Order',
             resource_id=str(order.id),
-            details={'video_links': video_links, 'message': message},
+            details={
+                'video_links': video_links, 
+                'message': message,
+                'customer_email': customer_email,
+                'partial_refund': partial_refund,
+                'refund_comment': refund_comment if partial_refund else None
+            },
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )

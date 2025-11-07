@@ -88,10 +88,30 @@ def run_bot_in_thread(app: Flask):
                     
                 except KeyboardInterrupt:
                     logger.info("🛑 Telegram bot stopped by user")
+                    # Log bot stop
+                    try:
+                        from app.models import AuditLog
+                        AuditLog.log_telegram_action(
+                            telegram_id='system',
+                            action='BOT_STOPPED',
+                            details={'reason': 'KeyboardInterrupt'}
+                        )
+                    except:
+                        pass
                 except Exception as bot_error:
                     logger.error(f"❌ Telegram bot error: {bot_error}", exc_info=True)
                     import traceback
                     logger.error(f"Traceback: {traceback.format_exc()}")
+                    # Log bot error
+                    try:
+                        from app.models import AuditLog
+                        AuditLog.log_telegram_action(
+                            telegram_id='system',
+                            action='BOT_ERROR',
+                            details={'error': str(bot_error), 'traceback': traceback.format_exc()}
+                        )
+                    except:
+                        pass
                 finally:
                     loop.close()
                     logger.info("🔌 Telegram bot event loop closed")

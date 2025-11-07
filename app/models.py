@@ -473,6 +473,7 @@ class AuditLog(db.Model):
             'ORDER_DELETE': 'Удаление заказа',
             'ORDER_STATUS_CHANGE': 'Изменение статуса заказа',
             'ORDER_COMPLETE': 'Завершение заказа',
+            'LINKS_SENT': 'Ссылки отправлены',
             'ORDER_CANCELLED_MANUAL': 'Отмена заказа вручную',
             'ORDER_AUTO_CANCELLED_TIMEOUT': 'Автоматическая отмена заказа (таймаут)',
             'ORDER_COMMENTS_UPDATE': 'Обновление комментариев к заказу',
@@ -515,6 +516,12 @@ class AuditLog(db.Model):
             # Telegram
             'TELEGRAM_ORDER': 'Заказ через Telegram',
             'VIDEO_LINKS_SEND': 'Отправка ссылок на видео',
+            'TELEGRAM_START_COMMAND': 'Telegram: Команда /start',
+            'TELEGRAM_START_COMMAND_NEW_USER': 'Telegram: Команда /start (новый пользователь)',
+            'TELEGRAM_START_COMMAND_ERROR': 'Telegram: Ошибка в команде /start',
+            'TELEGRAM_ORDER_CREATED': 'Telegram: Создан заказ',
+            'TELEGRAM_BOT_STOPPED': 'Telegram: Бот остановлен',
+            'TELEGRAM_BOT_ERROR': 'Telegram: Ошибка бота',
             
             # Настройки
             'SETTINGS_UPDATE': 'Обновление настроек системы',

@@ -299,6 +299,18 @@ def send_links(order_id):
         order.status = 'links_sent'
         db.session.commit()
         
+        # Log action
+        from app.models import AuditLog
+        AuditLog.create_log(
+            user_id=current_user.id,
+            action='LINKS_SENT',
+            resource_type='Order',
+            resource_id=str(order.id),
+            details={'method': 'mom_route'},
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get('User-Agent')
+        )
+        
         return jsonify({'success': True, 'message': 'Ссылки отправлены'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})

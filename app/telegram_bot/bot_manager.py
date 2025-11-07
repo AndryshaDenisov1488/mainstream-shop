@@ -130,6 +130,15 @@ class TelegramBotManager:
                     "Выберите действие:",
                     reply_markup=reply_markup
                 )
+                
+                # Log action
+                from app.models import AuditLog
+                AuditLog.log_telegram_action(
+                    telegram_id=str(user_id),
+                    action='START_COMMAND',
+                    details={'user_id': user.id, 'user_email': user.email}
+                )
+                
                 return ConversationHandler.END
             else:
                 # New user or existing user without telegram_id - ask for email first
@@ -138,9 +147,27 @@ class TelegramBotManager:
                     "Для работы с ботом нам нужен ваш email адрес.\n"
                     "Введите ваш email:"
                 )
+                
+                # Log action
+                from app.models import AuditLog
+                AuditLog.log_telegram_action(
+                    telegram_id=str(user_id),
+                    action='START_COMMAND_NEW_USER',
+                    details={'username': update.effective_user.username}
+                )
+                
                 return REGISTRATION
         except Exception as e:
             logger.error(f"Error in start_command: {e}", exc_info=True)
+            
+            # Log error
+            from app.models import AuditLog
+            AuditLog.log_telegram_action(
+                telegram_id=str(user_id),
+                action='START_COMMAND_ERROR',
+                details={'error': str(e)}
+            )
+            
             await update.message.reply_text(
                 "❌ Произошла ошибка. Пожалуйста, попробуйте еще раз."
             )
@@ -878,6 +905,20 @@ class TelegramBotManager:
                 
                 db.session.add(order)
                 db.session.commit()
+                
+                # Log order creation
+                from app.models import AuditLog
+                AuditLog.log_telegram_action(
+                    telegram_id=str(update.effective_user.id),
+                    action='ORDER_CREATED',
+                    details={
+                        'order_id': order.id,
+                        'order_number': order.generated_order_number,
+                        'user_id': user.id,
+                        'event_id': event_id,
+                        'amount': float(video_type.price)
+                    }
+                )
                 
                 # Send Telegram notification about order creation (if user has telegram_id)
                 try:
