@@ -836,13 +836,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Handle confirm payment button clicks
+    // Handle confirm payment button clicks - открываем окно "Зачет платежа" вместо простого подтверждения
     document.querySelectorAll('.confirm-payment-btn').forEach(button => {
         button.addEventListener('click', function() {
             const orderId = this.getAttribute('data-order-id');
-            const orderNumber = this.getAttribute('data-order-number');
-            const orderAmount = this.getAttribute('data-order-amount');
-            openConfirmPaymentModal(orderId, orderNumber, orderAmount);
+            const orderAmount = parseFloat(this.getAttribute('data-order-amount'));
+            // Используем окно "Зачет платежа" которое позволяет указать сумму
+            if (typeof openCaptureModal === 'function') {
+                openCaptureModal(orderId, orderAmount);
+            } else {
+                // Fallback на старое окно если функция не найдена
+                const orderNumber = this.getAttribute('data-order-number');
+                openConfirmPaymentModal(orderId, orderNumber, orderAmount);
+            }
         });
     });
     
