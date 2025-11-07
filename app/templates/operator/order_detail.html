@@ -922,7 +922,14 @@ function sendChatMessage() {
         method: 'POST',
         body: formData
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || `HTTP ${response.status}: ${response.statusText}`);
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             messageInput.value = '';
@@ -930,12 +937,12 @@ function sendChatMessage() {
             loadChatMessages(1); // Reload messages
             updateUnreadCount();
         } else {
-            alert('Ошибка отправки сообщения: ' + data.error);
+            alert('Ошибка отправки сообщения: ' + (data.error || 'Неизвестная ошибка'));
         }
     })
     .catch(error => {
         console.error('Error sending message:', error);
-        alert('Произошла ошибка при отправке сообщения');
+        alert('Произошла ошибка при отправке сообщения: ' + error.message);
     });
 }
 

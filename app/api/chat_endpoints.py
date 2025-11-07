@@ -67,108 +67,127 @@ def get_chat_messages(order_id):
 @role_required('OPERATOR', 'MOM', 'ADMIN')
 def send_chat_message(order_id):
     """Send a message to order chat"""
-    order = Order.query.get_or_404(order_id)
-    
-    # Check access rights
-    if not _has_chat_access(order, current_user):
-        return jsonify({'error': 'Нет доступа к чату этого заказа'}), 403
-    
-    # Get or create chat
-    chat = OrderChat.query.filter_by(order_id=order_id).first()
-    if not chat:
-        chat = OrderChat(order_id=order_id)
-        db.session.add(chat)
-        db.session.commit()
-    
-    message_text = request.form.get('message', '').strip()
-    if not message_text:
-        return jsonify({'error': 'Сообщение не может быть пустым'}), 400
-    
-    if len(message_text) > 5000:
-        return jsonify({'error': 'Сообщение слишком длинное (максимум 5000 символов)'}), 400
-    
-    # Handle file attachment
-    attachment_path = None
-    attachment_name = None
-    
-    if 'attachment' in request.files:
-        file = request.files['attachment']
-        if file and file.filename:
-            # ✅ Проверка типа файла
-            if not _is_allowed_file(file.filename):
-                return jsonify({'error': 'Недопустимый тип файла'}), 400
-            
-            # ✅ Проверка размера файла
-            file.seek(0, 2)  # Seek to end
-            file_size = file.tell()
-            file.seek(0)  # Reset
-            
-            max_file_size = current_app.config.get('MAX_CHAT_FILE_SIZE', 10 * 1024 * 1024)
-            if file_size > max_file_size:
-                return jsonify({
-                    'error': f'Файл слишком большой (максимум {max_file_size // 1024 // 1024}MB)'
-                }), 400
-            
-            # ✅ Создание директории с абсолютным путем
-            upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
-            order_dir = os.path.join(upload_folder, 'chat', str(order_id))
-            os.makedirs(order_dir, exist_ok=True)
-            
-            # ✅ Нормализация пути для защиты от path traversal
-            abs_order_dir = os.path.abspath(order_dir)
-            
-            # ✅ Генерация безопасного имени файла
-            filename = secure_filename(file.filename)
-            from app.utils.datetime_utils import moscow_now_naive
-            timestamp = moscow_now_naive().strftime('%Y%m%d_%H%M%S')
-            filename = f"{timestamp}_{filename}"
-            
-            filepath = os.path.join(abs_order_dir, filename)
-            
-            # ✅ Дополнительная проверка path traversal
-            if not filepath.startswith(abs_order_dir):
-                return jsonify({'error': 'Небезопасный путь к файлу'}), 400
-            
-            file.save(filepath)
-            
-            attachment_path = os.path.join(str(order_id), filename)
-            attachment_name = file.filename
-    
-    # Create message
-    message = ChatMessage(
-        chat_id=chat.id,
-        sender_id=current_user.id,
-        message=message_text,
-        attachment_path=attachment_path,
-        attachment_name=attachment_name
-    )
-    
-    db.session.add(message)
-    
-    # Update chat last message time
-    chat.last_message_at = moscow_now_naive()
-    
-    db.session.commit()
-    
-    # Send notifications to other participants
     try:
-        _send_chat_notifications(chat, message, current_user)
-    except Exception as e:
-        current_app.logger.error(f"Failed to send chat notifications: {e}")
+        current_app.logger.info(f"Chat message send attempt: order_id={order_id}, user_id={current_user.id}, user_role={current_user.role}")
+        
+        order = Order.query.get_or_404(order_id)
+        
+        # Check access rights
+        if not _has_chat_access(order, current_user):
+            current_app.logger.warning(f"Chat access denied: order_id={order_id}, user_id={current_user.id}")
+            return jsonify({'error': 'Нет доступа к чату этого заказа'}), 403
+        
+        # Get or create chat
+        chat = OrderChat.query.filter_by(order_id=order_id).first()
+        if not chat:
+            chat = OrderChat(order_id=order_id)
+            db.session.add(chat)
+            db.session.commit()
+            current_app.logger.info(f"Created new chat for order_id={order_id}")
+        
+        message_text = request.form.get('message', '').strip()
+        current_app.logger.debug(f"Message text length: {len(message_text) if message_text else 0}")
+        
+        # Handle file attachment
+        attachment_path = None
+        attachment_name = None
+        
+        if 'attachment' in request.files:
+            file = request.files['attachment']
+            if file and file.filename:
+                # ✅ Проверка типа файла
+                if not _is_allowed_file(file.filename):
+                    return jsonify({'error': 'Недопустимый тип файла'}), 400
+                
+                # ✅ Проверка размера файла
+                file.seek(0, 2)  # Seek to end
+                file_size = file.tell()
+                file.seek(0)  # Reset
+                
+                max_file_size = current_app.config.get('MAX_CHAT_FILE_SIZE', 10 * 1024 * 1024)
+                if file_size > max_file_size:
+                    return jsonify({
+                        'error': f'Файл слишком большой (максимум {max_file_size // 1024 // 1024}MB)'
+                    }), 400
+                
+                # ✅ Создание директории с абсолютным путем
+                upload_folder = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+                order_dir = os.path.join(upload_folder, 'chat', str(order_id))
+                os.makedirs(order_dir, exist_ok=True)
+                
+                # ✅ Нормализация пути для защиты от path traversal
+                abs_order_dir = os.path.abspath(order_dir)
+                
+                # ✅ Генерация безопасного имени файла
+                filename = secure_filename(file.filename)
+                from app.utils.datetime_utils import moscow_now_naive
+                timestamp = moscow_now_naive().strftime('%Y%m%d_%H%M%S')
+                filename = f"{timestamp}_{filename}"
+                
+                filepath = os.path.join(abs_order_dir, filename)
+                
+                # ✅ Дополнительная проверка path traversal
+                if not filepath.startswith(abs_order_dir):
+                    return jsonify({'error': 'Небезопасный путь к файлу'}), 400
+                
+                file.save(filepath)
+                
+                attachment_path = os.path.join(str(order_id), filename)
+                attachment_name = file.filename
+        
+        # Validate: must have either message or attachment
+        if not message_text and not attachment_path:
+            return jsonify({'error': 'Сообщение или файл обязательны'}), 400
+        
+        if message_text and len(message_text) > 5000:
+            return jsonify({'error': 'Сообщение слишком длинное (максимум 5000 символов)'}), 400
+        
+        # Create message
+        message = ChatMessage(
+            chat_id=chat.id,
+            sender_id=current_user.id,
+            message=message_text,
+            attachment_path=attachment_path,
+            attachment_name=attachment_name
+        )
+        
+        db.session.add(message)
+        
+        # Update chat last message time
+        chat.last_message_at = moscow_now_naive()
+        
+        try:
+            db.session.commit()
+            current_app.logger.info(f"Chat message saved: message_id={message.id}, order_id={order_id}")
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Failed to save chat message: {e}", exc_info=True)
+            return jsonify({'error': f'Ошибка при сохранении сообщения: {str(e)}'}), 500
+        
+        # Send notifications to other participants
+        try:
+            _send_chat_notifications(chat, message, current_user)
+        except Exception as e:
+            current_app.logger.error(f"Failed to send chat notifications: {e}", exc_info=True)
+        
+        return jsonify({
+            'success': True,
+            'message': {
+                'id': message.id,
+                'sender_name': current_user.full_name,
+                'sender_role': current_user.role,
+                'message': message.message,
+                'message_type': message.message_type,
+                'created_at': message.created_at.isoformat(),
+                'attachment_name': message.attachment_name,
+                'attachment_path': message.attachment_path
+            }
+        })
     
-    return jsonify({
-        'success': True,
-        'message': {
-            'id': message.id,
-            'sender_name': current_user.full_name,
-            'sender_role': current_user.role,
-            'message': message.message,
-            'message_type': message.message_type,
-            'created_at': message.created_at.isoformat(),
-            'attachment_name': message.attachment_name,
-            'attachment_path': message.attachment_path
-        }
-    })
+    except Exception as e:
+        current_app.logger.error(f"Error in send_chat_message: {e}", exc_info=True)
+        db.session.rollback()
+        return jsonify({'error': f'Произошла ошибка при отправке сообщения: {str(e)}'}), 500
 
 @bp.route('/order/<int:order_id>/unread-count', methods=['GET'])
 @login_required
