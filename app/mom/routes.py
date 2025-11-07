@@ -49,8 +49,9 @@ def dashboard():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     # ✅ Eager loading для избежания N+1 запросов
