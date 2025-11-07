@@ -26,16 +26,46 @@ def dashboard():
         Order.status.in_(['processing', 'ready', 'links_sent'])
     ).count()
     
+    # Get all orders with pagination
+    page = request.args.get('page', 1, type=int)
+    status_filter = request.args.get('status', '', type=str)
+    search = request.args.get('search', '', type=str)
+    
+    query = Order.query.filter(
+        (Order.operator_id == current_user.id) | (Order.operator_id.is_(None)),
+        Order.status.in_(['paid', 'processing', 'ready', 'links_sent', 'completed'])
+    )
+    
+    if status_filter:
+        query = query.filter(Order.status == status_filter)
+    
+    if search:
+        query = query.filter(
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search))
+        )
+    
     # ✅ Eager loading для избежания N+1 запросов
-    recent_orders = Order.query.options(
+    query = query.options(
         joinedload(Order.event),
         joinedload(Order.category),
         joinedload(Order.athlete),
-        joinedload(Order.operator)
-    ).filter(
-        (Order.operator_id == current_user.id) | (Order.operator_id.is_(None)),
-        Order.status.in_(['paid', 'processing', 'ready', 'links_sent', 'completed'])
-    ).order_by(desc(Order.created_at)).limit(10).all()
+        joinedload(Order.operator),
+        joinedload(Order.chat)
+    )
+    
+    orders = query.order_by(desc(Order.created_at)).paginate(
+        page=page, per_page=20, error_out=False
+    )
+    
+    # Get unread message counts for each order
+    from app.models import OrderChat
+    unread_counts = {}
+    for order in orders.items:
+        if order.chat:
+            unread_counts[order.id] = order.chat.get_unread_count_for_user(current_user.id)
+        else:
+            unread_counts[order.id] = 0
     
     # Get video types for display
     video_types = VideoType.query.all()
@@ -44,7 +74,10 @@ def dashboard():
     return render_template('operator/dashboard.html',
                          new_orders=new_orders,
                          processing_orders=processing_orders,
-                         recent_orders=recent_orders,
+                         orders=orders,
+                         status_filter=status_filter,
+                         search=search,
+                         unread_counts=unread_counts,
                          video_types_dict=video_types_dict)
 
 
