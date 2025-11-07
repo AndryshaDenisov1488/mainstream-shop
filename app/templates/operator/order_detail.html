@@ -247,12 +247,21 @@
                                     {{ order.get_status_display() }}
                                 </span>
                             </div>
-                            <button type="button" class="btn btn-warning btn-sm" id="changeStatusBtn" 
-                                    data-order-id="{{ order.id }}" 
-                                    data-order-status="{{ order.status }}" 
-                                    data-order-number="{{ order.generated_order_number }}">
-                                <i class="fas fa-edit me-1"></i>Изменить статус
-                            </button>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-warning btn-sm" id="changeStatusBtn" 
+                                        data-order-id="{{ order.id }}" 
+                                        data-order-status="{{ order.status }}" 
+                                        data-order-number="{{ order.generated_order_number }}">
+                                    <i class="fas fa-edit me-1"></i>Изменить статус
+                                </button>
+                                {% if order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'completed'] %}
+                                <button type="button" class="btn btn-danger btn-sm" id="cancelOrderBtn" 
+                                        data-order-id="{{ order.id }}" 
+                                        data-order-number="{{ order.generated_order_number }}">
+                                    <i class="fas fa-times me-1"></i>Отменить заказ
+                                </button>
+                                {% endif %}
+                            </div>
                         </div>
                         
                         <div class="mb-3">
@@ -655,6 +664,16 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
+    // Handle cancel order button
+    const cancelOrderBtn = document.getElementById('cancelOrderBtn');
+    if (cancelOrderBtn) {
+        cancelOrderBtn.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            openCancelOrderModal(orderId, orderNumber);
+        });
+    }
+    
     // Handle open modal buttons
     const openModalButton1 = document.getElementById('openModalButton1');
     const openModalButton2 = document.getElementById('openModalButton2');
@@ -766,7 +785,8 @@ function saveComments() {
                             <option value="completed">Выполнен</option>
                             <option value="completed_partial_refund">Выполнен с частичным возвратом</option>
                             <option value="refund_required">Требуется возврат</option>
-                            <option value="cancelled">Отменен</option>
+                            <option value="cancelled_manual">Отменен (вручную)</option>
+                            <option value="cancelled_unpaid">Отменен (не оплачен)</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -791,6 +811,16 @@ function openStatusModal(orderId, currentStatus, orderNumber) {
     document.getElementById('statusComment').value = '';
     
     var modal = new bootstrap.Modal(document.getElementById('statusModal'));
+    modal.show();
+}
+
+// Function to open cancel order modal
+function openCancelOrderModal(orderId, orderNumber) {
+    document.getElementById('cancelOrderId').value = orderId;
+    document.getElementById('cancelOrderNumber').textContent = orderNumber;
+    document.getElementById('cancelReason').value = '';
+    
+    var modal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
     modal.show();
 }
 
@@ -828,6 +858,47 @@ document.getElementById('confirmChangeStatusBtn').addEventListener('click', func
     .catch(error => {
         console.error('Error:', error);
         alert('Произошла ошибка при изменении статуса');
+    });
+});
+
+// Handle cancel order button in modal
+document.getElementById('confirmCancelOrderBtn').addEventListener('click', function() {
+    const form = document.getElementById('cancelOrderForm');
+    const formData = new FormData(form);
+    const orderId = formData.get('order_id');
+    const reason = formData.get('reason');
+    
+    if (!reason.trim()) {
+        alert('Необходимо указать причину отмены заказа');
+        return;
+    }
+    
+    if (!confirm('Вы уверены, что хотите отменить этот заказ? Это действие нельзя отменить.')) {
+        return;
+    }
+    
+    fetch(`/api/order/${orderId}/operator-change-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: 'cancelled_manual',
+            comment: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отменен');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при отмене заказа');
     });
 });
 
