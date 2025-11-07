@@ -803,6 +803,38 @@ function saveComments() {
     </div>
 </div>
 
+<!-- Cancel Order Modal -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelOrderModalLabel">Отменить заказ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Вы уверены, что хотите отменить заказ <strong id="cancelOrderNumber"></strong>?
+                </div>
+                <form id="cancelOrderForm">
+                    <input type="hidden" id="cancelOrderId" name="order_id">
+                    <div class="mb-3">
+                        <label for="cancelReason" class="form-label">Причина отмены <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="cancelReason" name="reason" rows="3" placeholder="Укажите причину отмены заказа..." required></textarea>
+                        <small class="form-text text-muted">Причина отмены обязательна и будет отправлена клиенту по email</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelOrderBtn">
+                    <i class="fas fa-times me-1"></i>Отменить заказ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 // Function to open status modal
 function openStatusModal(orderId, currentStatus, orderNumber) {
