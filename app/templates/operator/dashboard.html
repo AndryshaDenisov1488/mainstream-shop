@@ -204,13 +204,19 @@
                                                             onclick="assignOrder(this.dataset.orderId, this.dataset.isPending === 'true')">
                                                         <i class="fas fa-hand-paper"></i>
                                                     </button>
-                                                {% elif order.operator_id and order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
+                                                {% elif order.operator_id and order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'completed'] %}
                                                     <button class="btn btn-sm btn-primary" title="Отправить ссылки" 
                                                             data-order-id="{{ order.id }}" 
                                                             data-order-number="{{ order.generated_order_number }}" 
                                                             data-customer-email="{{ order.contact_email }}"
                                                             onclick="openSendLinksModal(this.dataset.orderId, this.dataset.orderNumber, this.dataset.customerEmail)">
                                                         <i class="fas fa-paper-plane"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-danger" title="Отменить заказ" 
+                                                            data-order-id="{{ order.id }}" 
+                                                            data-order-number="{{ order.generated_order_number }}"
+                                                            onclick="openCancelOrderModal(this.dataset.orderId, this.dataset.orderNumber)">
+                                                        <i class="fas fa-times"></i>
                                                     </button>
                                                 {% endif %}
                                                 <a href="{{ url_for('operator.order_detail', order_id=order.id) }}" class="btn btn-sm btn-info" title="Подробнее">
@@ -503,6 +509,38 @@ document.getElementById('sendLinksForm').addEventListener('submit', function(e) 
 });
 </script>
 
+<!-- Cancel Order Modal -->
+<div class="modal fade" id="cancelOrderModal" tabindex="-1" aria-labelledby="cancelOrderModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelOrderModalLabel">Отменить заказ</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Вы уверены, что хотите отменить заказ <strong id="cancelOrderNumber"></strong>?
+                </div>
+                <form id="cancelOrderForm">
+                    <input type="hidden" id="cancelOrderId" name="order_id">
+                    <div class="mb-3">
+                        <label for="cancelReason" class="form-label">Причина отмены <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="cancelReason" name="reason" rows="3" placeholder="Укажите причину отмены заказа..." required></textarea>
+                        <small class="form-text text-muted">Причина отмены обязательна и будет отправлена клиенту по email</small>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirmCancelOrderBtn">
+                    <i class="fas fa-times me-1"></i>Отменить заказ
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Chat Modal -->
 <div class="modal fade" id="chatModal" tabindex="-1" aria-labelledby="chatModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable">
@@ -772,6 +810,57 @@ document.getElementById('chatModalMessageInput').addEventListener('keypress', fu
         e.preventDefault();
         document.getElementById('chatModalSendBtn').click();
     }
+});
+
+// Function to open cancel order modal
+function openCancelOrderModal(orderId, orderNumber) {
+    document.getElementById('cancelOrderId').value = orderId;
+    document.getElementById('cancelOrderNumber').textContent = orderNumber;
+    document.getElementById('cancelReason').value = '';
+    
+    var modal = new bootstrap.Modal(document.getElementById('cancelOrderModal'));
+    modal.show();
+}
+
+// Handle cancel order button in modal
+document.getElementById('confirmCancelOrderBtn').addEventListener('click', function() {
+    const form = document.getElementById('cancelOrderForm');
+    const formData = new FormData(form);
+    const orderId = formData.get('order_id');
+    const reason = formData.get('reason');
+    
+    if (!reason.trim()) {
+        alert('Необходимо указать причину отмены заказа');
+        return;
+    }
+    
+    if (!confirm('Вы уверены, что хотите отменить этот заказ? Это действие нельзя отменить.')) {
+        return;
+    }
+    
+    fetch(`/api/order/${orderId}/operator-change-status`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: 'cancelled_manual',
+            comment: reason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Заказ успешно отменен');
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при отмене заказа');
+    });
 });
 </script>
 {% endblock %}
