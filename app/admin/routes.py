@@ -7,6 +7,7 @@ from app.utils.decorators import admin_required, admin_or_mom_required
 from app.utils.email import send_user_credentials_email
 from app.admin.forms import CreateUserForm, EditUserForm
 from sqlalchemy import desc, func
+from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
 import os
 # ✅ Используем defusedxml для защиты от XXE атак
