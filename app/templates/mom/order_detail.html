@@ -991,7 +991,6 @@ function openRefundMoneyModal(orderId, orderNumber, orderAmount, paidAmount) {
     document.getElementById('refundMoneyPaidAmount').textContent = paidAmount.toFixed(2);
     document.getElementById('refundMoneyAmount').value = '';
     document.getElementById('refundMoneyAmount').max = Math.max(paidAmount, orderAmount);
-    document.getElementById('refundMoneyReason').value = '';
     document.getElementById('refundMoneyOrderId').value = orderId;
     
     // Показываем подсказку в зависимости от того, приняты ли деньги
@@ -1071,14 +1070,8 @@ document.getElementById('refundMoneyForm').addEventListener('submit', function(e
     
     const orderId = document.getElementById('refundMoneyOrderId').value;
     const refundAmount = parseFloat(document.getElementById('refundMoneyAmount').value);
-    const refundReason = document.getElementById('refundMoneyReason').value.trim();
     const paidAmount = parseFloat(document.getElementById('refundMoneyPaidAmount').textContent);
     const totalAmount = parseFloat(document.getElementById('refundMoneyTotalAmount').textContent);
-    
-    if (!refundReason) {
-        alert('Необходимо указать причину возврата');
-        return;
-    }
     
     if (isNaN(refundAmount) || refundAmount <= 0) {
         alert('Некорректная сумма возврата');
@@ -1097,7 +1090,7 @@ document.getElementById('refundMoneyForm').addEventListener('submit', function(e
         return;
     }
     
-    if (!confirm(`Вы уверены, что хотите вернуть ${refundAmount.toFixed(2)} ₽?\n\nПричина: ${refundReason}`)) {
+    if (!confirm(`Вы уверены, что хотите вернуть ${refundAmount.toFixed(2)} ₽?`)) {
         return;
     }
     
@@ -1111,8 +1104,7 @@ document.getElementById('refundMoneyForm').addEventListener('submit', function(e
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            amount: refundAmount,
-            reason: refundReason
+            amount: refundAmount
         })
     })
     .then(response => response.json())
@@ -1213,11 +1205,7 @@ document.getElementById('refundMoneyForm').addEventListener('submit', function(e
                         </div>
                     </div>
                     
-                    <div class="mb-3">
-                        <label for="refundMoneyReason" class="form-label">Причина возврата <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="refundMoneyReason" name="refund_reason" rows="3" 
-                                  placeholder="Укажите причину возврата для клиента" required></textarea>
-                    </div>
+                    <!-- Причина возврата убрана - мама не должна указывать причину, это делает оператор -->
                     
                     <input type="hidden" id="refundMoneyOrderId" name="order_id">
                 </div>
