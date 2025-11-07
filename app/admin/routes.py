@@ -753,24 +753,41 @@ def fix_customer_roles():
     """Fix customer roles - set CUSTOMER role for users who have orders"""
     try:
         # Находим всех пользователей, у которых есть заказы, но роль не CUSTOMER
-        # Явно указываем onclause для join, так как между User и Order есть несколько связей
-        users_with_orders = db.session.query(User).join(
-            Order, Order.customer_id == User.id
-        ).filter(
-            User.role != 'CUSTOMER'
+        # Используем подзапрос вместо join для избежания проблем с множественными связями
+        from sqlalchemy import exists
+        
+        # Получаем все уникальные customer_id из заказов
+        customer_ids_with_orders = db.session.query(Order.customer_id).filter(
+            Order.customer_id.isnot(None)
         ).distinct().all()
+        customer_ids_with_orders = [row[0] for row in customer_ids_with_orders]
+        
+        if not customer_ids_with_orders:
+            return jsonify({'success': True, 'fixed_count': 0, 'message': 'Нет пользователей для исправления'})
+        
+        # Находим пользователей с этими ID, у которых роль не CUSTOMER
+        users_with_orders = User.query.filter(
+            User.id.in_(customer_ids_with_orders),
+            User.role != 'CUSTOMER'
+        ).all()
         
         fixed_count = 0
         for user in users_with_orders:
-            user.role = 'CUSTOMER'
-            fixed_count += 1
+            try:
+                user.role = 'CUSTOMER'
+                fixed_count += 1
+            except Exception as e:
+                current_app.logger.error(f'Error updating user {user.id}: {e}')
+                continue
         
-        db.session.commit()
+        if fixed_count > 0:
+            db.session.commit()
         
         flash(f'Исправлено ролей: {fixed_count} пользователей теперь имеют роль CUSTOMER', 'success')
         return jsonify({'success': True, 'fixed_count': fixed_count})
     except Exception as e:
         db.session.rollback()
+        current_app.logger.error(f'Error in fix_customer_roles: {e}', exc_info=True)
         flash(f'Ошибка при исправлении ролей: {str(e)}', 'error')
         return jsonify({'success': False, 'error': str(e)}), 500
 
