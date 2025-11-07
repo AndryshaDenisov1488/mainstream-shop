@@ -6,6 +6,7 @@ Cancels orders that have expired payment deadlines
 import logging
 from datetime import timedelta
 from flask import current_app
+from sqlalchemy import or_, and_
 from app import db
 from app.models import Order, AuditLog
 from app.utils.cloudpayments import CloudPaymentsAPI
@@ -58,14 +59,14 @@ def cancel_expired_orders():
         expired_orders = Order.query.filter(
             Order.status == 'awaiting_payment'
         ).filter(
-            db.or_(
+            or_(
                 # Либо payment_expires_at установлен и истек
-                db.and_(
+                and_(
                     Order.payment_expires_at.isnot(None),
                     Order.payment_expires_at < current_time
                 ),
                 # Либо payment_expires_at не установлен, но заказ старше auto_cancel_minutes
-                db.and_(
+                and_(
                     Order.payment_expires_at.is_(None),
                     Order.created_at < expired_threshold
                 )

@@ -78,6 +78,10 @@ def validate_email_domain(form, field):
             'mailinator.com', 'throwaway.email', 'temp-mail.org'
         ]
         
+        # ✅ Защита от некорректного ввода (без @)
+        if '@' not in field.data:
+            raise ValidationError('Неверный формат email адреса')
+        
         domain = field.data.split('@')[1].lower()
         if domain in disposable_domains:
             raise ValidationError('Пожалуйста, используйте постоянный email адрес')

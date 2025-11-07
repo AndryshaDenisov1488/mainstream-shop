@@ -132,7 +132,7 @@ def create_user():
                 action='USER_CREATE',
                 resource_type='User',
                 resource_id=user.id,
-                details=f'Created user: {user.email} with role {user.role.value}',
+                details=f'Created user: {user.email} with role {user.role}',
                 ip_address=request.remote_addr,
                 user_agent=request.headers.get('User-Agent')
             )

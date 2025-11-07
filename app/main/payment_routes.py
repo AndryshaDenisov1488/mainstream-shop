@@ -61,14 +61,13 @@ def register_payment_routes(bp):
                     db.session.commit()
                 session.pop('pending_order_id', None)
             
-            # Create order numbers
-            order_number = Order.generate_order_number()
-            generated_order_number = Order.generate_human_order_number()
-            
-            # Process all items in cart
+            # ✅ Process all items in cart and aggregate into single order
             cart_items = []
             total_amount = 0
-            video_types = []
+            all_video_types = []
+            
+            # Collect all athletes and video types from cart
+            athletes_in_cart = set()
             
             for item_id, quantity in cart.items():
                 try:
@@ -87,9 +86,11 @@ def register_payment_routes(bp):
                             'total': item_total
                         })
                         
-                        # Add video type to order
+                        athletes_in_cart.add(athlete_id)
+                        
+                        # Add video type to order (multiple times if quantity > 1)
                         for _ in range(quantity):
-                            video_types.append(video_type_id)
+                            all_video_types.append(video_type_id)
                     else:
                         flash(f'Товар {item_id} не найден', 'error')
                         return redirect(url_for('main.checkout'))
@@ -99,6 +100,11 @@ def register_payment_routes(bp):
             
             if not cart_items:
                 flash('Корзина пуста или содержит некорректные товары', 'error')
+                return redirect(url_for('main.checkout'))
+            
+            # ✅ Проверка: все товары должны быть для одного спортсмена
+            if len(athletes_in_cart) > 1:
+                flash('В корзине товары для разных спортсменов. Пожалуйста, оформляйте заказы отдельно для каждого спортсмена.', 'error')
                 return redirect(url_for('main.checkout'))
             
             # Get contact information
@@ -141,35 +147,28 @@ def register_payment_routes(bp):
             for old_order in existing_pending_orders:
                 db.session.delete(old_order)
             
-            # Create order in database FIRST
-            # Create order in database with pending_payment status
-            # For multiple items, we need to handle this differently
-            # For now, we'll create separate orders for each athlete
-            orders = []
-            for item in cart_items:
-                order = Order(
-                    order_number=Order.generate_order_number(),
-                    generated_order_number=Order.generate_human_order_number(),
-                    customer_id=customer_id,
-                    event_id=item['athlete'].category.event_id,
-                    category_id=item['athlete'].category_id,
-                    athlete_id=item['athlete'].id,
-                    video_types=[item['video_type'].id] * item['quantity'],
-                    total_amount=item['total'],
-                    status='awaiting_payment',  # Order awaiting payment
-                    contact_email=contact_email,
-                    contact_phone=contact_phone,
-                    contact_first_name=contact_first_name,
-                    contact_last_name=contact_last_name,
-                    comment=comment
-                )
-                orders.append(order)
-                db.session.add(order)
+            # ✅ Create ONE order with all items from cart (for same athlete)
+            first_athlete = cart_items[0]['athlete']
             
-            # For simplicity, we'll work with the first order
-            main_order = orders[0]
+            order = Order(
+                order_number=Order.generate_order_number(),
+                generated_order_number=Order.generate_human_order_number(),
+                customer_id=customer_id,
+                event_id=first_athlete.category.event_id,
+                category_id=first_athlete.category_id,
+                athlete_id=first_athlete.id,
+                video_types=all_video_types,  # All video types from cart
+                total_amount=total_amount,  # Total amount for all items
+                status='awaiting_payment',
+                contact_email=contact_email,
+                contact_phone=contact_phone,
+                contact_first_name=contact_first_name,
+                contact_last_name=contact_last_name,
+                comment=comment
+            )
+            db.session.add(order)
             
-            # Commit all changes in one transaction (cleanup + new orders)
+            # Commit all changes in one transaction (cleanup + new order)
             # Use retry logic for SQLite database locked errors
             import time
             import random
@@ -180,7 +179,7 @@ def register_payment_routes(bp):
             
             for attempt in range(max_retries):
                 try:
-                    db.session.commit()  # Save orders to get IDs
+                    db.session.commit()  # Save order to get ID
                     break  # Success, exit retry loop
                 except OperationalError as e:
                     if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
@@ -188,9 +187,8 @@ def register_payment_routes(bp):
                         wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
                         logger.warning(f'Database locked, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
                         time.sleep(wait_time)
-                        # Re-add orders after rollback
-                        for order in orders:
-                            db.session.add(order)
+                        # Re-add order after rollback
+                        db.session.add(order)
                     else:
                         db.session.rollback()
                         logger.error(f'Error creating order after {attempt + 1} attempts: {str(e)}')
@@ -203,14 +201,14 @@ def register_payment_routes(bp):
                     return redirect(url_for('main.checkout'))
             
             # Store order ID in session for success/failure handling
-            session['pending_order_id'] = main_order.id
+            session['pending_order_id'] = order.id
             
             # Create CloudPayments widget URL using order object
             cp_api = CloudPaymentsAPI()
-            payment_data = cp_api.create_payment_widget_data(main_order, payment_method)
+            payment_data = cp_api.create_payment_widget_data(order, payment_method)
             
             if not payment_data:
-                logger.error(f'Failed to create payment data for order {main_order.order_number}')
+                logger.error(f'Failed to create payment data for order {order.order_number}')
                 flash('Ошибка создания платежной формы. Проверьте настройки CloudPayments.', 'error')
                 return redirect(url_for('main.checkout'))
             

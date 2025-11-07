@@ -183,14 +183,17 @@ class CloudPaymentsAPI:
                     payment.cp_transaction_id = transaction_id
                 payment.order.status = 'paid'
                 
-                # Send confirmation email
-                from app.utils.email import send_order_confirmation_email
-                send_order_confirmation_email(payment.order)
+                # ✅ НЕ отправляем письмо на Authorized - только на Completed
+                # Authorized означает только холдирование средств, не окончательную оплату
                 
             elif status == 'Completed':
                 payment.status = 'confirmed'
                 payment.mom_confirmed = True
                 payment.confirmed_at = moscow_now_naive()
+                
+                # ✅ Отправляем письмо подтверждения только при Completed (окончательное списание)
+                from app.utils.email import send_order_confirmation_email
+                send_order_confirmation_email(payment.order)
                 
             elif status == 'Voided':
                 payment.status = 'voided'
@@ -369,31 +372,31 @@ class CloudPaymentsAPI:
             # Также попробуем hex формат для обратной совместимости
             expected_signature_hex = expected_signature_bytes.hex()
             
-            # Логируем для отладки (всегда, не только debug)
-            logger.info(f'=== SIGNATURE VERIFICATION ===')
-            logger.info(f'Data length: {len(data)} bytes')
-            logger.info(f'Data content (first 300 chars): {data[:300]}')
-            logger.info(f'Received signature length: {len(clean_signature)}')
-            logger.info(f'Received signature (first 50 chars): {clean_signature[:50] if clean_signature else "None"}...')
-            logger.info(f'Expected signature (base64, first 50 chars): {expected_signature_base64[:50]}...')
-            logger.info(f'API secret length: {len(self.api_secret)}')
+            # ✅ Логируем для отладки только на уровне DEBUG (не раскрываем данные в продакшене)
+            logger.debug(f'=== SIGNATURE VERIFICATION ===')
+            logger.debug(f'Data length: {len(data)} bytes')
+            logger.debug(f'Data content (first 100 chars): {data[:100]}...')  # Сократили до 100 символов
+            logger.debug(f'Received signature length: {len(clean_signature)}')
+            logger.debug(f'Received signature (first 20 chars): {clean_signature[:20] if clean_signature else "None"}...')
+            logger.debug(f'Expected signature (base64, first 20 chars): {expected_signature_base64[:20]}...')
+            logger.debug(f'API secret length: {len(self.api_secret)}')
             
             # Проверяем base64 формат (основной для CloudPayments)
             is_valid = hmac.compare_digest(clean_signature, expected_signature_base64)
             
             # Если base64 не подошел, пробуем hex
             if not is_valid and len(clean_signature) == 64:  # hex обычно 64 символа
-                logger.info(f'Trying hex format comparison...')
+                logger.debug(f'Trying hex format comparison...')
                 is_valid = hmac.compare_digest(clean_signature, expected_signature_hex)
             
             if not is_valid:
                 logger.error(f'❌ INVALID webhook signature - REJECTING')
-                logger.error(f'Expected (base64, full): {expected_signature_base64}')
-                logger.error(f'Expected (hex, full): {expected_signature_hex}')
-                logger.error(f'Got (full): {clean_signature}')
-                logger.error(f'Data (full, first 500 chars): {data[:500]}')
-                logger.error(f'Signature match (base64): {clean_signature == expected_signature_base64}')
-                logger.error(f'Signature match (hex): {clean_signature == expected_signature_hex}')
+                logger.debug(f'Expected (base64, full): {expected_signature_base64}')
+                logger.debug(f'Expected (hex, full): {expected_signature_hex}')
+                logger.debug(f'Got (full): {clean_signature}')
+                logger.debug(f'Data (full, first 200 chars): {data[:200]}...')  # ✅ Сократили
+                logger.debug(f'Signature match (base64): {clean_signature == expected_signature_base64}')
+                logger.debug(f'Signature match (hex): {clean_signature == expected_signature_hex}')
                 return False  # ✅ ОТКЛОНЯЕМ НЕВЕРНУЮ ПОДПИСЬ
             
             logger.info('Webhook signature verified successfully')
