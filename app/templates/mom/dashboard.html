@@ -160,10 +160,19 @@
                                             {% endif %}
                                         </td>
                                         <td>
-                                            {% if unread_counts.get(order.id, 0) > 0 %}
-                                                <span class="badge bg-danger" title="Непрочитанных сообщений: {{ unread_counts[order.id] }}">
-                                                    <i class="fas fa-comments"></i> {{ unread_counts[order.id] }}
-                                                </span>
+                                            {% set unread = unread_counts.get(order.id, 0) %}
+                                            {% set total = total_counts.get(order.id, 0) %}
+                                            {% if total > 0 %}
+                                                {% if unread > 0 %}
+                                                    <span class="badge bg-danger" style="font-size: 0.9em; padding: 0.35em 0.65em;" title="Непрочитанных: {{ unread }} из {{ total }}">
+                                                        <i class="fas fa-comments"></i> {{ total }}
+                                                        <span class="badge bg-dark ms-1">{{ unread }}</span>
+                                                    </span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary" style="font-size: 0.9em; padding: 0.35em 0.65em;" title="Всего сообщений: {{ total }}">
+                                                        <i class="fas fa-comments"></i> {{ total }}
+                                                    </span>
+                                                {% endif %}
                                             {% else %}
                                                 <span class="text-muted"><i class="fas fa-comments"></i> 0</span>
                                             {% endif %}

@@ -57,24 +57,41 @@ def dashboard():
         page=page, per_page=20, error_out=False
     )
     
-    # Get unread message counts for each order
-    from app.models import OrderChat
+    # Get chat message counts for each order
+    from app.models import OrderChat, ChatMessage
     unread_counts = {}
+    total_counts = {}
     order_ids = [order.id for order in orders.items]
     if order_ids:
         chats = OrderChat.query.filter(OrderChat.order_id.in_(order_ids)).all()
         chat_dict = {chat.order_id: chat for chat in chats}
+        # Get total message counts for all chats
+        chat_ids = [chat.id for chat in chats]
+        if chat_ids:
+            from sqlalchemy import func
+            message_counts = db.session.query(
+                ChatMessage.chat_id,
+                func.count(ChatMessage.id).label('total')
+            ).filter(ChatMessage.chat_id.in_(chat_ids)).group_by(ChatMessage.chat_id).all()
+            message_counts_dict = {chat_id: total for chat_id, total in message_counts}
+        else:
+            message_counts_dict = {}
+        
         for order in orders.items:
             chat = chat_dict.get(order.id)
             if chat:
                 try:
                     unread_counts[order.id] = chat.get_unread_count_for_user(current_user.id)
+                    total_counts[order.id] = message_counts_dict.get(chat.id, 0)
                 except Exception:
                     unread_counts[order.id] = 0
+                    total_counts[order.id] = 0
             else:
                 unread_counts[order.id] = 0
+                total_counts[order.id] = 0
     else:
         unread_counts = {}
+        total_counts = {}
     
     # Get video types for display
     video_types = VideoType.query.all()
@@ -87,6 +104,7 @@ def dashboard():
                          status_filter=status_filter,
                          search=search,
                          unread_counts=unread_counts,
+                         total_counts=total_counts,
                          video_types_dict=video_types_dict)
 
 
