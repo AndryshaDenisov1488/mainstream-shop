@@ -922,9 +922,42 @@ class TelegramBotManager:
                 )
                 
                 db.session.add(order)
-                db.session.commit()
                 
-                # Log order creation
+                # Commit with retry logic for SQLite database locked errors
+                import time
+                import random
+                from sqlalchemy.exc import OperationalError
+                
+                max_retries = 5
+                retry_delay = 0.1
+                
+                for attempt in range(max_retries):
+                    try:
+                        db.session.commit()
+                        break  # Success
+                    except OperationalError as e:
+                        if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                            db.session.rollback()
+                            wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                            logger.warning(f'Database locked in bot order creation, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                            time.sleep(wait_time)
+                            db.session.add(order)  # Re-add after rollback
+                        else:
+                            db.session.rollback()
+                            logger.error(f'Error creating order in bot after {attempt + 1} attempts: {str(e)}')
+                            await query.edit_message_text(
+                                "❌ Ошибка создания заказа. База данных временно недоступна. Попробуйте еще раз через несколько секунд."
+                            )
+                            return ConversationHandler.END
+                    except Exception as e:
+                        db.session.rollback()
+                        logger.error(f'Error creating order in bot: {str(e)}', exc_info=True)
+                        await query.edit_message_text(
+                            "❌ Произошла ошибка при создании заказа. Попробуйте еще раз."
+                        )
+                        return ConversationHandler.END
+                
+                # Log order creation (after successful commit)
                 from app.models import AuditLog
                 AuditLog.log_telegram_action(
                     telegram_id=str(update.effective_user.id),
