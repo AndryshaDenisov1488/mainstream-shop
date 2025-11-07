@@ -757,12 +757,17 @@ def capture_payment(order_id):
                 
                 if is_partial_capture:
                     # ✅ ЧАСТИЧНЫЙ ЗАХВАТ
+                    # При вызове confirm_payment с указанием суммы, CloudPayments:
+                    # 1. Захватывает указанную сумму (capture_amount)
+                    # 2. АВТОМАТИЧЕСКИ отменяет (void) остаток (total_amount - capture_amount)
+                    # 3. Возвращает остаток клиенту автоматически
+                    # Это стандартное поведение двухстадийных платежей в CloudPayments API
                     confirm_result = cp_api.confirm_payment(payment.cp_transaction_id, capture_amount)
                     if not confirm_result.get('success'):
                         return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
                     
-                    # ✅ ВАЖНО: При частичном capture остаток автоматически отменяется в CloudPayments
-                    # Но нужно обновить статус платежа и заказа
+                    # ✅ ВАЖНО: Остаток уже автоматически возвращен CloudPayments
+                    # Обновляем статус платежа и заказа
                     order.paid_amount = capture_amount
                     order.status = 'completed_partial_refund'  # ✅ Всегда частичный возврат при частичном захвате
                     

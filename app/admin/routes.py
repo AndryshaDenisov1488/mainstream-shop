@@ -852,12 +852,12 @@ def finance():
         # SQLite compatible year grouping
         date_trunc = func.strftime('%Y', Order.created_at)
     
-    # Revenue by period
+    # Revenue by period - учитываем заказы где деньги приняты (completed, links_sent, completed_partial_refund)
     revenue_by_period = db.session.query(
         date_trunc.label('period'),
-        func.sum(case((Order.status == 'completed', Order.total_amount), else_=0)).label('revenue'),
+        func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0)).label('revenue'),
         func.count(Order.id).label('total_orders'),
-        func.count(case((Order.status == 'completed', 1), else_=None)).label('completed_orders'),
+        func.count(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), 1), else_=None)).label('completed_orders'),
         func.count(case((Order.status.in_(['cancelled_unpaid', 'cancelled_manual']), 1), else_=None)).label('cancelled_orders'),
         func.count(case((Order.status == 'refund_required', 1), else_=None)).label('refund_orders')
     ).filter(
@@ -883,7 +883,7 @@ def finance():
         ).count()
         
         revenue = db.session.query(
-            func.sum(case((Order.status == 'completed', Order.total_amount), else_=0))
+            func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
         ).filter(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
@@ -904,7 +904,7 @@ def finance():
         orders_count = event_orders.count()
         
         revenue = db.session.query(
-            func.sum(case((Order.status == 'completed', Order.total_amount), else_=0))
+            func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
         ).filter(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
@@ -918,9 +918,9 @@ def finance():
             'average_order_value': float(revenue / orders_count) if orders_count > 0 else 0
         })
     
-    # Overall statistics
+    # Overall statistics - учитываем заказы где деньги приняты
     total_revenue = db.session.query(
-        func.sum(case((Order.status == 'completed', Order.total_amount), else_=0))
+        func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
     ).filter(
         Order.created_at >= start_dt,
         Order.created_at <= end_dt
@@ -938,7 +938,7 @@ def finance():
     total_profit = total_revenue - total_tax
     
     total_orders = base_query.count()
-    completed_orders = base_query.filter_by(status='completed').count()
+    completed_orders = base_query.filter(Order.status.in_(['completed', 'links_sent', 'completed_partial_refund'])).count()
     cancelled_orders = base_query.filter(Order.status.in_(['cancelled_unpaid', 'cancelled_manual'])).count()
     refund_orders = base_query.filter_by(status='refund_required').count()
     
