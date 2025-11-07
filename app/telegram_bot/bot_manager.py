@@ -1475,7 +1475,8 @@ class TelegramBotManager:
             # Find user by email
             user = User.query.filter_by(email=order.contact_email).first()
             if not user or not user.telegram_id:
-                logger.info(f"User {order.contact_email} not found in Telegram or not registered, skipping Telegram notification")
+                # ✅ 152-ФЗ: Не логируем email на уровне INFO
+                logger.info(f"User for order {order.id} not found in Telegram or not registered, skipping Telegram notification")
                 return False
             
             # Get video types for display
@@ -1541,18 +1542,19 @@ class TelegramBotManager:
                 return False
             
             # Find user by email
-            logger.info(f"[send_video_links] Looking for user with email: {order.contact_email}")
+            # ✅ 152-ФЗ: Не логируем email на уровне INFO
+            logger.info(f"[send_video_links] Looking for user for order {order.id}")
             user = User.query.filter_by(email=order.contact_email).first()
             
             if not user:
-                logger.info(f"[send_video_links] User with email {order.contact_email} not found in database, skipping Telegram notification")
+                logger.info(f"[send_video_links] User for order {order.id} not found in database, skipping Telegram notification")
                 return False
             
             if not user.telegram_id:
-                logger.info(f"[send_video_links] User {order.contact_email} (ID: {user.id}) found but has no telegram_id, skipping Telegram notification")
+                logger.info(f"[send_video_links] User (ID: {user.id}) for order {order.id} found but has no telegram_id, skipping Telegram notification")
                 return False
             
-            logger.info(f"[send_video_links] Found user {order.contact_email} with telegram_id: {user.telegram_id}, preparing to send message")
+            logger.info(f"[send_video_links] Found user (ID: {user.id}) for order {order.id} with telegram_id, preparing to send message")
             
             # Get video types for display
             video_types_dict = {}

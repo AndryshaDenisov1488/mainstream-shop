@@ -15,6 +15,7 @@ from reportlab.lib.units import inch
 from reportlab.lib import colors
 
 from app.utils.decorators import admin_required
+from app.utils.datetime_utils import moscow_now_naive
 from app.models import Order, OrderChat, ChatMessage, User, db
 
 bp = Blueprint('chat_export_api', __name__, url_prefix='/admin/chat')
@@ -234,10 +235,8 @@ def export_all_chats():
         buffer.close()
         
         # Create response
-        from app.utils.datetime_utils import moscow_now_naive
         filename = f"all_chats_{moscow_now_naive().strftime('%Y%m%d_%H%M%S')}.pdf"
         if start_date or end_date:
-            from app.utils.datetime_utils import moscow_now_naive
             filename = f"chats_{start_date or 'all'}_{end_date or 'all'}_{moscow_now_naive().strftime('%Y%m%d_%H%M%S')}.pdf"
         
         response = current_app.response_class(

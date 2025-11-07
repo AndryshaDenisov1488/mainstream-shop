@@ -195,75 +195,76 @@ def handle_pay_notification(data):
         
         # ✅ ИДЕМПОТЕНТНОСТЬ С БЛОКИРОВКОЙ для защиты от race condition
         try:
-            with db.session.begin():
-                # Блокируем проверку существования платежа
-                stmt = select(Payment).where(
-                    Payment.cp_transaction_id == transaction_id
-                ).with_for_update()
-                
-                existing_payment = db.session.scalar(stmt)
-                
-                if existing_payment:
-                    logger.info(f'Payment {transaction_id} already processed, skipping')
-                    return jsonify({'code': 0, 'message': 'Already processed'}), 200
-                
-                # Find order in database
-                order = Order.query.filter_by(order_number=invoice_id).first()
-                if not order:
-                    logger.error(f'Order not found for payment: {invoice_id}')
-                    return jsonify({'code': 10, 'message': 'Order not found'}), 200
-                
-                # Check if order is in correct status and not expired
-                if order.status not in ['awaiting_payment', 'checkout_initiated']:
-                    logger.error(f'Order {invoice_id} is not in awaiting_payment status: {order.status}')
-                    return jsonify({'code': 12, 'message': 'Order already processed'}), 200
-                
-                # Check if payment has expired
-                if order.payment_expires_at and moscow_now_naive() > order.payment_expires_at:
-                    logger.error(f'Payment for order {invoice_id} has expired')
-                    return jsonify({'code': 12, 'message': 'Payment expired'}), 200
-                
-                # Determine payment method
-                payment_method = 'card'
-                if 'sbp' in data.get('PaymentMethod', '').lower():
-                    payment_method = 'sbp'
-                
-                # Определяем статус платежа в зависимости от Status от CloudPayments
-                # Status может быть: Completed, Authorized, и т.д.
-                if status == 'Completed':
-                    payment_status = 'confirmed'  # Платеж сразу подтвержден (одностадийный)
-                    order_status = 'paid'
-                elif status == 'Authorized':
-                    payment_status = 'authorized'  # Платеж авторизован, нужна подтверждение (двухстадийный)
-                    order_status = 'paid'
-                else:
-                    payment_status = 'authorized'  # По умолчанию авторизован
-                    order_status = 'paid'
-                
-                # Create payment record
-                payment = Payment(
-                    order_id=order.id,
-                    cp_transaction_id=transaction_id,
-                    amount=float(amount) if amount else 0.0,
-                    currency=currency or 'RUB',
-                    status=payment_status,
-                    method=payment_method,
-                    card_mask=card_mask,
-                    email=email,
-                    raw_payload=data
-                )
-                
-                db.session.add(payment)
-                
-                # Update order status
-                order.status = order_status
-                order.paid_amount = float(amount) if amount else order.total_amount
-                order.payment_intent_id = transaction_id
-                order.payment_method = payment_method
-                
-                logger.info(f'Payment created: id={payment.id}, status={payment_status}, order_status={order_status}')
-                
-                # Коммит произойдет автоматически при выходе из with db.session.begin()
+            # Блокируем проверку существования платежа
+            # Flask-SQLAlchemy уже создает транзакцию автоматически
+            stmt = select(Payment).where(
+                Payment.cp_transaction_id == transaction_id
+            ).with_for_update()
+            
+            existing_payment = db.session.scalar(stmt)
+            
+            if existing_payment:
+                logger.info(f'Payment {transaction_id} already processed, skipping')
+                return jsonify({'code': 0, 'message': 'Already processed'}), 200
+            
+            # Find order in database
+            order = Order.query.filter_by(order_number=invoice_id).first()
+            if not order:
+                logger.error(f'Order not found for payment: {invoice_id}')
+                return jsonify({'code': 10, 'message': 'Order not found'}), 200
+            
+            # Check if order is in correct status and not expired
+            if order.status not in ['awaiting_payment', 'checkout_initiated']:
+                logger.error(f'Order {invoice_id} is not in awaiting_payment status: {order.status}')
+                return jsonify({'code': 12, 'message': 'Order already processed'}), 200
+            
+            # Check if payment has expired
+            if order.payment_expires_at and moscow_now_naive() > order.payment_expires_at:
+                logger.error(f'Payment for order {invoice_id} has expired')
+                return jsonify({'code': 12, 'message': 'Payment expired'}), 200
+            
+            # Determine payment method
+            payment_method = 'card'
+            if 'sbp' in data.get('PaymentMethod', '').lower():
+                payment_method = 'sbp'
+            
+            # Определяем статус платежа в зависимости от Status от CloudPayments
+            # Status может быть: Completed, Authorized, и т.д.
+            if status == 'Completed':
+                payment_status = 'confirmed'  # Платеж сразу подтвержден (одностадийный)
+                order_status = 'paid'
+            elif status == 'Authorized':
+                payment_status = 'authorized'  # Платеж авторизован, нужна подтверждение (двухстадийный)
+                order_status = 'paid'
+            else:
+                payment_status = 'authorized'  # По умолчанию авторизован
+                order_status = 'paid'
+            
+            # Create payment record
+            payment = Payment(
+                order_id=order.id,
+                cp_transaction_id=transaction_id,
+                amount=float(amount) if amount else 0.0,
+                currency=currency or 'RUB',
+                status=payment_status,
+                method=payment_method,
+                card_mask=card_mask,
+                email=email,
+                raw_payload=data
+            )
+            
+            db.session.add(payment)
+            
+            # Update order status
+            order.status = order_status
+            order.paid_amount = float(amount) if amount else order.total_amount
+            order.payment_intent_id = transaction_id
+            order.payment_method = payment_method
+            
+            # Commit changes
+            db.session.commit()
+            
+            logger.info(f'Payment created: id={payment.id}, status={payment_status}, order_status={order_status}')
                 
         except IntegrityError:
             # Если произошла ошибка уникальности (двойной webhook)

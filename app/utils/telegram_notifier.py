@@ -28,7 +28,8 @@ def send_video_links_notification(order):
     Synchronous wrapper for sending video links via Telegram
     Can be called from Flask routes
     """
-    logger.info(f"Attempting to send video links notification for order {order.id} (email: {order.contact_email})")
+    # ✅ 152-ФЗ: Не логируем email на уровне INFO
+    logger.info(f"Attempting to send video links notification for order {order.id}")
     
     if not _bot_manager:
         logger.warning("Telegram bot manager not initialized, skipping notification")
@@ -70,7 +71,8 @@ def send_order_created_notification(order):
     Send order created notification to user via Telegram
     Synchronous wrapper for sending order creation notification
     """
-    logger.info(f"Attempting to send order created notification for order {order.id} (email: {order.contact_email})")
+    # ✅ 152-ФЗ: Не логируем email на уровне INFO
+    logger.info(f"Attempting to send order created notification for order {order.id}")
     
     if not _bot_manager:
         logger.warning("Telegram bot manager not initialized, skipping notification")
@@ -119,7 +121,8 @@ def send_order_notification(order, message_text):
         # Find user by email
         user = User.query.filter_by(email=order.contact_email).first()
         if not user or not user.telegram_id:
-            logger.info(f"User {order.contact_email} not found in Telegram or not registered")
+            # ✅ 152-ФЗ: Не логируем email на уровне INFO
+            logger.info(f"User for order {order.id} not found in Telegram or not registered")
             return False
         
         async def send_message():

@@ -6,7 +6,6 @@ from flask import Blueprint, request, jsonify, current_app
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 import os
-from datetime import datetime
 
 from app.utils.decorators import role_required
 from app.utils.datetime_utils import moscow_now_naive

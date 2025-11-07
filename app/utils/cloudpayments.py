@@ -106,8 +106,9 @@ class CloudPaymentsAPI:
                 payment_data['description'] = f'СБП: Заказ видео {order_number}'
             
             logger.info(f'Payment widget data created for order {order.order_number}, method: {payment_method}')
-            logger.info(f'Payment data details: publicId={self.public_id}, amount={payment_data["amount"]}, currency={payment_data["currency"]}, invoiceId={payment_data["invoiceId"]}, email={payment_data["email"]}')
-            logger.info(f'Full payment data: {payment_data}')
+            # ✅ 152-ФЗ: Не логируем персональные данные (email) на уровне INFO
+            logger.debug(f'Payment data details: publicId={self.public_id}, amount={payment_data["amount"]}, currency={payment_data["currency"]}, invoiceId={payment_data["invoiceId"]}')
+            logger.debug(f'Full payment data (with PII): {payment_data}')
             
             return payment_data
             

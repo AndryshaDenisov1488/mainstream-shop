@@ -13,7 +13,7 @@ import os
 try:
     import defusedxml.ElementTree as ET
 except ImportError:
-    import xml.etree.ElementTree as ET
+    import defusedxml.ElementTree as ET
     import warnings
     warnings.warn("defusedxml not installed - XXE protection disabled", UserWarning)
 from datetime import datetime, timedelta

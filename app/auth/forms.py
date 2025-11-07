@@ -52,7 +52,7 @@ class LoginForm(FlaskForm):
         else:
             # Validate phone format
             if not PHONENUMBERS_AVAILABLE:
-                raise ValidationError('Валидация телефона недоступна')
+                raise ValidationError('Библиотека phonenumbers не установлена. Установите: pip install phonenumbers')
             try:
                 parsed_phone = phonenumbers.parse(field.data, "RU")
                 if not phonenumbers.is_valid_number(parsed_phone):

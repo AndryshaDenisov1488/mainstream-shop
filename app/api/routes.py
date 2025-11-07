@@ -567,7 +567,8 @@ def send_video_links_api(order_id):
             # Don't fail the whole operation if email fails
         
         # Send Telegram notification with links (if user has telegram_id)
-        logger.info(f"[API] About to send Telegram notification for order {order.id}, email: {order.contact_email}")
+        # ✅ 152-ФЗ: Не логируем email на уровне INFO
+        logger.info(f"[API] About to send Telegram notification for order {order.id}")
         try:
             from app.utils.telegram_notifier import send_video_links_notification
             result = send_video_links_notification(order)
