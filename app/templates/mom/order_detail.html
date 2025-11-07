@@ -428,24 +428,29 @@
                         <i class="fas fa-save me-1"></i>Сохранить изменения
                     </button>
                     
-                    <!-- Кнопки "Принять деньги" и "Вернуть деньги" для completed, refund_required и links_sent -->
-                    {% if order.status in ['completed', 'refund_required', 'links_sent'] %}
+                    {% set can_capture = order.can_be_captured_by_mom() %}
+                    {% set can_refund = order.status in ['refund_required', 'completed', 'completed_partial_refund'] %}
+                    {% if can_capture or can_refund %}
                         <div class="d-flex gap-2 mb-2">
-                            <button class="btn btn-success btn-sm flex-fill confirm-payment-btn" 
-                                    data-order-id="{{ order.id }}" 
-                                    data-order-number="{{ order.generated_order_number }}" 
-                                    data-order-amount="{{ order.total_amount }}" 
-                                    title="Принять деньги">
-                                <i class="fas fa-money-bill-wave me-1"></i>Принять деньги
-                            </button>
-                            <button class="btn btn-danger btn-sm flex-fill refund-money-btn" 
-                                    data-order-id="{{ order.id }}" 
-                                    data-order-number="{{ order.generated_order_number }}" 
-                                    data-order-amount="{{ order.total_amount }}"
-                                    data-paid-amount="{{ order.paid_amount or 0 }}"
-                                    title="Вернуть деньги">
-                                <i class="fas fa-undo me-1"></i>Вернуть деньги
-                            </button>
+                            {% if can_capture %}
+                                <button class="btn btn-success btn-sm flex-fill confirm-payment-btn" 
+                                        data-order-id="{{ order.id }}" 
+                                        data-order-number="{{ order.generated_order_number }}" 
+                                        data-order-amount="{{ order.total_amount }}" 
+                                        title="Принять деньги">
+                                    <i class="fas fa-money-bill-wave me-1"></i>Принять деньги
+                                </button>
+                            {% endif %}
+                            {% if can_refund %}
+                                <button class="btn btn-danger btn-sm flex-fill refund-money-btn" 
+                                        data-order-id="{{ order.id }}" 
+                                        data-order-number="{{ order.generated_order_number }}" 
+                                        data-order-amount="{{ order.total_amount }}"
+                                        data-paid-amount="{{ order.paid_amount or 0 }}"
+                                        title="Вернуть деньги">
+                                    <i class="fas fa-undo me-1"></i>Вернуть деньги
+                                </button>
+                            {% endif %}
                         </div>
                     {% endif %}
                     
