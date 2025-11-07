@@ -830,8 +830,10 @@ def finance():
             start_date = (now - timedelta(days=1095)).strftime('%Y-%m-%d')
     
     # Convert to datetime objects
+    # start_dt - начало дня (00:00:00)
     start_dt = datetime.strptime(start_date, '%Y-%m-%d')
-    end_dt = datetime.strptime(end_date, '%Y-%m-%d')
+    # end_dt - конец дня (23:59:59), чтобы включить все заказы за этот день
+    end_dt = datetime.strptime(end_date, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
     
     # Base query for orders in date range
     base_query = Order.query.filter(
@@ -853,9 +855,16 @@ def finance():
         date_trunc = func.strftime('%Y', Order.created_at)
     
     # Revenue by period - учитываем заказы где деньги приняты (completed, links_sent, completed_partial_refund)
+    # Для completed_partial_refund используем paid_amount, для остальных - total_amount
     revenue_by_period = db.session.query(
         date_trunc.label('period'),
-        func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0)).label('revenue'),
+        func.sum(
+            case(
+                (Order.status == 'completed_partial_refund', Order.paid_amount or 0),
+                (Order.status.in_(['completed', 'links_sent']), Order.total_amount),
+                else_=0
+            )
+        ).label('revenue'),
         func.count(Order.id).label('total_orders'),
         func.count(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), 1), else_=None)).label('completed_orders'),
         func.count(case((Order.status.in_(['cancelled_unpaid', 'cancelled_manual']), 1), else_=None)).label('cancelled_orders'),
@@ -883,7 +892,13 @@ def finance():
         ).count()
         
         revenue = db.session.query(
-            func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
+            func.sum(
+                case(
+                    (Order.status == 'completed_partial_refund', Order.paid_amount or 0),
+                    (Order.status.in_(['completed', 'links_sent']), Order.total_amount),
+                    else_=0
+                )
+            )
         ).filter(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
@@ -904,7 +919,13 @@ def finance():
         orders_count = event_orders.count()
         
         revenue = db.session.query(
-            func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
+            func.sum(
+                case(
+                    (Order.status == 'completed_partial_refund', Order.paid_amount or 0),
+                    (Order.status.in_(['completed', 'links_sent']), Order.total_amount),
+                    else_=0
+                )
+            )
         ).filter(
             Order.created_at >= start_dt,
             Order.created_at <= end_dt,
@@ -919,8 +940,15 @@ def finance():
         })
     
     # Overall statistics - учитываем заказы где деньги приняты
+    # Для completed_partial_refund используем paid_amount, для остальных - total_amount
     total_revenue = db.session.query(
-        func.sum(case((Order.status.in_(['completed', 'links_sent', 'completed_partial_refund']), Order.total_amount), else_=0))
+        func.sum(
+            case(
+                (Order.status == 'completed_partial_refund', Order.paid_amount or 0),
+                (Order.status.in_(['completed', 'links_sent']), Order.total_amount),
+                else_=0
+            )
+        )
     ).filter(
         Order.created_at >= start_dt,
         Order.created_at <= end_dt
