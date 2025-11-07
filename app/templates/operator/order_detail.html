@@ -104,8 +104,8 @@
                     <h5 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h5>
                 </div>
                 <div class="card-body">
-                    <form id="sendLinksForm">
-                        <input type="hidden" name="order_id" value="{{ order.id }}">
+                    <form id="sendLinksFormPage">
+                        <input type="hidden" name="order_id" id="pageOrderId" value="{{ order.id }}">
                         <input type="hidden" name="client_email" value="{{ order.contact_email }}">
                         <input type="hidden" name="client_name" value="{{ order.contact_last_name or '' }} {{ order.contact_first_name or '' }}">
 
@@ -411,9 +411,21 @@
 <script>
 // Define sendVideoLinks function first to avoid ReferenceError
 function sendVideoLinks() {
-    // Ищем форму внутри модального окна
+    // Определяем, какая форма используется - модальная или на странице
     const modal = document.getElementById('sendLinksModal');
-    const form = modal ? modal.querySelector('#sendLinksForm') : document.getElementById('sendLinksForm');
+    const isModalOpen = modal && modal.classList.contains('show');
+    
+    let form, orderId;
+    
+    if (isModalOpen) {
+        // Используем модальную форму
+        form = modal.querySelector('#sendLinksForm');
+        orderId = document.getElementById('modalOrderId')?.value;
+    } else {
+        // Используем форму на странице
+        form = document.getElementById('sendLinksFormPage');
+        orderId = document.getElementById('pageOrderId')?.value || '{{ order.id }}';
+    }
     
     if (!form) {
         alert('Ошибка: форма не найдена');
@@ -421,39 +433,38 @@ function sendVideoLinks() {
         return;
     }
     
-    const formData = new FormData(form);
-    const orderId = formData.get('order_id') || document.getElementById('modalOrderId')?.value;
-    
     if (!orderId) {
         alert('Ошибка: не найден ID заказа');
         console.error('Order ID not found');
         return;
     }
     
-    // Ищем поля ссылок как в модальном окне, так и на странице
+    const formData = new FormData(form);
+    
+    // Ищем поля ссылок в активной форме
     const videoLinks = {};
     
-    // Сначала ищем в модальном окне
-    const videoLinksContainer = document.getElementById('videoLinksContainer');
-    if (videoLinksContainer) {
-        const videoLinkInputs = videoLinksContainer.querySelectorAll('input[name^="video_links["]');
+    if (isModalOpen) {
+        // Ищем в модальном окне
+        const videoLinksContainer = document.getElementById('videoLinksContainer');
+        if (videoLinksContainer) {
+            const videoLinkInputs = videoLinksContainer.querySelectorAll('input[name^="video_links["]');
+            videoLinkInputs.forEach(input => {
+                const match = input.name.match(/video_links\[(.+)\]/);
+                const value = input.value.trim();
+                if (match && value) {
+                    videoLinks[match[1]] = value;
+                }
+            });
+        }
+    } else {
+        // Ищем в форме на странице
+        const videoLinkInputs = form.querySelectorAll('input[name^="video_link_"]');
         videoLinkInputs.forEach(input => {
-            const match = input.name.match(/video_links\[(.+)\]/);
+            const videoTypeId = input.name.replace('video_link_', '');
             const value = input.value.trim();
-            if (match && value) {
-                videoLinks[match[1]] = value;
-            }
-        });
-    }
-    
-    // Если не нашли в модальном окне, ищем в форме на странице
-    if (Object.keys(videoLinks).length === 0) {
-        const videoLinkInputs = form.querySelectorAll('input[name^="video_links["]');
-        videoLinkInputs.forEach(input => {
-            const match = input.name.match(/video_links\[(.+)\]/);
-            const value = input.value.trim();
-            if (match && value) {
-                videoLinks[match[1]] = value;
+            if (videoTypeId && value) {
+                videoLinks[videoTypeId] = value;
             }
         });
     }
