@@ -259,8 +259,25 @@ def customers():
     sort_by = request.args.get('sort', 'created_at', type=str)
     sort_order = request.args.get('order', 'desc', type=str)
     
-    # Build query
-    query = User.query.filter(User.role == 'CUSTOMER')
+    # Build query - показываем всех пользователей с ролью CUSTOMER
+    # ИЛИ пользователей, у которых есть заказы (даже если роль не CUSTOMER)
+    from sqlalchemy import or_, exists
+    # Получаем все уникальные customer_id из заказов
+    order_customer_ids = db.session.query(Order.customer_id).filter(
+        Order.customer_id.isnot(None)
+    ).distinct().all()
+    order_customer_ids = [row[0] for row in order_customer_ids]
+    
+    # Строим запрос: пользователи с ролью CUSTOMER ИЛИ пользователи, у которых есть заказы
+    if order_customer_ids:
+        query = User.query.filter(
+            or_(
+                User.role == 'CUSTOMER',
+                User.id.in_(order_customer_ids)
+            )
+        )
+    else:
+        query = User.query.filter(User.role == 'CUSTOMER')
     
     # Search functionality
     if search:
