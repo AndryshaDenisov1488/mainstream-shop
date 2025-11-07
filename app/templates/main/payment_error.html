@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Ошибка оплаты - MainStream Shop{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Ошибка оплаты заказа {{ order.generated_order_number if order else 'N/A' }}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger">
+                        <h5><i class="fas fa-times-circle me-2"></i>Не удалось загрузить страницу оплаты</h5>
+                        <p><strong>Причина:</strong> {{ error_message }}</p>
+                    </div>
+                    
+                    {% if order %}
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6 class="mb-0">Информация о заказе</h6>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
+                            <p><strong>Статус:</strong> 
+                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'paid' else 'info' }}">
+                                    {{ order.get_status_display() }}
+                                </span>
+                            </p>
+                            <p><strong>Сумма:</strong> {{ "%.2f"|format(order.total_amount) }} ₽</p>
+                            {% if order.athlete %}
+                            <p><strong>Спортсмен:</strong> {{ order.athlete.name }}</p>
+                            {% endif %}
+                            {% if order.event %}
+                            <p><strong>Турнир:</strong> {{ order.event.name }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('main.index') }}" class="btn btn-primary">
+                            <i class="fas fa-home me-2"></i>Вернуться на главную
+                        </a>
+                        <a href="mailto:support@mainstreamfs.ru" class="btn btn-outline-secondary">
+                            <i class="fas fa-envelope me-2"></i>Связаться с поддержкой
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

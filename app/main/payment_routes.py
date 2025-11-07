@@ -258,6 +258,8 @@ def register_payment_routes(bp):
                 video_types = VideoType.query.filter(VideoType.id.in_(order.video_types)).all()
                 video_types_dict = {vt.id: vt for vt in video_types}
             
+            logger.info(f'Rendering payment page for order {order.id}, status: {order.status}, payment_data exists: {bool(payment_data)}')
+            
             return render_template('main/payment.html', 
                                  payment_data=payment_data, 
                                  order=order, 
