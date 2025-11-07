@@ -428,15 +428,25 @@
                         <i class="fas fa-save me-1"></i>Сохранить изменения
                     </button>
                     
-                    <!-- Кнопка "Принять деньги" для completed, refund_required и links_sent -->
+                    <!-- Кнопки "Принять деньги" и "Вернуть деньги" для completed, refund_required и links_sent -->
                     {% if order.status in ['completed', 'refund_required', 'links_sent'] %}
-                        <button class="btn btn-success btn-sm w-100 mb-2 confirm-payment-btn" 
-                                data-order-id="{{ order.id }}" 
-                                data-order-number="{{ order.generated_order_number }}" 
-                                data-order-amount="{{ order.total_amount }}" 
-                                title="Принять деньги">
-                            <i class="fas fa-money-bill-wave me-1"></i>Принять деньги
-                        </button>
+                        <div class="d-flex gap-2 mb-2">
+                            <button class="btn btn-success btn-sm flex-fill confirm-payment-btn" 
+                                    data-order-id="{{ order.id }}" 
+                                    data-order-number="{{ order.generated_order_number }}" 
+                                    data-order-amount="{{ order.total_amount }}" 
+                                    title="Принять деньги">
+                                <i class="fas fa-money-bill-wave me-1"></i>Принять деньги
+                            </button>
+                            <button class="btn btn-danger btn-sm flex-fill refund-money-btn" 
+                                    data-order-id="{{ order.id }}" 
+                                    data-order-number="{{ order.generated_order_number }}" 
+                                    data-order-amount="{{ order.total_amount }}"
+                                    data-paid-amount="{{ order.paid_amount or 0 }}"
+                                    title="Вернуть деньги">
+                                <i class="fas fa-undo me-1"></i>Вернуть деньги
+                            </button>
+                        </div>
                     {% endif %}
                     
                     <!-- Кнопка "Обработать возврат" для refund_required -->
@@ -855,6 +865,17 @@ document.addEventListener('DOMContentLoaded', function() {
             openRefundModal(orderId, paidAmount, totalAmount);
         });
     });
+    
+    // Handle refund money button clicks (для кнопки "Вернуть деньги" рядом с "Принять деньги")
+    document.querySelectorAll('.refund-money-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            const orderAmount = parseFloat(this.getAttribute('data-order-amount'));
+            const paidAmount = parseFloat(this.getAttribute('data-paid-amount') || 0);
+            openRefundMoneyModal(orderId, orderNumber, orderAmount, paidAmount);
+        });
+    });
 });
 
 // Function to open confirm payment modal
@@ -957,6 +978,30 @@ function processRefund(orderId, form) {
     });
 }
 
+// Function to open refund money modal (для кнопки "Вернуть деньги")
+function openRefundMoneyModal(orderId, orderNumber, orderAmount, paidAmount) {
+    document.getElementById('refundMoneyOrderNumber').textContent = orderNumber;
+    document.getElementById('refundMoneyTotalAmount').textContent = orderAmount.toFixed(2);
+    document.getElementById('refundMoneyPaidAmount').textContent = paidAmount.toFixed(2);
+    document.getElementById('refundMoneyAmount').value = '';
+    document.getElementById('refundMoneyAmount').max = Math.max(paidAmount, orderAmount);
+    document.getElementById('refundMoneyReason').value = '';
+    document.getElementById('refundMoneyOrderId').value = orderId;
+    
+    // Показываем подсказку в зависимости от того, приняты ли деньги
+    const hintDiv = document.getElementById('refundMoneyHint');
+    if (paidAmount > 0) {
+        hintDiv.innerHTML = '<i class="fas fa-info-circle me-2"></i>Деньги уже приняты. Можно вернуть всю сумму или часть.';
+        hintDiv.className = 'alert alert-info';
+    } else {
+        hintDiv.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Деньги еще не приняты. Для частичного возврата сначала примите часть денег через кнопку "Принять деньги".';
+        hintDiv.className = 'alert alert-warning';
+    }
+    
+    const modal = new bootstrap.Modal(document.getElementById('refundMoneyModal'));
+    modal.show();
+}
+
 // Function to open refund modal (для возврата после принятия денег)
 function openRefundModal(orderId, paidAmount, totalAmount) {
     if (confirm(`Вы уверены, что хотите вернуть средства по этому заказу?\n\nОплаченная сумма: ${paidAmount.toFixed(2)} ₽\nОбщая сумма заказа: ${totalAmount.toFixed(2)} ₽\n\nДля частичного возврата укажите сумму в следующем окне.`)) {
@@ -1013,6 +1058,75 @@ function openRefundModal(orderId, paidAmount, totalAmount) {
         });
     }
 }
+
+// Handle refund money form submission
+document.getElementById('refundMoneyForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const orderId = document.getElementById('refundMoneyOrderId').value;
+    const refundAmount = parseFloat(document.getElementById('refundMoneyAmount').value);
+    const refundReason = document.getElementById('refundMoneyReason').value.trim();
+    const paidAmount = parseFloat(document.getElementById('refundMoneyPaidAmount').textContent);
+    const totalAmount = parseFloat(document.getElementById('refundMoneyTotalAmount').textContent);
+    
+    if (!refundReason) {
+        alert('Необходимо указать причину возврата');
+        return;
+    }
+    
+    if (isNaN(refundAmount) || refundAmount <= 0) {
+        alert('Некорректная сумма возврата');
+        return;
+    }
+    
+    // Проверка: если деньги не приняты, можно вернуть только всю сумму
+    if (paidAmount === 0 && refundAmount < totalAmount) {
+        if (!confirm('Деньги еще не приняты. Для частичного возврата сначала примите часть денег через кнопку "Принять деньги".\n\nПродолжить с полным возвратом?')) {
+            return;
+        }
+    }
+    
+    if (paidAmount > 0 && refundAmount > paidAmount) {
+        alert(`Сумма возврата не может превышать принятую сумму (${paidAmount.toFixed(2)} ₽)`);
+        return;
+    }
+    
+    if (!confirm(`Вы уверены, что хотите вернуть ${refundAmount.toFixed(2)} ₽?\n\nПричина: ${refundReason}`)) {
+        return;
+    }
+    
+    const submitBtn = this.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Обработка...';
+    
+    fetch(`/api/order/${orderId}/refund`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            amount: refundAmount,
+            reason: refundReason
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message || `Возврат ${refundAmount.toFixed(2)} ₽ выполнен успешно`);
+            location.reload();
+        } else {
+            alert('Ошибка: ' + data.error);
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-undo me-1"></i>Вернуть деньги';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Произошла ошибка при возврате денег');
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fas fa-undo me-1"></i>Вернуть деньги';
+    });
+});
 </script>
 
 <!-- Modal для подтверждения платежа -->
@@ -1052,6 +1166,62 @@ function openRefundModal(orderId, paidAmount, totalAmount) {
                     <i class="fas fa-money-bill-wave me-1"></i>Подтвердить платеж
                 </button>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal для возврата денег -->
+<div class="modal fade" id="refundMoneyModal" tabindex="-1" aria-labelledby="refundMoneyModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="refundMoneyModalLabel">Вернуть деньги</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="refundMoneyForm">
+                <div class="modal-body">
+                    <div id="refundMoneyHint" class="alert"></div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Номер заказа:</strong><br>
+                            <span id="refundMoneyOrderNumber">-</span>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Общая сумма заказа:</strong><br>
+                            <span id="refundMoneyTotalAmount">-</span> ₽
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Принятая сумма:</strong> <span id="refundMoneyPaidAmount">-</span> ₽</label>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundMoneyAmount" class="form-label">Сумма к возврату (₽) <span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="refundMoneyAmount" name="refund_amount" 
+                               step="0.01" min="0.01" required placeholder="Введите сумму возврата">
+                        <div class="form-text">
+                            Введите сумму для возврата. Для полного возврата введите всю сумму заказа.
+                            <br><strong>Важно:</strong> Если нужно вернуть только часть, а деньги еще не приняты, сначала примите часть денег через кнопку "Принять деньги".
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="refundMoneyReason" class="form-label">Причина возврата <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="refundMoneyReason" name="refund_reason" rows="3" 
+                                  placeholder="Укажите причину возврата для клиента" required></textarea>
+                    </div>
+                    
+                    <input type="hidden" id="refundMoneyOrderId" name="order_id">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-undo me-1"></i>Вернуть деньги
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
