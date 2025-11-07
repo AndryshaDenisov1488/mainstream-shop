@@ -12,6 +12,9 @@
                 <button type="button" class="btn btn-sm btn-outline-secondary" onclick="exportCustomers()">
                     <i class="fas fa-download"></i> Экспорт
                 </button>
+                <button type="button" class="btn btn-sm btn-warning" onclick="fixCustomerRoles()" title="Исправить роли пользователей с заказами">
+                    <i class="fas fa-user-cog"></i> Исправить роли
+                </button>
             </div>
         </div>
     </div>
@@ -578,6 +581,32 @@ function getStatusText(status) {
 function exportCustomers() {
     // Export functionality would go here
     alert('Функция экспорта будет реализована позже');
+}
+
+function fixCustomerRoles() {
+    if (!confirm('Исправить роли всех пользователей с заказами на CUSTOMER? Это действие нельзя отменить.')) {
+        return;
+    }
+    
+    fetch('/admin/customers/fix-roles', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`Успешно исправлено ролей: ${data.fixed_count}`);
+            location.reload();
+        } else {
+            alert('Ошибка: ' + (data.error || 'Неизвестная ошибка'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Ошибка при исправлении ролей');
+    });
 }
 </script>
 

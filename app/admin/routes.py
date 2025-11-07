@@ -746,6 +746,32 @@ def analytics():
                          orders_by_status=orders_by_status,
                          top_events=top_events)
 
+@bp.route('/customers/fix-roles', methods=['POST'])
+@login_required
+@admin_required
+def fix_customer_roles():
+    """Fix customer roles - set CUSTOMER role for users who have orders"""
+    try:
+        # Находим всех пользователей, у которых есть заказы, но роль не CUSTOMER
+        users_with_orders = db.session.query(User).join(Order).filter(
+            User.role != 'CUSTOMER',
+            Order.customer_id == User.id
+        ).distinct().all()
+        
+        fixed_count = 0
+        for user in users_with_orders:
+            user.role = 'CUSTOMER'
+            fixed_count += 1
+        
+        db.session.commit()
+        
+        flash(f'Исправлено ролей: {fixed_count} пользователей теперь имеют роль CUSTOMER', 'success')
+        return jsonify({'success': True, 'fixed_count': fixed_count})
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Ошибка при исправлении ролей: {str(e)}', 'error')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @bp.route('/customer/<int:customer_id>/details')
 @login_required
 @admin_required
