@@ -114,10 +114,6 @@ def register_payment_routes(bp):
                 existing_user = User.query.filter_by(email=contact_email).first()
                 if existing_user:
                     customer_id = existing_user.id
-                    # Если пользователь существует, но не является клиентом, обновляем роль
-                    if existing_user.role != 'CUSTOMER':
-                        existing_user.role = 'CUSTOMER'
-                        db.session.commit()
                 else:
                     # Create new user
                     import secrets

@@ -1193,10 +1193,6 @@ def create_order():
             existing_user = User.query.filter_by(email=contact_email).first()
             if existing_user:
                 customer_id = existing_user.id
-                # Если пользователь существует, но не является клиентом, обновляем роль
-                if existing_user.role != 'CUSTOMER':
-                    existing_user.role = 'CUSTOMER'
-                    db.session.commit()
             else:
                 # For test mode, create a temporary user or use None
                 # This allows testing payments without full user registration
