@@ -753,9 +753,11 @@ def fix_customer_roles():
     """Fix customer roles - set CUSTOMER role for users who have orders"""
     try:
         # Находим всех пользователей, у которых есть заказы, но роль не CUSTOMER
-        users_with_orders = db.session.query(User).join(Order).filter(
-            User.role != 'CUSTOMER',
-            Order.customer_id == User.id
+        # Явно указываем onclause для join, так как между User и Order есть несколько связей
+        users_with_orders = db.session.query(User).join(
+            Order, Order.customer_id == User.id
+        ).filter(
+            User.role != 'CUSTOMER'
         ).distinct().all()
         
         fixed_count = 0
