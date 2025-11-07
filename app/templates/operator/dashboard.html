@@ -459,8 +459,8 @@ function populateVideoLinks(order) {
             const isMultiple = videoTypeCounts[id] > 1;
             
             // Находим информацию о типе видео
-            const videoType = order.video_types_info ? order.video_types_info[id] : null;
-            const videoTypeName = videoType ? videoType.name : 'Неизвестный тип видео';
+            const videoTypeInfo = order.video_types_info ? order.video_types_info[id] : null;
+            const videoTypeName = videoTypeInfo ? videoTypeInfo.name : 'Неизвестный тип видео';
             
             const div = document.createElement('div');
             div.className = 'mb-3';
