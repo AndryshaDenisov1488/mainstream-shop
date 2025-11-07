@@ -388,13 +388,41 @@ function populateVideoLinks(order) {
     if (order.video_links && Object.keys(order.video_links).length > 0) {
         sentContainer.style.display = 'block';
         
-        Object.entries(order.video_links).forEach(([videoTypeId, link]) => {
-            const videoType = order.video_types ? order.video_types.find(vt => vt.id == videoTypeId) : null;
+        // Подсчитываем количество каждого типа для правильного отображения
+        const videoTypeCounts = {};
+        if (order.video_types && order.video_types.length > 0) {
+            order.video_types.forEach(videoTypeId => {
+                const id = videoTypeId.toString();
+                videoTypeCounts[id] = (videoTypeCounts[id] || 0) + 1;
+            });
+        }
+        
+        const videoTypeIndexes = {};
+        Object.entries(order.video_links).forEach(([fieldKey, link]) => {
+            // Определяем тип видео и индекс
+            let videoTypeId, index;
+            if (fieldKey.includes('_')) {
+                // Новый формат: video_type_id_index
+                const parts = fieldKey.split('_');
+                videoTypeId = parts[0];
+                index = parseInt(parts[1]) || 0;
+            } else {
+                // Старый формат: video_type_id
+                videoTypeId = fieldKey;
+                index = videoTypeIndexes[videoTypeId] || 0;
+                videoTypeIndexes[videoTypeId] = index + 1;
+            }
+            
+            const videoType = order.video_types_info ? order.video_types_info[videoTypeId] : null;
+            const videoTypeName = videoType ? videoType.name : 'Неизвестный тип';
+            const isMultiple = videoTypeCounts[videoTypeId] > 1;
+            const labelText = isMultiple ? `${videoTypeName} #${index + 1}` : videoTypeName;
+            
             const div = document.createElement('div');
             div.className = 'mb-2 p-2 border rounded bg-light';
             div.innerHTML = `
                 <div class="d-flex align-items-center">
-                    <strong class="me-2">${videoType ? videoType.name : 'Неизвестный тип'}:</strong>
+                    <strong class="me-2">${labelText}:</strong>
                     <a href="${link}" target="_blank" class="btn btn-outline-success btn-sm me-2">
                         <i class="fas fa-external-link-alt me-1"></i>Открыть
                     </a>
@@ -406,14 +434,40 @@ function populateVideoLinks(order) {
     }
     
     // Показываем поля для ввода новых ссылок
+    // Подсчитываем количество каждого типа видео
+    const videoTypeCounts = {};
     if (order.video_types && order.video_types.length > 0) {
-        order.video_types.forEach(videoType => {
+        order.video_types.forEach(videoTypeId => {
+            const id = videoTypeId.toString();
+            videoTypeCounts[id] = (videoTypeCounts[id] || 0) + 1;
+        });
+    }
+    
+    // Создаем индексы для каждого типа видео
+    const videoTypeIndexes = {};
+    if (order.video_types && order.video_types.length > 0) {
+        order.video_types.forEach((videoTypeId, index) => {
+            const id = videoTypeId.toString();
+            if (!videoTypeIndexes[id]) {
+                videoTypeIndexes[id] = 0;
+            } else {
+                videoTypeIndexes[id]++;
+            }
+            const currentIndex = videoTypeIndexes[id];
+            const fieldKey = `${id}_${currentIndex}`;
+            const isMultiple = videoTypeCounts[id] > 1;
+            
+            // Находим информацию о типе видео
+            const videoType = order.video_types_info ? order.video_types_info[id] : null;
+            const videoTypeName = videoType ? videoType.name : 'Неизвестный тип видео';
+            
             const div = document.createElement('div');
             div.className = 'mb-3';
-            const existingLink = order.video_links ? order.video_links[videoType.id] : '';
+            const existingLink = order.video_links ? order.video_links[fieldKey] || order.video_links[id] : '';
+            const labelText = isMultiple ? `${videoTypeName} #${currentIndex + 1}` : videoTypeName;
             div.innerHTML = `
-                <label class="form-label"><strong>${videoType.name || 'Неизвестный тип видео'}</strong></label>
-                <input type="url" class="form-control" name="video_link_${videoType.id}" 
+                <label class="form-label"><strong>${labelText}</strong></label>
+                <input type="url" class="form-control" name="video_link_${fieldKey}" 
                        value="${existingLink || ''}" placeholder="https://disk.yandex.ru/..." required>
                 <div class="form-text">Вставьте ссылку на скачивание видео</div>
             `;

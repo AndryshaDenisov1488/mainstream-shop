@@ -513,10 +513,11 @@ def send_video_links_api(order_id):
             refund_comment = request.form.get('refund_comment', '')
             
             # Process each video type from form
+            # Поддерживаем как старый формат (video_type_id), так и новый (video_type_id_index)
             for key, value in request.form.items():
                 if key.startswith('video_link_') and value.strip():
-                    video_type_id = key.replace('video_link_', '')
-                    video_links[video_type_id] = value.strip()
+                    field_key = key.replace('video_link_', '')
+                    video_links[field_key] = value.strip()
         
         if not video_links:
             return jsonify({'success': False, 'error': 'Необходимо указать хотя бы одну ссылку на видео'}), 400

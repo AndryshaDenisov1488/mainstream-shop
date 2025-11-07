@@ -110,15 +110,38 @@
                         <input type="hidden" name="client_name" value="{{ order.contact_last_name or '' }} {{ order.contact_first_name or '' }}">
 
                         {% if order.video_types %}
+                            {% set video_type_counts = {} %}
                             {% for video_type_id in order.video_types %}
-                                {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}
+                                {% set video_type_id_str = video_type_id|string %}
+                                {% if video_type_id_str in video_type_counts %}
+                                    {% set _ = video_type_counts.update({video_type_id_str: video_type_counts[video_type_id_str] + 1}) %}
+                                {% else %}
+                                    {% set _ = video_type_counts.update({video_type_id_str: 1}) %}
+                                {% endif %}
+                            {% endfor %}
+                            {% set video_type_indexes = {} %}
+                            {% for video_type_id in order.video_types %}
+                                {% set video_type_id_str = video_type_id|string %}
+                                {% set video_type = video_types_dict.get(video_type_id_str) if video_types_dict else None %}
+                                {% if video_type_id_str not in video_type_indexes %}
+                                    {% set _ = video_type_indexes.update({video_type_id_str: 0}) %}
+                                {% else %}
+                                    {% set _ = video_type_indexes.update({video_type_id_str: video_type_indexes[video_type_id_str] + 1}) %}
+                                {% endif %}
+                                {% set current_index = video_type_indexes[video_type_id_str] %}
+                                {% set field_key = video_type_id_str + '_' + current_index|string %}
+                                {% set is_multiple = video_type_counts.get(video_type_id_str, 1) > 1 %}
                                 <div class="mb-3">
-                                    <label for="video_link_{{ video_type_id }}" class="form-label">
-                                        {{ video_type.name if video_type else 'Неизвестный тип' }} ({{ "%.0f"|format(video_type.price) }} ₽)
+                                    <label for="video_link_{{ field_key }}" class="form-label">
+                                        {% if is_multiple %}
+                                            {{ video_type.name if video_type else 'Неизвестный тип' }} #{{ current_index + 1 }} ({{ "%.0f"|format(video_type.price) }} ₽)
+                                        {% else %}
+                                            {{ video_type.name if video_type else 'Неизвестный тип' }} ({{ "%.0f"|format(video_type.price) }} ₽)
+                                        {% endif %}
                                     </label>
-                                    <input type="url" class="form-control" id="video_link_{{ video_type_id }}"
-                                           name="video_links[{{ video_type_id }}]"
-                                           value="{{ order.video_links.get(video_type_id|string, '') if order.video_links else '' }}"
+                                    <input type="url" class="form-control" id="video_link_{{ field_key }}"
+                                           name="video_link_{{ field_key }}"
+                                           value="{{ order.video_links.get(field_key, '') if order.video_links else '' }}"
                                            placeholder="Вставьте ссылку на скачивание видео"
                                            {% if order.status == 'completed' or order.status in ['cancelled_unpaid', 'cancelled_manual'] %}disabled{% endif %}>
                                 </div>
@@ -470,10 +493,11 @@ function sendVideoLinks() {
         // Ищем в форме на странице
         const videoLinkInputs = form.querySelectorAll('input[name^="video_link_"]');
         videoLinkInputs.forEach(input => {
-            const videoTypeId = input.name.replace('video_link_', '');
+            const fieldName = input.name.replace('video_link_', '');
             const value = input.value.trim();
-            if (videoTypeId && value) {
-                videoLinks[videoTypeId] = value;
+            if (fieldName && value) {
+                // Поддерживаем как старый формат (video_type_id), так и новый (video_type_id_index)
+                videoLinks[fieldName] = value;
             }
         });
     }
