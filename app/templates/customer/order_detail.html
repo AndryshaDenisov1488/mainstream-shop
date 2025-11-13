@@ -35,17 +35,9 @@
                                 <tr>
                                     <td><strong>Статус:</strong></td>
                                     <td>
-                                        {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
-                                            <span class="badge bg-warning">Ожидает обработки</span>
-                                        {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
-                                            <span class="badge bg-info">В работе</span>
-                                        {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund', 'refund_required', 'refunded_partial'] %}
-                                            <span class="badge bg-success">Ссылки отправлены</span>
-                                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
-                                            <span class="badge bg-danger">Отменен</span>
-                                        {% else %}
-                                            <span class="badge bg-info">В работе</span>
-                                        {% endif %}
+                                        <span class="badge bg-{{ order.get_status_badge_class() }}">
+                                            {{ order.get_status_display() }}
+                                        </span>
                                     </td>
                                 </tr>
                                 <tr>
@@ -167,13 +159,13 @@
                     <h5 class="mb-0">Статус заказа</h5>
                 </div>
                 <div class="card-body">
-                    {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
+                    {% if order.status in ['checkout_initiated', 'awaiting_payment'] %}
                         <div class="alert alert-info">
                             <i class="fas fa-clock"></i>
                             <strong>Ожидает обработки</strong><br>
                             Ваш заказ принят в обработку. Ожидайте подтверждения.
                         </div>
-                    {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
+                    {% elif order.status in ['paid', 'processing', 'awaiting_info'] %}
                         <div class="alert alert-warning">
                             <i class="fas fa-cogs"></i>
                             <strong>В работе</strong><br>
@@ -185,7 +177,7 @@
                             <strong>Ссылки отправлены</strong><br>
                             Ссылки на видео отправлены на ваш email.
                         </div>
-                    {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
+                    {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
                         <div class="alert alert-danger">
                             <i class="fas fa-times"></i>
                             <strong>Отменен</strong><br>

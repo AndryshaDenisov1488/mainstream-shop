@@ -6,6 +6,7 @@ from app.models import Order, Payment, VideoType
 from app.utils.decorators import customer_required
 from sqlalchemy import desc
 from datetime import datetime, timedelta
+from app.utils.order_status import expand_status_filter, get_status_filter_choices
 
 @bp.route('/dashboard')
 @login_required
@@ -21,11 +22,11 @@ def dashboard():
     stats = {
         'pending_orders': Order.query.filter(
             Order.customer_id == current_user.id,
-            Order.status.in_(['pending_payment', 'pending'])
+            Order.status.in_(['checkout_initiated', 'awaiting_payment'])
         ).count(),
         'processing_orders': Order.query.filter(
             Order.customer_id == current_user.id,
-            Order.status.in_(['processing', 'awaiting_info', 'links_sent'])
+            Order.status.in_(['paid', 'processing', 'awaiting_info', 'links_sent'])
         ).count(),
     }
     
@@ -46,7 +47,8 @@ def orders():
     query = Order.query.filter_by(customer_id=current_user.id)
     
     if status_filter:
-        query = query.filter(Order.status == status_filter)
+        normalized_statuses = expand_status_filter(status_filter) or [status_filter]
+        query = query.filter(Order.status.in_(normalized_statuses))
     
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=10, error_out=False
@@ -56,7 +58,18 @@ def orders():
     video_types = VideoType.query.all()
     video_types_dict = {str(vt.id): vt for vt in video_types} if video_types else {}
     
-    return render_template('customer/orders.html', orders=orders, status_filter=status_filter, video_types_dict=video_types_dict)
+    status_options = [
+        meta for meta in get_status_filter_choices()
+        if meta.code not in ('draft', 'checkout_initiated')
+    ]
+    
+    return render_template(
+        'customer/orders.html',
+        orders=orders,
+        status_filter=status_filter,
+        status_options=status_options,
+        video_types_dict=video_types_dict
+    )
 
 @bp.route('/order/<int:order_id>')
 @login_required

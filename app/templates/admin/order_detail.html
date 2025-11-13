@@ -29,9 +29,7 @@
                         <div class="col-md-6">
                             <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
                             <p><strong>Статус:</strong> 
-                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'secondary' if order.status == 'pending_payment' else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' if order.status == 'cancelled' else 'secondary' }}">
-                                    {{ order.get_status_display() }}
-                                </span>
+                                <span class="badge bg-{{ order.get_status_badge_class() }}">{{ order.get_status_display() }}</span>
                             </p>
                             <p><strong>Дата заказа:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</p>
                             <p><strong>Сумма:</strong> {{ "%.2f"|format(order.total_amount) }} ₽</p>
@@ -120,7 +118,7 @@
                                            name="video_links[{{ video_type_id }}]"
                                            value="{{ order.video_links.get(video_type_id|string, '') if order.video_links else '' }}"
                                            placeholder="Вставьте ссылку на скачивание видео"
-                                           {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                                           {% if order.status in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}disabled{% endif %}>
                                 </div>
                             {% endfor %}
                         {% else %}
@@ -129,10 +127,10 @@
 
 
                         <button type="button" class="btn btn-primary" onclick="sendVideoLinks()"
-                                {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                                {% if order.status in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}disabled{% endif %}>
                             <i class="fas fa-paper-plane me-2"></i>Отправить ссылки
                         </button>
-                        {% if order.status != 'completed' and order.status != 'cancelled' %}
+                        {% if order.status not in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
                             <p class="mt-2 text-muted">
                                 <small>Для полного возврата и отмены заказа измените статус заказа в блоке "Действия".</small>
                             </p>
@@ -243,7 +241,7 @@
                         <div class="mb-3">
                             <label class="form-label">Текущий статус</label>
                             <div class="d-flex align-items-center mb-2">
-                                <span class="badge bg-{% if order.status == 'pending' %}warning{% elif order.status == 'processing' %}info{% elif order.status == 'completed' %}success{% elif order.status == 'links_sent' %}primary{% elif order.status == 'cancelled' %}danger{% elif order.status == 'refund_required' %}warning{% else %}secondary{% endif %} me-2">
+                                <span class="badge bg-{{ order.get_status_badge_class() }} me-2">
                                     {{ order.get_status_display() }}
                                 </span>
                             </div>
@@ -281,7 +279,7 @@
                     <h5 class="mb-0">Быстрые действия</h5>
                 </div>
                 <div class="card-body">
-                    {% if order.status in ['pending', 'pending_payment'] and not order.operator_id %}
+                    {% if order.status == 'paid' and not order.operator_id %}
                         <a href="{{ url_for('operator.take_order', order_id=order.id) }}" class="btn btn-success w-100 mb-2">
                             <i class="fas fa-hand-paper me-1"></i>Взять в работу
                         </a>
@@ -710,14 +708,9 @@ function saveComments() {
                     <div class="mb-3">
                         <label for="newStatus" class="form-label">Новый статус</label>
                         <select class="form-select" id="newStatus" name="status" required>
-                            <option value="pending">В ожидании</option>
-                            <option value="processing">В обработке</option>
-                            <option value="awaiting_info">Получение доп. информации</option>
-                            <option value="links_sent">Ссылки отправлены</option>
-                            <option value="completed">Выполнен</option>
-                            <option value="completed_partial_refund">Выполнен с частичным возвратом</option>
-                            <option value="refund_required">Требуется возврат</option>
-                            <option value="cancelled">Отменен</option>
+                            {% for choice in status_options %}
+                                <option value="{{ choice.code }}">{{ choice.label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
@@ -753,7 +746,7 @@ document.getElementById('confirmChangeStatusBtn').addEventListener('click', func
     const status = formData.get('status');
     const comment = formData.get('comment');
     
-    if (status === 'cancelled' && !comment.trim()) {
+    if (status === 'cancelled_manual' && !comment.trim()) {
         alert('При отмене заказа необходимо указать причину в комментарии');
         return;
     }

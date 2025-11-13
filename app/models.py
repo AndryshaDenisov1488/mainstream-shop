@@ -5,6 +5,7 @@ from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 from app import db
 from app.utils.datetime_utils import moscow_now_naive
+from app.utils.order_status import get_status_badge, get_status_label
 
 class User(UserMixin, db.Model):
     """User model with role-based access control"""
@@ -268,12 +269,18 @@ class Order(db.Model):
     
     def can_be_captured_by_mom(self):
         """Check if mom can still capture (accept) payment"""
-        # ✅ Принимать можно только пока оплата не закрыта окончательно
-        return self.status in ['links_sent', 'refund_required']
+        # ✅ Принимать можно, пока платеж авторизован/не закрыт окончательно
+        return self.status in ['paid', 'links_sent', 'refund_required', 'completed_partial_refund']
 
     def can_be_refunded_by_mom(self):
         """Check if mom can initiate or complete a refund"""
-        refundable_statuses = ['refund_required', 'completed', 'completed_partial_refund']
+        refundable_statuses = [
+            'refund_required',
+            'links_sent',
+            'completed',
+            'completed_partial_refund',
+            'refunded_partial',
+        ]
         return self.status in refundable_statuses
     
     def get_video_links_expiry(self):
@@ -290,24 +297,11 @@ class Order(db.Model):
     
     def get_status_display(self):
         """Get Russian display name for order status"""
-        status_map = {
-            'draft': 'Черновик',
-            'checkout_initiated': 'Оформление инициировано',
-            'awaiting_payment': 'Ожидание оплаты',
-            'paid': 'Оплачен',
-            'processing': 'В обработке',
-            'awaiting_info': 'Нужно уточнить детали',
-            'refund_required': 'Требуется частичный возврат',
-            'ready': 'Готов к отправке',
-            'links_sent': 'Ссылки отправлены',
-            'completed': 'Выполнен',
-            'completed_partial_refund': 'Выполнен с частичным возвратом',
-            'cancelled_unpaid': 'Отменен (не оплачен)',
-            'cancelled_manual': 'Отменен вручную',
-            'refunded_partial': 'Частичный возврат',
-            'refunded_full': 'Полный возврат'
-        }
-        return status_map.get(self.status, self.status)
+        return get_status_label(self.status)
+
+    def get_status_badge_class(self):
+        """CSS badge class for current status"""
+        return get_status_badge(self.status)
     
     def __repr__(self):
         return f'<Order {self.order_number}>'

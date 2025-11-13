@@ -114,8 +114,8 @@
                                     <td>{{ order.customer.full_name }}</td>
                                     <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
                                     <td>
-                                        <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'info' if order.status == 'processing' else 'danger' if order.status == 'cancelled' else 'warning' if order.status == 'refund_required' else 'secondary' }}">
-                                            {{ 'Выполнен' if order.status == 'completed' else 'В ожидании' if order.status == 'pending' else 'В обработке' if order.status == 'processing' else 'Требуется возврат' if order.status == 'refund_required' else 'Отменен' if order.status == 'cancelled' else order.status }}
+                                        <span class="badge bg-{{ order.get_status_badge_class() }}">
+                                            {{ order.get_status_display() }}
                                         </span>
                                     </td>
                                     <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>

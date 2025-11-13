@@ -43,7 +43,7 @@
                     {% endif %}
                     
                     <div class="d-grid gap-2">
-                        {% if order and order.status in ['pending', 'awaiting_payment'] %}
+                        {% if order and order.status in ['checkout_initiated', 'awaiting_payment'] %}
                         <a href="{{ url_for('main.payment', order_id=order.id) }}" class="btn btn-success btn-lg">
                             <i class="fas fa-redo me-2"></i>Попробовать снова
                         </a>

@@ -265,8 +265,8 @@
                                 {% if stats.get('status_breakdown') %}
                                 <div class="mt-2">
                                     {% for status, count in stats.get('status_breakdown', {}).items() %}
-                                    <span class="badge bg-{{ 'success' if status == 'completed' else 'warning' if status == 'pending' else 'info' if status == 'processing' else 'danger' if status == 'cancelled' else 'warning' if status == 'refund_required' else 'secondary' }} me-1">
-                                        {{ 'Выполнено' if status == 'completed' else 'Оформление' if status == 'checkout_initiated' else 'Ожидание оплаты' if status == 'awaiting_payment' else 'В обработке' if status == 'processing' else 'Требуется возврат' if status == 'refund_required' else 'Отменено' if status in ['cancelled_unpaid', 'cancelled_manual'] else status }}: {{ count }}
+                                    <span class="badge bg-{{ order_status_badge(status) }} me-1">
+                                        {{ order_status_label(status) }}: {{ count }}
                                     </span>
                                     {% endfor %}
                                 </div>

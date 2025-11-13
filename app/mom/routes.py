@@ -7,6 +7,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
+from app.utils.order_status import expand_status_filter, get_status_filter_choices
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +36,8 @@ def dashboard():
     query = Order.query
     
     if status_filter:
-        query = query.filter(Order.status == status_filter)
+        normalized_statuses = expand_status_filter(status_filter) or [status_filter]
+        query = query.filter(Order.status.in_(normalized_statuses))
     
     if search:
         query = query.filter(
@@ -103,6 +105,7 @@ def dashboard():
                          full_refund=full_refund,
                          orders=orders,
                          status_filter=status_filter,
+                         status_choices=get_status_filter_choices(),
                          search=search,
                          unread_counts=unread_counts,
                          total_counts=total_counts,
@@ -120,7 +123,8 @@ def orders():
     query = Order.query
     
     if status_filter:
-        query = query.filter(Order.status == status_filter)
+        normalized_statuses = expand_status_filter(status_filter) or [status_filter]
+        query = query.filter(Order.status.in_(normalized_statuses))
     
     if search:
         query = query.filter(
@@ -144,7 +148,14 @@ def orders():
     video_types = VideoType.query.all()
     video_types_dict = {str(vt.id): vt for vt in video_types}
     
-    return render_template('mom/orders.html', orders=orders, status_filter=status_filter, search=search, video_types_dict=video_types_dict)
+    return render_template(
+        'mom/orders.html',
+        orders=orders,
+        status_filter=status_filter,
+        status_choices=get_status_filter_choices(),
+        search=search,
+        video_types_dict=video_types_dict
+    )
 
 @bp.route('/pending-orders')
 @login_required

@@ -80,16 +80,7 @@
                 {% endif %}
             </p>
             <p><strong>Турнир:</strong> {{ order.event.name if order.event else 'Неизвестный турнир' }}</p>
-            <p><strong>Статус:</strong> 
-                {% if order.status == 'completed' %}Выполнен
-                {% elif order.status == 'pending' %}В ожидании
-                {% elif order.status == 'pending_payment' %}Ожидание оплаты
-                {% elif order.status == 'processing' %}В обработке
-                {% elif order.status == 'links_sent' %}Ссылки отправлены
-                {% elif order.status == 'refund_required' %}Требуется возврат
-                {% elif order.status == 'cancelled' %}Отменен
-                {% else %}{{ order.status }}{% endif %}
-            </p>
+            <p><strong>Статус:</strong> {{ order.get_status_display() }}</p>
         </div>
         
         <div class="message">

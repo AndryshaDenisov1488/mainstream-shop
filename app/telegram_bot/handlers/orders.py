@@ -10,6 +10,23 @@ from .base import BaseHandler
 
 logger = logging.getLogger(__name__)
 
+STATUS_EMOJI = {
+    'checkout_initiated': '📝',
+    'awaiting_payment': '💳',
+    'paid': '💰',
+    'processing': '🔄',
+    'awaiting_info': '❔',
+    'links_sent': '📹',
+    'completed': '✅',
+    'completed_partial_refund': '✅',
+    'refund_required': '⚠️',
+    'refunded_partial': '↩️',
+    'refunded_full': '↩️',
+    'cancelled_unpaid': '❌',
+    'cancelled_manual': '❌',
+}
+
+
 class OrdersHandler(BaseHandler):
     """Handle orders viewing"""
     
@@ -42,21 +59,10 @@ class OrdersHandler(BaseHandler):
         
         message = "📋 Ваши заказы:\n\n"
         for order in orders:
-            status_emoji = {
-                'pending': '⏳',
-                'processing': '🔄',
-                'completed': '✅',
-                'cancelled': '❌'
-            }.get(order.status, '❓')
+            status_emoji = STATUS_EMOJI.get(order.status, '❓')
+            status_text = order.get_status_display()
             
-            status_text = {
-                'pending': 'Ожидает оплаты',
-                'processing': 'В обработке',
-                'completed': 'Выполнен',
-                'cancelled': 'Отменен'
-            }.get(order.status, 'Неизвестно')
-            
-            message += f"{status_emoji} <b>{order.order_number}</b>\n"
+            message += f"{status_emoji} <b>{order.generated_order_number}</b>\n"
             message += f"   🏆 {order.event.name}\n"
             message += f"   👤 {order.athlete.name}\n"
             message += f"   💰 {int(order.total_amount)} ₽\n"
@@ -99,14 +105,9 @@ class OrdersHandler(BaseHandler):
             await self.send_error_message(update, "Заказ не найден.")
             return 'MENU'
         
-        status_text = {
-            'pending': '⏳ Ожидает оплаты',
-            'processing': '🔄 В обработке',
-            'completed': '✅ Выполнен',
-            'cancelled': '❌ Отменен'
-        }.get(order.status, '❓ Неизвестно')
+        status_text = f"{STATUS_EMOJI.get(order.status, '❓')} {order.get_status_display()}"
         
-        message = f"📋 <b>Заказ {order.order_number}</b>\n\n"
+        message = f"📋 <b>Заказ {order.generated_order_number}</b>\n\n"
         message += f"🏆 <b>Турнир:</b> {order.event.name}\n"
         message += f"📂 <b>Категория:</b> {order.category.name}\n"
         message += f"👤 <b>Спортсмен:</b> {order.athlete.name}\n"

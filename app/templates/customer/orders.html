@@ -30,6 +30,20 @@
                         <h5 class="mb-0">Все заказы</h5>
                     </div>
                     <div class="card-body">
+                        <form method="get" class="row g-2 mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label">Статус</label>
+                                <select name="status" class="form-select" onchange="this.form.submit()">
+                                    <option value="">Все статусы</option>
+                                    {% for choice in status_options %}
+                                        <option value="{{ choice.code }}" {{ 'selected' if status_filter == choice.code else '' }}>
+                                            {{ choice.label }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </form>
+
                         {% if orders.items %}
                         <div class="table-responsive">
                             <table class="table table-hover">
@@ -54,22 +68,14 @@
                                         <td>{{ order.event.name }}</td>
                                         <td>{{ order.athlete.name }}</td>
                                         <td>
-                                            {% if order.status == 'pending' %}
-                                                <span class="badge bg-warning">Ожидает обработки</span>
-                                            {% elif order.status in ['processing', 'awaiting_info'] %}
-                                                <span class="badge bg-info">В обработке</span>
-                                            {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
-                                                <span class="badge bg-success">Выполнен</span>
-                                            {% elif order.status == 'refund_required' %}
-                                                <span class="badge bg-warning">Требуется возврат</span>
-                                            {% elif order.status == 'cancelled' %}
-                                                <span class="badge bg-danger">Отменен</span>
-                                            {% endif %}
+                                            <span class="badge bg-{{ order.get_status_badge_class() }}">
+                                                {{ order.get_status_display() }}
+                                            </span>
                                         </td>
                                         <td>{{ "{:,.0f}".format(order.total_amount) }} ₽</td>
                                         <td>{{ order.created_at.strftime('%d.%m.%Y') }}</td>
                                         <td>
-                                            {% if order.video_links and order.status in ['links_sent', 'completed', 'completed_partial_refund'] %}
+                                            {% if order.video_links and order.status not in ['checkout_initiated', 'awaiting_payment', 'paid', 'cancelled_unpaid', 'cancelled_manual'] %}
                                                 <div class="d-flex flex-column gap-1">
                                                     {% for video_type_id, link in order.video_links.items() %}
                                                         {% set video_type = video_types_dict.get(video_type_id|string) if video_types_dict else None %}

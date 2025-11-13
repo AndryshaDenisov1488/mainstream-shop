@@ -261,8 +261,12 @@
                             <span>
                                 {% if stat.status == 'confirmed' %}
                                     <i class="fas fa-check-circle text-success"></i> Подтверждено
-                                {% elif stat.status == 'pending' %}
-                                    <i class="fas fa-clock text-warning"></i> В ожидании
+                                {% elif stat.status == 'authorized' %}
+                                    <i class="fas fa-lock text-warning"></i> Авторизовано
+                                {% elif stat.status == 'voided' %}
+                                    <i class="fas fa-ban text-secondary"></i> Отменено
+                                {% elif stat.status in ['refunded_partial', 'refunded_full'] %}
+                                    <i class="fas fa-undo text-info"></i> Возврат
                                 {% elif stat.status == 'failed' %}
                                     <i class="fas fa-times-circle text-danger"></i> Неудачно
                                 {% else %}

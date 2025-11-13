@@ -80,15 +80,11 @@
                             <label class="form-label">Статус</label>
                             <select class="form-select" name="status">
                                 <option value="">Все статусы</option>
-                                <option value="checkout_initiated" {{ 'selected' if status_filter == 'checkout_initiated' else '' }}>Оформление инициировано</option>
-                                <option value="awaiting_payment" {{ 'selected' if status_filter == 'awaiting_payment' else '' }}>Ожидание оплаты</option>
-                                <option value="processing" {{ 'selected' if status_filter == 'processing' else '' }}>В обработке</option>
-                                <option value="awaiting_info" {{ 'selected' if status_filter == 'awaiting_info' else '' }}>Нужно уточнить детали</option>
-                                <option value="links_sent" {{ 'selected' if status_filter == 'links_sent' else '' }}>Ссылки отправлены</option>
-                                <option value="completed" {{ 'selected' if status_filter == 'completed' else '' }}>Выполнен</option>
-                                <option value="completed_partial_refund" {{ 'selected' if status_filter == 'completed_partial_refund' else '' }}>Выполнен с частичным возвратом</option>
-                                <option value="refund_required" {{ 'selected' if status_filter == 'refund_required' else '' }}>Требуется возврат</option>
-                                <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' else '' }}>Отменен</option>
+                                        {% for choice in status_choices %}
+                                            <option value="{{ choice.code }}" {{ 'selected' if status_filter == choice.code else '' }}>
+                                                {{ choice.label }}
+                                            </option>
+                                        {% endfor %}
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
@@ -182,9 +178,7 @@
                                         </td>
                                         <td>
                                             <div class="d-flex flex-column">
-                                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'secondary' if order.status == 'awaiting_info' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }}">
-                                                    {{ order.get_status_display() }}
-                                                </span>
+                                            <span class="badge bg-{{ order.get_status_badge_class() }}">{{ order.get_status_display() }}</span>
                                                 {% if order.status == 'refund_required' %}
                                                     {% if order.refund_reason %}
                                                         <small class="text-warning mt-1 d-block" style="font-size: 0.75rem; font-weight: 600;">

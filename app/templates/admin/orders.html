@@ -28,13 +28,11 @@
                                     <label class="form-label">Статус</label>
                                     <select class="form-select" name="status">
                                         <option value="">Все статусы</option>
-                                        <option value="pending" {{ 'selected' if status_filter == 'pending' else '' }}>В ожидании</option>
-                                        <option value="pending_payment" {{ 'selected' if status_filter == 'pending_payment' else '' }}>Ожидание оплаты</option>
-                                        <option value="processing" {{ 'selected' if status_filter == 'processing' else '' }}>В обработке</option>
-                                        <option value="links_sent" {{ 'selected' if status_filter == 'links_sent' else '' }}>Ссылки отправлены</option>
-                                        <option value="completed" {{ 'selected' if status_filter == 'completed' else '' }}>Выполнен</option>
-                                        <option value="refund_required" {{ 'selected' if status_filter == 'refund_required' else '' }}>Требуется возврат</option>
-                                        <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' else '' }}>Отменен</option>
+                                        {% for choice in status_choices %}
+                                            <option value="{{ choice.code }}" {{ 'selected' if status_filter == choice.code else '' }}>
+                                                {{ choice.label }}
+                                            </option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 <div class="col-md-2">
@@ -129,24 +127,8 @@
                                             {% endif %}
                                         </td>
                                         <td style="font-size: 0.85em;">
-                                            <span class="badge bg-{{ 'success' if order.status == 'completed' else 'warning' if order.status == 'pending' else 'secondary' if order.status == 'pending_payment' else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' }}" style="font-size: 0.75em;">
-                                                {% if order.status == 'completed' %}
-                                                    Выполнен
-                                                {% elif order.status == 'pending' %}
-                                                    В ожидании
-                                                {% elif order.status == 'pending_payment' %}
-                                                    Ожидание оплаты
-                                                {% elif order.status == 'processing' %}
-                                                    В обработке
-                                                {% elif order.status == 'links_sent' %}
-                                                    Готов
-                                                {% elif order.status == 'refund_required' %}
-                                                    Требуется возврат
-                                                {% elif order.status == 'cancelled' %}
-                                                    Отменен
-                                                {% else %}
-                                                    {{ order.status }}
-                                                {% endif %}
+                                            <span class="badge bg-{{ order.get_status_badge_class() }}" style="font-size: 0.75em;">
+                                                {{ order.get_status_display() }}
                                             </span>
                                             {% if order.operator_comment %}
                                                 {% if order.status == 'refund_required' %}
@@ -185,12 +167,12 @@
                                                 <a href="{{ url_for('admin.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Просмотр">
                                                     <i class="fas fa-eye"></i>
                                                 </a>
-                                                {% if order.status in ['pending', 'processing'] %}
+                                                {% if order.status in ['paid', 'processing'] %}
                                                     <button class="btn btn-sm btn-success" data-order-id="{{ order.id }}" class="assign-operator-btn" title="Назначить оператора">
                                                         <i class="fas fa-user-plus"></i>
                                                     </button>
                                                 {% endif %}
-                                                {% if order.status != 'cancelled' %}
+                                                {% if order.status not in ['cancelled_unpaid', 'cancelled_manual'] %}
                                                     <button class="btn btn-sm btn-danger" data-order-id="{{ order.id }}" class="cancel-order-btn" title="Отменить">
                                                         <i class="fas fa-times"></i>
                                                     </button>
@@ -285,7 +267,7 @@ function cancelOrder(orderId) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                status: 'cancelled',
+                status: 'cancelled_manual',
                 comment: 'Отменено администратором'
             })
         })

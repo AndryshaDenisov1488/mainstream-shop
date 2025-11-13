@@ -81,17 +81,9 @@
                                         <td>{{ order.event.name }}</td>
                                         <td>{{ order.athlete.name }}</td>
                                         <td>
-                                            {% if order.status in ['checkout_initiated', 'awaiting_payment', 'pending', 'pending_payment'] %}
-                                                <span class="badge bg-warning">Ожидает обработки</span>
-                                            {% elif order.status in ['processing', 'awaiting_info', 'paid'] %}
-                                                <span class="badge bg-info">В работе</span>
-                                            {% elif order.status in ['links_sent', 'completed', 'completed_partial_refund', 'refund_required', 'refunded_partial'] %}
-                                                <span class="badge bg-success">Ссылки отправлены</span>
-                                            {% elif order.status in ['cancelled_unpaid', 'cancelled_manual', 'cancelled', 'refunded_full'] %}
-                                                <span class="badge bg-danger">Отменен</span>
-                                            {% else %}
-                                                <span class="badge bg-info">В работе</span>
-                                            {% endif %}
+                                            <span class="badge bg-{{ order.get_status_badge_class() }}">
+                                                {{ order.get_status_display() }}
+                                            </span>
                                         </td>
                                         <td>{{ "{:,.0f}".format(order.total_amount) }} ₽</td>
                                         <td>{{ order.created_at.strftime('%d.%m.%Y') }}</td>

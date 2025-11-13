@@ -9,6 +9,7 @@ from app.admin.forms import CreateUserForm, EditUserForm
 from sqlalchemy import desc, func
 from sqlalchemy.orm import joinedload
 from werkzeug.utils import secure_filename
+from app.utils.order_status import expand_status_filter, get_status_filter_choices
 import os
 # ✅ Используем defusedxml для защиты от XXE атак
 try:
@@ -650,7 +651,8 @@ def orders():
     query = Order.query
     
     if status_filter:
-        query = query.filter(Order.status == status_filter)
+        normalized_statuses = expand_status_filter(status_filter) or [status_filter]
+        query = query.filter(Order.status.in_(normalized_statuses))
     
     if search:
         query = query.filter(
@@ -682,7 +684,16 @@ def orders():
     video_types = VideoType.query.all()
     video_types_dict = {str(vt.id): vt for vt in video_types}
     
-    return render_template('admin/orders.html', orders=orders, status_filter=status_filter, search=search, date_from=date_from, date_to=date_to, video_types_dict=video_types_dict)
+    return render_template(
+        'admin/orders.html',
+        orders=orders,
+        status_filter=status_filter,
+        status_choices=get_status_filter_choices(),
+        search=search,
+        date_from=date_from,
+        date_to=date_to,
+        video_types_dict=video_types_dict
+    )
 
 @bp.route('/orders/<int:order_id>')
 @login_required
@@ -695,7 +706,17 @@ def order_detail(order_id):
     video_types = VideoType.query.all()
     video_types_dict = {str(vt.id): vt for vt in video_types}
     
-    return render_template('admin/order_detail.html', order=order, video_types_dict=video_types_dict)
+    status_options = [
+        meta for meta in get_status_filter_choices(include_cancelled_group=False)
+        if meta.code not in ('draft', 'checkout_initiated', 'cancelled_unpaid')
+    ]
+    
+    return render_template(
+        'admin/order_detail.html',
+        order=order,
+        video_types_dict=video_types_dict,
+        status_options=status_options
+    )
 
 @bp.route('/analytics')
 @login_required

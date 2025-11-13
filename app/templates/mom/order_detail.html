@@ -266,7 +266,7 @@
                 </div>
                 <div class="card-body text-center">
                     <div class="mb-3">
-                        <span class="badge bg-{{ 'success' if order.status == 'completed' else 'secondary' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'info' if order.status == 'processing' else 'primary' if order.status == 'links_sent' else 'warning' if order.status == 'refund_required' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'secondary' }} fs-6 px-3 py-2">
+                        <span class="badge bg-{{ order.get_status_badge_class() }} fs-6 px-3 py-2">
                             {{ order.get_status_display() }}
                         </span>
                     </div>
@@ -377,21 +377,21 @@
 
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="partialRefundCheckbox" name="partial_refund"
-                                   {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                                   {% if order.status in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}disabled{% endif %}>
                             <label class="form-check-label" for="partialRefundCheckbox">Требуется частичный возврат</label>
                         </div>
 
                         <div class="mb-3" id="refundCommentField" style="display: none;">
                             <label for="refundComment" class="form-label">Комментарий по возврату (для оператора)</label>
                             <textarea class="form-control" id="refundComment" name="refund_comment" rows="3"
-                                      {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>{{ order.operator_comment or '' }}</textarea>
+                                      {% if order.status in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}disabled{% endif %}>{{ order.operator_comment or '' }}</textarea>
                         </div>
 
                         <button type="button" class="btn btn-primary" id="sendVideoLinksBtn"
-                                {% if order.status == 'completed' or order.status == 'cancelled' %}disabled{% endif %}>
+                                {% if order.status in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}disabled{% endif %}>
                             <i class="fas fa-paper-plane me-2"></i>Отправить ссылки
                         </button>
-                        {% if order.status != 'completed' and order.status != 'cancelled' %}
+                        {% if order.status not in ['completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
                             <p class="mt-2 text-muted">
                                 <small>Для полного возврата и отмены заказа измените статус заказа в блоке "Действия".</small>
                             </p>
@@ -510,7 +510,7 @@
                             </div>
                         </div>
                         
-                        {% if order.status in ['processing', 'ready', 'completed', 'cancelled'] %}
+                        {% if order.status in ['processing', 'ready', 'completed', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
                         <div class="timeline-item">
                             <div class="timeline-marker bg-info"></div>
                             <div class="timeline-content">
