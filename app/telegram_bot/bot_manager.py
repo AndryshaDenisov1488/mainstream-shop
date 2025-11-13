@@ -19,12 +19,23 @@ from app.utils.cloudpayments import CloudPaymentsAPI
 from app.utils.email import send_user_credentials_email
 import json
 from datetime import datetime
+from flask import current_app, url_for
 
 logger = logging.getLogger(__name__)
 
 # Conversation states
 (REGISTRATION, SELECTING_EVENT, SELECTING_CATEGORY, SELECTING_ATHLETE, 
  SELECTING_VIDEO_TYPE, CONFIRMING_ORDER) = range(6)
+
+
+def _payment_page_url(order_id: int) -> str:
+    """Ensure we always generate a valid absolute payment link for bot messages."""
+    try:
+        return url_for('main.payment_page', order_id=order_id, _external=True)
+    except RuntimeError:
+        base_url = current_app.config.get('SITE_URL') or f"https://{current_app.config.get('SERVER_NAME', 'mainstreamfs.ru')}"
+        return f"{base_url.rstrip('/')}/payment/{order_id}"
+
 
 class TelegramBotManager:
     """Telegram Bot Manager with full DB integration"""
@@ -188,9 +199,10 @@ class TelegramBotManager:
         self.application.add_handler(CommandHandler('help', self.help_command))
         self.application.add_handler(CommandHandler('contact', self.contact_command))
     
-    async def setup_bot_commands(self):
+    def setup_bot_commands(self):
         """Setup bot menu commands"""
         from telegram import BotCommand
+
         commands = [
             BotCommand("start", "Начать покупку видео"),
             BotCommand("menu", "Главное меню"),
@@ -198,11 +210,22 @@ class TelegramBotManager:
             BotCommand("help", "Помощь по использованию"),
             BotCommand("contact", "Связаться с нами"),
         ]
+
+        async def _apply_commands():
+            try:
+                await self.application.bot.set_my_commands(commands)
+                logger.info("✅ Bot commands menu configured successfully")
+            except Exception as e:
+                logger.error(f"❌ Error setting bot commands: {e}")
+
         try:
-            await self.application.bot.set_my_commands(commands)
-            logger.info("✅ Bot commands menu configured successfully")
-        except Exception as e:
-            logger.error(f"❌ Error setting bot commands: {e}")
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(_apply_commands())
+            else:
+                loop.run_until_complete(_apply_commands())
+        except RuntimeError:
+            asyncio.run(_apply_commands())
     
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle /start command - resets conversation and starts fresh"""
@@ -1061,10 +1084,7 @@ class TelegramBotManager:
                     # Don't fail the whole operation if Telegram notification fails
                 
                 # Create payment URL - use order payment page
-                import os
-                site_url = os.environ.get('SITE_URL', 'https://mainstreamfs.ru')
-                # Use payment page with order ID
-                payment_url = f"{site_url}/payment/{order.id}"
+                payment_url = _payment_page_url(order.id)
                 
                 keyboard = [
                     [InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)],
@@ -1592,9 +1612,7 @@ class TelegramBotManager:
             message += f"📅 Дата заказа: {order.created_at.strftime('%d.%m.%Y %H:%M')}\n\n"
             
             if order.status == 'awaiting_payment':
-                import os
-                site_url = os.environ.get('SITE_URL', 'https://mainstreamfs.ru')
-                payment_url = f"{site_url}/payment/{order.id}"
+                payment_url = _payment_page_url(order.id)
                 message += f"💳 Для оплаты перейдите по ссылке:\n{payment_url}\n\n"
             
             message += "📧 Подробности также отправлены на ваш email."

@@ -3,11 +3,35 @@ from flask_login import login_required, current_user
 from app.operator import bp
 from app.utils.decorators import role_required
 from app.models import Order, Event, User, db, VideoType
-from sqlalchemy import desc
+from sqlalchemy import desc, or_, and_
 from sqlalchemy.orm import joinedload
 import logging
+from app.utils.order_status import expand_status_filter
 
 logger = logging.getLogger(__name__)
+
+OPERATOR_VISIBLE_STATUSES = [
+    'paid',
+    'processing',
+    'awaiting_info',
+    'ready',
+    'links_sent',
+    'completed',
+    'completed_partial_refund',
+    'refund_required',
+    'refunded_partial',
+    'refunded_full',
+    'cancelled_manual',
+    'cancelled_unpaid',
+]
+
+OPERATOR_ACTIVE_STATUSES = [
+    'processing',
+    'awaiting_info',
+    'ready',
+    'links_sent',
+    'refund_required',
+]
 
 @bp.route('/dashboard')
 @login_required
@@ -32,12 +56,16 @@ def dashboard():
     search = request.args.get('search', '', type=str)
     
     query = Order.query.filter(
-        (Order.operator_id == current_user.id) | (Order.operator_id.is_(None)),
-        Order.status.in_(['paid', 'processing', 'ready', 'links_sent', 'completed'])
+        or_(
+            Order.operator_id == current_user.id,
+            and_(Order.operator_id.is_(None), Order.status == 'paid')
+        ),
+        Order.status.in_(OPERATOR_VISIBLE_STATUSES),
     )
     
-    if status_filter:
-        query = query.filter(Order.status == status_filter)
+    status_values = [s for s in expand_status_filter(status_filter) if s in OPERATOR_VISIBLE_STATUSES]
+    if status_values:
+        query = query.filter(Order.status.in_(status_values))
     
     if search:
         query = query.filter(
@@ -128,12 +156,13 @@ def new_orders():
 @login_required
 @role_required('OPERATOR')
 def processing_orders():
-    """Processing orders - orders where money is not yet accepted"""
+    """Processing orders assigned to the current operator"""
     page = request.args.get('page', 1, type=int)
     
     # ✅ Eager loading для избежания N+1 запросов
     query = Order.query.filter(
-        Order.status.in_(['processing', 'awaiting_info', 'links_sent', 'refund_required'])
+        Order.status.in_(OPERATOR_ACTIVE_STATUSES),
+        Order.operator_id == current_user.id,
     ).options(
         joinedload(Order.event),
         joinedload(Order.category),
@@ -337,7 +366,13 @@ def statistics():
     # Get all completed orders for this operator
     completed_orders = Order.query.filter(
         Order.operator_id == current_user.id,
-        Order.status.in_(['completed', 'links_sent', 'completed_partial_refund'])
+        Order.status.in_([
+            'links_sent',
+            'completed',
+            'completed_partial_refund',
+            'refunded_partial',
+            'refunded_full',
+        ])
     ).options(
         joinedload(Order.event),
         joinedload(Order.category),

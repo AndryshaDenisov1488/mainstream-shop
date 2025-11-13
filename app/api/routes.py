@@ -16,6 +16,17 @@ import requests
 
 logger = logging.getLogger(__name__)
 
+OPERATOR_MANAGEABLE_STATUSES = (
+    'processing',
+    'awaiting_info',
+    'ready',
+    'links_sent',
+    'completed',
+    'completed_partial_refund',
+    'refund_required',
+    'cancelled_manual',
+)
+
 # DEPRECATED: Use /cloudpayments/webhook instead
 # This route is kept for backward compatibility but may be removed
 # @bp.route('/payment/webhook', methods=['POST'])
@@ -228,8 +239,7 @@ def change_order_status(order_id):
             return jsonify({'success': False, 'error': 'Status required'}), 400
         
         # Validate status
-        valid_statuses = ['draft', 'checkout_initiated', 'awaiting_payment', 'paid', 'processing', 'awaiting_info', 'refund_required', 'ready', 'links_sent', 'completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full']
-        if new_status not in valid_statuses:
+        if new_status not in OPERATOR_MANAGEABLE_STATUSES:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
         # Update order - save old status before changing
@@ -238,11 +248,11 @@ def change_order_status(order_id):
         if operator_comment:
             order.operator_comment = operator_comment
         
-        if new_status in ['completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'refunded_partial']:
+        if new_status in ['completed', 'completed_partial_refund', 'cancelled_manual']:
             order.processed_at = moscow_now_naive()
         
         # Если заказ отменяется, сохраняем причину и отправляем email
-        if new_status in ['cancelled_unpaid', 'cancelled_manual']:
+        if new_status == 'cancelled_manual':
             order.cancellation_reason = operator_comment
             # Отправляем email клиенту
             try:
@@ -1370,6 +1380,7 @@ def _add_status_change_message(order_id, new_status, comment, user_id):
     """Add system message to chat when status changes"""
     try:
         from app.models import OrderChat, ChatMessage
+        from app.utils.order_status import get_status_label
         
         # Create or get chat
         chat = OrderChat.query.filter_by(order_id=order_id).first()
@@ -1380,17 +1391,22 @@ def _add_status_change_message(order_id, new_status, comment, user_id):
         
         # Create status message
         status_messages = {
-            'pending': 'Заказ возвращен в ожидание',
+            'checkout_initiated': 'Заказ возвращен к оформлению',
+            'awaiting_payment': 'Заказ ожидает оплаты клиентом',
+            'paid': 'Оплата зафиксирована, заказ ждет оператора',
             'processing': 'Заказ взят в обработку',
             'awaiting_info': 'Требуется дополнительная информация от клиента',
             'links_sent': 'Ссылки на видео отправлены клиенту',
             'completed': 'Заказ завершен',
             'completed_partial_refund': 'Заказ завершен с частичным возвратом',
-            'refund_required': 'Требуется возврат',
-            'cancelled': 'Заказ отменен'
+            'refund_required': 'По заказу требуется возврат',
+            'cancelled_unpaid': 'Заказ отменен (не оплачен)',
+            'cancelled_manual': 'Заказ отменен вручную',
+            'refunded_partial': 'Оформлен частичный возврат',
+            'refunded_full': 'Оформлен полный возврат',
         }
         
-        message_text = status_messages.get(new_status, f'Статус изменен на {new_status}')
+        message_text = status_messages.get(new_status, f'Статус изменен на {get_status_label(new_status)}')
         if comment:
             message_text += f'. Комментарий: {comment}'
         

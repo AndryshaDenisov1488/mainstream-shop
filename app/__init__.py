@@ -138,6 +138,22 @@ def create_app(config_class=Config):
                 'site_description': 'Профессиональные видео с турниров по фигурному катанию',
                 'video_link_expiry_days': 90,
             }
+
+    @app.context_processor
+    def inject_order_status_helpers():
+        from app.utils.order_status import (
+            get_status_badge,
+            get_status_label,
+            get_status_filter_choices,
+            STATUS_DEFINITIONS,
+        )
+
+        return {
+            'order_status_label': get_status_label,
+            'order_status_badge': get_status_badge,
+            'order_status_choices': get_status_filter_choices,
+            'order_status_definitions': STATUS_DEFINITIONS,
+        }
     
     return app
 

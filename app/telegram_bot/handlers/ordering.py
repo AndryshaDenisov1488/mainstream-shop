@@ -5,8 +5,11 @@ Ordering handlers for Telegram bot
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
+from flask import current_app, url_for
+from datetime import timedelta
 from app.models import Event, Category, Athlete, VideoType, Order
 from app import db
+from app.utils.datetime_utils import moscow_now_naive
 from .base import BaseHandler
 
 logger = logging.getLogger(__name__)
@@ -237,7 +240,9 @@ class OrderingHandler(BaseHandler):
                     athlete_id=context.user_data['athlete_id'],
                     video_types=[context.user_data['video_type_id']],
                     total_amount=VideoType.query.get(context.user_data['video_type_id']).price,
-                    status='pending_payment',
+                    status='awaiting_payment',
+                    payment_method='card',
+                    payment_expires_at=moscow_now_naive() + timedelta(minutes=15),
                     contact_email=user.email,
                     contact_phone=user.phone,
                     contact_first_name=user.full_name.split(' ')[0] if user.full_name else '',
@@ -283,7 +288,11 @@ class OrderingHandler(BaseHandler):
                 # Create payment URL using CloudPayments
                 payment_data = self.cloudpayments.create_payment_widget_data(order, 'card')
                 # For Telegram bot, we'll create a simple payment link
-                payment_url = f"https://mainstreamfs.ru/payment/process?order_id={order.id}&method=card"
+                try:
+                    payment_url = url_for('main.payment_page', order_id=order.id, _external=True)
+                except RuntimeError:
+                    base_url = current_app.config.get('SITE_URL') or f"https://{current_app.config.get('SERVER_NAME', 'mainstreamfs.ru')}"
+                    payment_url = f"{base_url.rstrip('/')}/payment/{order.id}"
                 
                 keyboard = [
                     [InlineKeyboardButton("💳 Перейти к оплате", url=payment_url)],

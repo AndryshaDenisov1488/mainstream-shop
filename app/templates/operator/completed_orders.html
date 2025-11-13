@@ -38,13 +38,9 @@
                             <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
                             <td>{{ order.updated_at.strftime('%d.%m.%Y %H:%M') if order.updated_at else 'Не указано' }}</td>
                             <td>
-                                {% if order.status == 'completed' %}
-                                    <span class="badge bg-success">Выполнен</span>
-                                {% elif order.status == 'completed_partial_refund' %}
-                                    <span class="badge bg-success">Выполнен с частичным возвратом</span>
-                                {% else %}
-                                    <span class="badge bg-secondary">{{ order.get_status_display() }}</span>
-                                {% endif %}
+                                <span class="badge bg-{{ order_status_badge(order.status) }}">
+                                    {{ order_status_label(order.status) }}
+                                </span>
                             </td>
                         </tr>
                         {% endfor %}

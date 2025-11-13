@@ -13,33 +13,27 @@
                     <p class="text-muted">Заказ #{{ order.generated_order_number }}</p>
                 </div>
 
-                <!-- Order Status Alert -->
-                <div class="alert alert-{{ 'success' if order.status == 'completed' else 'info' if order.status == 'paid' else 'warning' if order.status == 'awaiting_payment' else 'info' if order.status == 'processing' else 'warning' if order.status == 'awaiting_info' else 'primary' if order.status == 'ready' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'secondary' }} alert-dismissible fade show" role="alert">
+                {% set status_icon_map = {
+                    'completed': 'check-circle',
+                    'paid': 'credit-card',
+                    'awaiting_payment': 'clock',
+                    'processing': 'cog',
+                    'awaiting_info': 'question-circle',
+                    'ready': 'check',
+                    'links_sent': 'paper-plane',
+                    'completed_partial_refund': 'check-circle',
+                    'refund_required': 'exclamation-triangle',
+                    'cancelled_manual': 'times-circle',
+                    'cancelled_unpaid': 'times-circle',
+                    'refunded_partial': 'undo',
+                    'refunded_full': 'undo'
+                } %}
+                {% set alert_color = order_status_badge(order.status) %}
+                {% set status_icon = status_icon_map.get(order.status, 'info-circle') %}
+                <div class="alert alert-{{ alert_color }} alert-dismissible fade show" role="alert">
                     <h5 class="alert-heading mb-2">
-                        <i class="fas fa-{{ 'check-circle' if order.status == 'completed' else 'credit-card' if order.status == 'paid' else 'clock' if order.status == 'awaiting_payment' else 'cog' if order.status == 'processing' else 'question-circle' if order.status == 'awaiting_info' else 'check' if order.status == 'ready' else 'paper-plane' if order.status == 'links_sent' else 'check-circle' if order.status == 'completed_partial_refund' else 'times-circle' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'clock' }}"></i>
-                        {% if order.status == 'completed' %}
-                            Заказ выполнен
-                        {% elif order.status == 'paid' %}
-                            Заказ оплачен
-                        {% elif order.status == 'awaiting_payment' %}
-                            Ожидание оплаты
-                        {% elif order.status == 'processing' %}
-                            Заказ в обработке
-                        {% elif order.status == 'awaiting_info' %}
-                            Нужно уточнить детали
-                        {% elif order.status == 'ready' %}
-                            Готов к отправке
-                        {% elif order.status == 'links_sent' %}
-                            Ссылки отправлены
-                        {% elif order.status == 'completed_partial_refund' %}
-                            Выполнен с частичным возвратом
-                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}
-                            Заказ отменен
-                        {% elif order.status in ['refunded_partial', 'refunded_full'] %}
-                            Возврат выполнен
-                        {% else %}
-                            {{ order.status }}
-                        {% endif %}
+                        <i class="fas fa-{{ status_icon }}"></i>
+                        {{ order_status_label(order.status) }}
                     </h5>
                     {% if order.status == 'links_sent' %}
                         <p class="mb-0">Ссылки на видео отправлены на ваш email. Проверьте почту!</p>
@@ -65,18 +59,8 @@
                                 <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
                                 <p><strong>Дата заказа:</strong> {{ order.created_at.strftime('%d.%m.%Y в %H:%M') if order.created_at else 'Не указана' }}</p>
                                 <p><strong>Статус:</strong> 
-                                    <span class="badge bg-{{ 'success' if order.status == 'completed' else 'info' if order.status == 'paid' else 'warning' if order.status == 'awaiting_payment' else 'info' if order.status == 'processing' else 'warning' if order.status == 'awaiting_info' else 'primary' if order.status == 'ready' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'danger' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full'] else 'secondary' }}">
-                                        {% if order.status == 'completed' %}Выполнен
-                                        {% elif order.status == 'paid' %}Оплачен
-                                        {% elif order.status == 'awaiting_payment' %}Ожидание оплаты
-                                        {% elif order.status == 'processing' %}В обработке
-                                        {% elif order.status == 'awaiting_info' %}Нужно уточнить детали
-                                        {% elif order.status == 'ready' %}Готов к отправке
-                                        {% elif order.status == 'links_sent' %}Ссылки отправлены
-                                        {% elif order.status == 'completed_partial_refund' %}Выполнен с частичным возвратом
-                                        {% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}Отменен
-                                        {% elif order.status in ['refunded_partial', 'refunded_full'] %}Возврат выполнен
-                                        {% else %}{{ order.status }}{% endif %}
+                                    <span class="badge bg-{{ order_status_badge(order.status) }}">
+                                        {{ order_status_label(order.status) }}
                                     </span>
                                 </p>
                             </div>

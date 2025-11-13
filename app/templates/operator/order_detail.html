@@ -3,6 +3,14 @@
 {% block title %}Заказ {{ order.generated_order_number }} - Панель оператора{% endblock %}
 
 {% block content %}
+{% set operator_locked_statuses = [
+    'cancelled_unpaid', 'cancelled_manual', 'refunded_full',
+    'refunded_partial', 'completed', 'completed_partial_refund'
+] %}
+{% set operator_manageable_statuses = [
+    'processing', 'awaiting_info', 'ready', 'links_sent',
+    'completed', 'completed_partial_refund', 'refund_required', 'cancelled_manual'
+] %}
 <div class="container py-5">
     <div class="row">
         <div class="col-12">
@@ -29,8 +37,8 @@
                         <div class="col-md-6">
                             <p><strong>Номер заказа:</strong> {{ order.generated_order_number }}</p>
                             <p><strong>Статус:</strong> 
-                                <span class="badge bg-{{ 'success' if order.status == 'completed' else 'info' if order.status == 'paid' else 'info' if order.status == 'processing' else 'warning' if order.status == 'awaiting_info' else 'primary' if order.status == 'ready' else 'primary' if order.status == 'links_sent' else 'success' if order.status == 'completed_partial_refund' else 'danger' }}">
-                                    {{ order.get_status_display() }}
+                                <span class="badge bg-{{ order_status_badge(order.status) }}">
+                                    {{ order_status_label(order.status) }}
                                 </span>
                             </p>
                             <p><strong>Дата заказа:</strong> {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</p>
@@ -143,7 +151,7 @@
                                            name="video_link_{{ field_key }}"
                                            value="{{ order.video_links.get(field_key, '') if order.video_links else '' }}"
                                            placeholder="Вставьте ссылку на скачивание видео"
-                                           {% if order.status == 'completed' or order.status in ['cancelled_unpaid', 'cancelled_manual'] %}disabled{% endif %}>
+                                           {% if order.status in operator_locked_statuses %}disabled{% endif %}>
                                 </div>
                             {% endfor %}
                         {% else %}
@@ -152,10 +160,10 @@
 
 
                         <button type="button" class="btn btn-primary" onclick="sendVideoLinks()"
-                                {% if order.status == 'completed' or order.status in ['cancelled_unpaid', 'cancelled_manual'] %}disabled{% endif %}>
+                                {% if order.status in operator_locked_statuses %}disabled{% endif %}>
                             <i class="fas fa-paper-plane me-2"></i>Отправить ссылки
                         </button>
-                        {% if order.status != 'completed' and order.status not in ['cancelled_unpaid', 'cancelled_manual'] %}
+                        {% if order.status not in operator_locked_statuses %}
                             <p class="mt-2 text-muted">
                                 <small>Для полного возврата и отмены заказа измените статус заказа в блоке "Действия".</small>
                             </p>
@@ -266,8 +274,8 @@
                         <div class="mb-3">
                             <label class="form-label">Текущий статус</label>
                             <div class="d-flex align-items-center mb-2">
-                                <span class="badge bg-{% if order.status in ['checkout_initiated', 'awaiting_payment'] %}secondary{% elif order.status == 'processing' %}info{% elif order.status == 'completed' %}success{% elif order.status == 'links_sent' %}primary{% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}danger{% elif order.status == 'refund_required' %}warning{% else %}secondary{% endif %} me-2">
-                                    {{ order.get_status_display() }}
+                                <span class="badge bg-{{ order_status_badge(order.status) }} me-2">
+                                    {{ order_status_label(order.status) }}
                                 </span>
                             </div>
                             <div class="d-flex gap-2">
@@ -277,7 +285,7 @@
                                         data-order-number="{{ order.generated_order_number }}">
                                     <i class="fas fa-edit me-1"></i>Изменить статус
                                 </button>
-                                {% if order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'completed'] %}
+                                {% if order.status not in operator_locked_statuses %}
                                 <button type="button" class="btn btn-danger btn-sm" id="cancelOrderBtn" 
                                         data-order-id="{{ order.id }}" 
                                         data-order-number="{{ order.generated_order_number }}">
@@ -801,16 +809,9 @@ function saveComments() {
                     <div class="mb-3">
                         <label for="newStatus" class="form-label">Новый статус</label>
                         <select class="form-select" id="newStatus" name="status" required>
-                            <option value="checkout_initiated">Оформление инициировано</option>
-                            <option value="awaiting_payment">Ожидание оплаты</option>
-                            <option value="processing">В обработке</option>
-                            <option value="awaiting_info">Получение доп. информации</option>
-                            <option value="links_sent">Ссылки отправлены</option>
-                            <option value="completed">Выполнен</option>
-                            <option value="completed_partial_refund">Выполнен с частичным возвратом</option>
-                            <option value="refund_required">Требуется возврат</option>
-                            <option value="cancelled_manual">Отменен (вручную)</option>
-                            <option value="cancelled_unpaid">Отменен (не оплачен)</option>
+                            {% for meta in order_status_choices(include_cancelled_group=False) if meta.code in operator_manageable_statuses %}
+                                <option value="{{ meta.code }}">{{ meta.label }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <div class="mb-3">
@@ -888,7 +889,7 @@ document.getElementById('confirmChangeStatusBtn').addEventListener('click', func
     const status = formData.get('status');
     const comment = formData.get('comment');
     
-    if ((status === 'cancelled_unpaid' || status === 'cancelled_manual') && !comment.trim()) {
+    if (status === 'cancelled_manual' && !comment.trim()) {
         alert('При отмене заказа необходимо указать причину в комментарии');
         return;
     }

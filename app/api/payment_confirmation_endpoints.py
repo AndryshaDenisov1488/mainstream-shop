@@ -1,4 +1,4 @@
-from flask import request, jsonify
+from flask import request, jsonify, current_app
 from flask_login import login_required, current_user
 from app import db
 from app.models import Order, Payment, AuditLog
@@ -237,6 +237,14 @@ def register_payment_confirmation_routes(bp):
 def send_payment_confirmation_email(order, amount):
     """Send email to customer about payment confirmation"""
     subject = f"Платеж по заказу {order.generated_order_number} подтвержден"
+    sender = current_app.config['MAIL_DEFAULT_SENDER']
+    recipients = [order.contact_email]
+    
+    text_content = (
+        f"Платеж подтвержден.\n\n"
+        f"Ваш платеж по заказу {order.generated_order_number} на сумму {amount:.2f} ₽ успешно подтвержден.\n"
+        "Спасибо за покупку!"
+    )
     
     html_content = f"""
     <h2>Платеж подтвержден</h2>
@@ -244,25 +252,26 @@ def send_payment_confirmation_email(order, amount):
     <p>Спасибо за покупку!</p>
     """
     
-    send_email(
-        to=order.contact_email,
-        subject=subject,
-        html=html_content
-    )
+    send_email(subject, sender, recipients, text_content, html_content)
 
 def send_refund_confirmation_email(order, amount, reason):
     """Send email to customer about refund"""
     subject = f"Возврат по заказу {order.generated_order_number}"
+    sender = current_app.config['MAIL_DEFAULT_SENDER']
+    recipients = [order.contact_email]
+    
+    text_content = (
+        f"Возврат обработан.\n\n"
+        f"По заказу {order.generated_order_number} оформлен возврат на сумму {amount:.2f} ₽.\n"
+        f"Причина: {reason or 'не указана'}\n"
+        "Деньги будут возвращены в течение 3-5 рабочих дней."
+    )
     
     html_content = f"""
     <h2>Возврат обработан</h2>
     <p>По вашему заказу <strong>{order.generated_order_number}</strong> обработан возврат в размере <strong>{amount:.2f} ₽</strong>.</p>
-    <p><strong>Причина:</strong> {reason}</p>
+    <p><strong>Причина:</strong> {reason or 'не указана'}</p>
     <p>Деньги будут возвращены в течение 3-5 рабочих дней.</p>
     """
     
-    send_email(
-        to=order.contact_email,
-        subject=subject,
-        html=html_content
-    )
+    send_email(subject, sender, recipients, text_content, html_content)

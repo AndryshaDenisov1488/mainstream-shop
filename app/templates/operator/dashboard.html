@@ -74,10 +74,17 @@
                             <label class="form-label">Статус</label>
                             <select class="form-select" name="status">
                                 <option value="">Все статусы</option>
-                                <option value="paid" {{ 'selected' if status_filter == 'paid' else '' }}>Оплачен</option>
-                                <option value="processing" {{ 'selected' if status_filter == 'processing' else '' }}>В обработке</option>
-                                <option value="links_sent" {{ 'selected' if status_filter == 'links_sent' else '' }}>Ссылки отправлены</option>
-                                <option value="completed" {{ 'selected' if status_filter == 'completed' else '' }}>Выполнен</option>
+                                {% set operator_status_codes = [
+                                    'paid', 'processing', 'awaiting_info', 'ready', 'links_sent',
+                                    'completed', 'completed_partial_refund', 'refund_required',
+                                    'refunded_partial', 'refunded_full', 'cancelled_unpaid', 'cancelled_manual'
+                                ] %}
+                                {% for meta in order_status_choices(include_cancelled_group=False) if meta.code in operator_status_codes %}
+                                    <option value="{{ meta.code }}" {{ 'selected' if status_filter == meta.code else '' }}>
+                                        {{ meta.label }}
+                                    </option>
+                                {% endfor %}
+                                <option value="cancelled" {{ 'selected' if status_filter == 'cancelled' else '' }}>Отменен (все)</option>
                             </select>
                         </div>
                         <div class="col-md-3 d-flex align-items-end">
@@ -151,21 +158,10 @@
                                         </td>
                                         <td>{{ "%.0f"|format(order.total_amount) }} ₽</td>
                                         <td>
-                                            {% if order.status == 'paid' %}
-                                                <span class="badge bg-info">Оплачен</span>
-                                            {% elif order.status == 'processing' %}
-                                                <span class="badge bg-warning">В обработке</span>
-                                            {% elif order.status == 'completed' %}
-                                                <span class="badge bg-success">Готов</span>
-                                            {% elif order.status == 'links_sent' %}
-                                                <span class="badge bg-info">Отправлено</span>
-                                            {% elif order.status == 'refund_required' %}
-                                                <span class="badge bg-warning" style="background-color: #ffc107 !important;">Требуется возврат</span>
-                                            {% elif order.status in ['cancelled_unpaid', 'cancelled_manual'] %}
-                                                <span class="badge bg-danger">Отменен</span>
-                                            {% else %}
-                                                <span class="badge bg-secondary">{{ order.get_status_display() }}</span>
-                                            {% endif %}
+                                            {% set badge_class = order_status_badge(order.status) %}
+                                            <span class="badge bg-{{ badge_class }}">
+                                                {{ order_status_label(order.status) }}
+                                            </span>
                                             {% if order.operator_comment %}
                                                 {% if order.status == 'refund_required' %}
                                                     <i class="fas fa-exclamation-triangle text-warning ms-1" title="Требуется возврат: {{ order.operator_comment }}"></i>
@@ -179,23 +175,29 @@
                                             {% set total = total_counts.get(order.id, 0) %}
                                             {% if total > 0 %}
                                                 {% if unread > 0 %}
-                                                    <span class="badge bg-danger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                    <span class="badge bg-danger chat-trigger"
+                                                          style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
                                                           title="Непрочитанных: {{ unread }} из {{ total }}. Нажмите, чтобы открыть чат"
-                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                          data-order-id="{{ order.id }}"
+                                                          data-order-number="{{ order.generated_order_number }}">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                         <span class="badge bg-dark ms-1">{{ unread }}</span>
                                                     </span>
                                                 {% else %}
-                                                    <span class="badge bg-secondary" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
+                                                    <span class="badge bg-secondary chat-trigger"
+                                                          style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;" 
                                                           title="Всего сообщений: {{ total }}. Нажмите, чтобы открыть чат"
-                                                          onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                          data-order-id="{{ order.id }}"
+                                                          data-order-number="{{ order.generated_order_number }}">
                                                         <i class="fas fa-comments"></i> {{ total }}
                                                     </span>
                                                 {% endif %}
                                             {% else %}
-                                                <span class="text-muted" style="cursor: pointer;" 
+                                                <span class="text-muted chat-trigger"
+                                                      style="cursor: pointer;" 
                                                       title="Нажмите, чтобы открыть чат"
-                                                      onclick="openChatModal({{ order.id }}, '{{ order.generated_order_number }}')">
+                                                      data-order-id="{{ order.id }}"
+                                                      data-order-number="{{ order.generated_order_number }}">
                                                     <i class="fas fa-comments"></i> 0
                                                 </span>
                                             {% endif %}
@@ -203,24 +205,21 @@
                                         <td>
                                             <div class="btn-group">
                                                 {% if order.status == 'paid' and not order.operator_id %}
-                                                    <button class="btn btn-sm btn-success" title="Взять заказ" 
+                                                    <button class="btn btn-sm btn-success assign-order-btn" title="Взять заказ" 
                                                             data-order-id="{{ order.id }}" 
-                                                            data-is-pending="{{ 'true' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'false' }}"
-                                                            onclick="assignOrder(this.dataset.orderId, this.dataset.isPending === 'true')">
+                                                            data-is-pending="{{ 'true' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'false' }}">
                                                         <i class="fas fa-hand-paper"></i>
                                                     </button>
-                                                {% elif order.operator_id and order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'completed'] %}
-                                                    <button class="btn btn-sm btn-primary" title="Отправить ссылки" 
+                                                {% elif order.operator_id and order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'completed', 'completed_partial_refund', 'refunded_partial'] %}
+                                                    <button class="btn btn-sm btn-primary send-links-btn" title="Отправить ссылки" 
                                                             data-order-id="{{ order.id }}" 
                                                             data-order-number="{{ order.generated_order_number }}" 
-                                                            data-customer-email="{{ order.contact_email }}"
-                                                            onclick="openSendLinksModal(this.dataset.orderId, this.dataset.orderNumber, this.dataset.customerEmail)">
+                                                            data-customer-email="{{ order.contact_email }}">
                                                         <i class="fas fa-paper-plane"></i>
                                                     </button>
-                                                    <button class="btn btn-sm btn-danger" title="Отменить заказ" 
+                                                    <button class="btn btn-sm btn-danger cancel-order-btn" title="Отменить заказ" 
                                                             data-order-id="{{ order.id }}" 
-                                                            data-order-number="{{ order.generated_order_number }}"
-                                                            onclick="openCancelOrderModal(this.dataset.orderId, this.dataset.orderNumber)">
+                                                            data-order-number="{{ order.generated_order_number }}">
                                                         <i class="fas fa-times"></i>
                                                     </button>
                                                 {% endif %}
@@ -347,6 +346,47 @@ document.addEventListener('DOMContentLoaded', function() {
     if (modalPartialRefundCheckbox && modalRefundCommentField) {
         modalPartialRefundCheckbox.addEventListener('change', function() {
             modalRefundCommentField.style.display = this.checked ? 'block' : 'none';
+        });
+    }
+
+    document.querySelectorAll('.chat-trigger').forEach(element => {
+        element.addEventListener('click', function() {
+            const orderId = this.getAttribute('data-order-id');
+            const orderNumber = this.getAttribute('data-order-number');
+            openChatModal(orderId, orderNumber);
+        });
+    });
+
+    document.querySelectorAll('.assign-order-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            assignOrder(this.getAttribute('data-order-id'), this.getAttribute('data-is-pending') === 'true');
+        });
+    });
+
+    document.querySelectorAll('.send-links-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            openSendLinksModal(
+                this.getAttribute('data-order-id'),
+                this.getAttribute('data-order-number'),
+                this.getAttribute('data-customer-email')
+            );
+        });
+    });
+
+    document.querySelectorAll('.cancel-order-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            openCancelOrderModal(
+                this.getAttribute('data-order-id'),
+                this.getAttribute('data-order-number')
+            );
+        });
+    });
+
+    const attachBtn = document.getElementById('chatModalAttachBtn');
+    const fileInputField = document.getElementById('chatModalFileInput');
+    if (attachBtn && fileInputField) {
+        attachBtn.addEventListener('click', function() {
+            fileInputField.click();
         });
     }
 });
@@ -628,7 +668,7 @@ document.getElementById('sendLinksForm').addEventListener('submit', function(e) 
                     <div class="d-flex justify-content-between align-items-center">
                         <div>
                             <input type="file" id="chatModalFileInput" style="display: none;" accept=".png,.jpg,.jpeg,.gif,.pdf,.doc,.docx,.txt">
-                            <button class="btn btn-sm btn-outline-secondary" id="chatModalAttachBtn" onclick="document.getElementById('chatModalFileInput').click()">
+                            <button class="btn btn-sm btn-outline-secondary" type="button" id="chatModalAttachBtn">
                                 <i class="fas fa-paperclip"></i> Прикрепить файл
                             </button>
                             <span id="chatModalFileName" class="ms-2 text-muted small"></span>
@@ -767,15 +807,19 @@ document.getElementById('chatModal').addEventListener('hidden.bs.modal', functio
             .then(data => {
                 if (data.success) {
                     // Find and update the badge in the table
-                    const badge = document.querySelector(`[onclick*="openChatModal(${currentChatOrderId}"]`);
-                    if (badge && data.unread_count === 0) {
-                        // Remove red badge, make it gray
-                        badge.className = badge.className.replace('bg-danger', 'bg-secondary');
-                        const unreadBadge = badge.querySelector('.badge.bg-dark');
-                        if (unreadBadge) {
-                            unreadBadge.remove();
+                    const badges = document.querySelectorAll(`.chat-trigger[data-order-id="${currentChatOrderId}"]`);
+                    badges.forEach(badge => {
+                        if (data.unread_count === 0) {
+                            if (badge.classList.contains('bg-danger')) {
+                                badge.classList.remove('bg-danger');
+                                badge.classList.add('bg-secondary');
+                            }
+                            const unreadBadge = badge.querySelector('.badge.bg-dark');
+                            if (unreadBadge) {
+                                unreadBadge.remove();
+                            }
                         }
-                    }
+                    });
                 }
             });
     }
