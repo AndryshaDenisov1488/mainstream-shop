@@ -1,5 +1,4 @@
 from flask import request, jsonify, current_app
-from config import Config
 from flask_login import login_required, current_user
 from app import db
 from app.api import bp
@@ -14,12 +13,12 @@ from app.utils.order_status import (
     is_valid_status_transition,
 )
 import copy
-import json
 import logging
 import base64
 import requests
 import random
 import time
+from urllib.parse import urlparse
 from sqlalchemy.exc import OperationalError
 
 logger = logging.getLogger(__name__)
@@ -52,6 +51,28 @@ def _mask_internal_error(exc: Exception, fallback_message: str) -> str:
     if current_app.config.get('DEBUG'):
         return f"{fallback_message}: {exc}"
     return fallback_message
+
+
+def _validate_video_links(video_links: dict) -> tuple:
+    """
+    Validate video links - check that all links are valid URLs.
+    Returns (is_valid, error_message)
+    """
+    for video_type_id, link in video_links.items():
+        if not link or not link.strip():
+            continue
+        
+        try:
+            parsed = urlparse(link.strip())
+            if not parsed.scheme or parsed.scheme not in ['http', 'https']:
+                return False, f'Некорректная ссылка для типа видео {video_type_id}: требуется http или https URL'
+            if not parsed.netloc:
+                return False, f'Некорректная ссылка для типа видео {video_type_id}: отсутствует домен'
+        except Exception as e:
+            logger.warning(f'URL validation error for {video_type_id}: {e}')
+            return False, f'Некорректная ссылка для типа видео {video_type_id}: {str(e)}'
+    
+    return True, ''
 
 OPERATOR_MANAGEABLE_STATUSES = (
     'processing',
@@ -155,7 +176,7 @@ def create_payment():
     except Exception as e:
         logger.error(f'Create payment error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Не удалось создать платеж')}), 500
 
 @bp.route('/payment/process', methods=['POST'])
 def process_payment():
@@ -270,7 +291,7 @@ def process_payment():
     except Exception as e:
         logger.error(f'Process payment error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Не удалось обработать платеж')}), 500
 
 @bp.route('/order/<int:order_id>/change-status', methods=['POST'])
 @login_required
@@ -631,7 +652,7 @@ def get_order_info(order_id):
     except Exception as e:
         logger.error(f'Get order info error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Не удалось получить информацию о заказе')}), 500
 
 @bp.route('/order/<int:order_id>/send-links', methods=['POST'])
 @login_required
@@ -667,6 +688,11 @@ def send_video_links_api(order_id):
         
         if not video_links:
             return jsonify({'success': False, 'error': 'Необходимо указать хотя бы одну ссылку на видео'}), 400
+        
+        # ✅ Валидация URL для всех ссылок
+        is_valid, validation_error = _validate_video_links(video_links)
+        if not is_valid:
+            return jsonify({'success': False, 'error': validation_error}), 400
         
         final_video_links = copy.deepcopy(video_links)
         final_contact_email = customer_email
@@ -770,7 +796,7 @@ def send_video_links_api(order_id):
     except Exception as e:
         logger.error(f'Send video links error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка отправки ссылок: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка отправки ссылок')}), 500
 
 @bp.route('/order/<int:order_id>/assign-operator', methods=['POST'])
 @login_required
@@ -840,7 +866,7 @@ def assign_operator_api(order_id):
     except Exception as e:
         logger.error(f'Assign operator error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка назначения оператора: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка назначения оператора')}), 500
 
 @bp.route('/order/<int:order_id>/capture', methods=['POST'])
 @login_required
@@ -1001,7 +1027,7 @@ def capture_payment(order_id):
     except Exception as e:
         logger.error(f'Capture payment error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка зачета платежа: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка зачета платежа')}), 500
 
 @bp.route('/order/<int:order_id>/refund', methods=['POST'])
 @login_required
@@ -1128,7 +1154,7 @@ def refund_payment(order_id):
     except Exception as e:
         logger.error(f'Refund payment error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка возврата: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка возврата')}), 500
 
 @bp.route('/order/<int:order_id>/cancel', methods=['POST'])
 @login_required
@@ -1194,7 +1220,7 @@ def cancel_order(order_id):
     except Exception as e:
         logger.error(f'Cancel order error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка отмены заказа: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка отмены заказа')}), 500
 
 @bp.route('/payment/create-intent', methods=['POST'])
 @login_required
@@ -1280,7 +1306,7 @@ def create_payment_intent():
     except Exception as e:
         logger.error(f'Create payment intent error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка создания платежа: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка создания платежа')}), 500
 
 @bp.route('/order/create', methods=['POST'])
 def create_order():
@@ -1474,7 +1500,7 @@ def create_order():
                 logger.error(f'Error creating order via API: {str(e)}', exc_info=True)
                 return jsonify({
                     'success': False, 
-                    'error': f'Ошибка создания заказа: {str(e)}'
+                    'error': _mask_internal_error(e, 'Ошибка создания заказа')
                 }), 500
         
         # Store order ID in session
@@ -1489,7 +1515,7 @@ def create_order():
     except Exception as e:
         logger.error(f'Create order error: {str(e)}', exc_info=True)
         db.session.rollback()
-        return jsonify({'success': False, 'error': f'Ошибка создания заказа: {str(e)}'}), 500
+        return jsonify({'success': False, 'error': _mask_internal_error(e, 'Ошибка создания заказа')}), 500
 
 @bp.route('/order/<int:order_id>/update-comments', methods=['POST'])
 @login_required

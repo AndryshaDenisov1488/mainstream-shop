@@ -253,22 +253,29 @@ def take_order(order_id):
         
         for attempt in range(max_retries):
             try:
-                stmt = select(Order).where(Order.id == order_id).with_for_update()
+                # ✅ Атомарная проверка: блокируем заказ с проверкой условий в WHERE
+                stmt = select(Order).where(
+                    Order.id == order_id,
+                    Order.status == 'paid',
+                    Order.operator_id.is_(None)  # ✅ Проверяем в WHERE для атомарности
+                ).with_for_update()
                 order = db.session.scalar(stmt)
+                
                 if not order:
                     db.session.rollback()
-                    abort(404)
-                
-                if order.operator_id and order.operator_id != current_user.id:
-                    db.session.rollback()
-                    flash('Заказ уже взят другим оператором', 'error')
+                    # Проверяем, почему заказ не найден
+                    check_order = Order.query.get(order_id)
+                    if not check_order:
+                        abort(404)
+                    elif check_order.operator_id and check_order.operator_id != current_user.id:
+                        flash('Заказ уже взят другим оператором', 'error')
+                    elif check_order.status != 'paid':
+                        flash('Можно взять в работу только оплаченные заказы', 'error')
+                    else:
+                        flash('Заказ временно недоступен. Попробуйте еще раз.', 'error')
                     return redirect(url_for('operator.new_orders'))
                 
-                if order.status != 'paid':
-                    db.session.rollback()
-                    flash('Можно взять в работу только оплаченные заказы', 'error')
-                    return redirect(url_for('operator.new_orders'))
-                
+                # ✅ Заказ найден с правильными условиями - обновляем
                 order.status = 'processing'
                 order.operator_id = current_user.id
                 order.processed_at = moscow_now_naive()
@@ -397,18 +404,46 @@ def upload_video_links(order_id):
                 flash('Необходимо указать хотя бы одну ссылку на видео', 'error')
                 return redirect(url_for('operator.upload_video_links', order_id=order_id))
             
-            # Lock order row to avoid concurrent modifications
-            stmt = select(Order).where(Order.id == order_id).with_for_update()
+            # ✅ Валидация URL для всех ссылок
+            from urllib.parse import urlparse
+            for video_type_id, link in video_links.items():
+                if link and link.strip():
+                    try:
+                        parsed = urlparse(link.strip())
+                        if not parsed.scheme or parsed.scheme not in ['http', 'https']:
+                            flash(f'Некорректная ссылка для типа видео {video_type_id}: требуется http или https URL', 'error')
+                            return redirect(url_for('operator.upload_video_links', order_id=order_id))
+                        if not parsed.netloc:
+                            flash(f'Некорректная ссылка для типа видео {video_type_id}: отсутствует домен', 'error')
+                            return redirect(url_for('operator.upload_video_links', order_id=order_id))
+                    except Exception as e:
+                        logger.warning(f'URL validation error for {video_type_id}: {e}')
+                        flash(f'Некорректная ссылка для типа видео {video_type_id}', 'error')
+                        return redirect(url_for('operator.upload_video_links', order_id=order_id))
+            
+            # ✅ Атомарная блокировка: проверяем права оператора в WHERE
+            stmt = select(Order).where(
+                Order.id == order_id,
+                or_(
+                    Order.operator_id.is_(None),
+                    Order.operator_id == current_user.id
+                )
+            ).with_for_update()
             locked_order = db.session.scalar(stmt)
+            
             if not locked_order:
                 db.session.rollback()
-                abort(404)
-            order = locked_order
-            
-            if order.operator_id and order.operator_id != current_user.id:
-                db.session.rollback()
-                flash('Заказ уже закреплен за другим оператором', 'error')
+                # Проверяем, почему заказ не найден
+                check_order = Order.query.get(order_id)
+                if not check_order:
+                    abort(404)
+                elif check_order.operator_id and check_order.operator_id != current_user.id:
+                    flash('Заказ уже закреплен за другим оператором', 'error')
+                else:
+                    flash('Заказ временно недоступен. Попробуйте еще раз.', 'error')
                 return redirect(url_for('operator.dashboard'))
+            
+            order = locked_order
             
             # Update order with video links
             import time
