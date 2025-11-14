@@ -55,10 +55,8 @@ def _get_chat_counts(order_items, current_user_id):
 def dashboard():
     """Mom dashboard"""
     # Get statistics for mom
-    # Нужно принять деньги - заказы где ссылки отправлены (но БЕЗ refund_required)
-    need_payment = Order.query.filter(
-        Order.status == 'links_sent'
-    ).count()
+    NEED_PAYMENT_STATUSES = ['links_sent', 'completed_partial_refund']
+    need_payment = Order.query.filter(Order.status.in_(NEED_PAYMENT_STATUSES)).count()
     
     # Нужно уточнить доп детали - заказы в статусе awaiting_info
     need_details = Order.query.filter_by(status='awaiting_info').count()
@@ -179,8 +177,9 @@ def pending_orders():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
@@ -283,15 +282,16 @@ def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     return render_template('mom/event_detail.html', event=event)
 
-@bp.route('/orders/<int:order_id>/send-links', methods=['POST'])
+    @bp.route('/orders/<int:order_id>/send-links', methods=['POST'])
 @login_required
 @role_required('MOM')
 def send_links(order_id):
     """Send video links to customer"""
     order = Order.query.get_or_404(order_id)
     
-    if order.status != 'completed':
-        return jsonify({'success': False, 'error': 'Заказ должен быть выполнен'})
+        allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
+        if order.status not in allowed_statuses:
+            return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
     
     try:
         # Send video links email to customer
@@ -307,7 +307,8 @@ def send_links(order_id):
             # Don't fail the whole operation if Telegram notification fails
         
         # Update order status
-        order.status = 'links_sent'
+        if order.status == 'completed':
+            order.status = 'links_sent'
         db.session.commit()
         
         # Log action
@@ -343,8 +344,9 @@ def resend_links(order_id):
     order = Order.query.get_or_404(order_id)
     data = request.get_json()
     
-    if order.status != 'completed':
-        return jsonify({'success': False, 'error': 'Заказ должен быть выполнен'})
+        allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
+        if order.status not in allowed_statuses:
+            return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
     
     email = data.get('email')
     message = data.get('message', '')
@@ -429,8 +431,9 @@ def processing_orders():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
@@ -453,8 +456,9 @@ def need_payment_orders():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
@@ -475,8 +479,9 @@ def need_details_orders():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
@@ -497,8 +502,9 @@ def full_refund_orders():
     
     if search:
         query = query.filter(
-            (Order.order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
