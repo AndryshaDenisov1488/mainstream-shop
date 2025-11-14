@@ -20,7 +20,8 @@
                             <option value="completed">Выполнен</option>
                             <option value="completed_partial_refund">Выполнен с частичным возвратом</option>
                             <option value="refund_required">Требуется возврат</option>
-                            <option value="cancelled">Отменен</option>
+                            <option value="cancelled_unpaid">Отменен (не оплачен)</option>
+                            <option value="cancelled_manual">Отменен вручную</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -46,7 +47,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="sendLinksForm">
+                <form id="sendLinksModalForm">
                     <input type="hidden" id="sendLinksOrderId" name="order_id">
                     
                     <!-- Order Information -->
@@ -186,7 +187,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
-                <button type="button" class="btn btn-primary" onclick="sendVideoLinks()">
+                <button type="button" class="btn btn-primary" onclick="sendVideoLinksModal()">
                     <i class="fas fa-paper-plane me-1"></i>Отправить ссылки
                 </button>
             </div>
@@ -571,8 +572,8 @@ function openSendLinksModal(orderId, orderNumber, clientEmail, firstName, lastNa
     modal.show();
 }
 
-function sendVideoLinks() {
-    const form = document.getElementById('sendLinksForm');
+function sendVideoLinksModal() {
+    const form = document.getElementById('sendLinksModalForm');
     const formData = new FormData(form);
     
     const videoLinks = {};

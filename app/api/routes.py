@@ -24,6 +24,7 @@ OPERATOR_MANAGEABLE_STATUSES = (
     'completed',
     'completed_partial_refund',
     'refund_required',
+    'cancelled_unpaid',
     'cancelled_manual',
 )
 

@@ -335,7 +335,8 @@ function confirmStatusChange() {
                         <button type="button" class="btn btn-outline-success" onclick="selectStatus('completed')">Выполнен</button>
                         <button type="button" class="btn btn-outline-success" onclick="selectStatus('completed_partial_refund')">Выполнен с частичным возвратом</button>
                         <button type="button" class="btn btn-outline-warning" onclick="selectStatus('refund_required')">Требуется возврат</button>
-                        <button type="button" class="btn btn-outline-danger" onclick="selectStatus('cancelled_manual')">Отменен</button>
+                        <button type="button" class="btn btn-outline-danger" onclick="selectStatus('cancelled_unpaid')">Отменен (не оплачен)</button>
+                        <button type="button" class="btn btn-outline-dark" onclick="selectStatus('cancelled_manual')">Отменен вручную</button>
                     </div>
                 </div>
                 

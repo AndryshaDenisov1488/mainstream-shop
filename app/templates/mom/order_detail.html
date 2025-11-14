@@ -352,7 +352,7 @@
                         {% endfor %}
                     </div>
                     {% endif %}
-                    <form id="sendLinksForm">
+                    <form id="orderDetailSendLinksForm">
                         <input type="hidden" name="order_id" value="{{ order.id }}">
                         <input type="hidden" name="client_email" value="{{ order.contact_email }}">
                         <input type="hidden" name="client_name" value="{{ order.contact_last_name or '' }} {{ order.contact_first_name or '' }}">
@@ -636,8 +636,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Function to send video links
-    window.sendVideoLinks = function() {
-        const form = document.getElementById('sendLinksForm');
+    window.sendVideoLinksInline = function() {
+        const form = document.getElementById('orderDetailSendLinksForm');
         const formData = new FormData(form);
         
         const videoLinks = {};
@@ -768,7 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const sendVideoLinksBtn = document.getElementById('sendVideoLinksBtn');
     if (sendVideoLinksBtn) {
         sendVideoLinksBtn.addEventListener('click', function() {
-            sendVideoLinks();
+            sendVideoLinksInline();
         });
     }
     
