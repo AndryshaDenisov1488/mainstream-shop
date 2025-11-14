@@ -23,18 +23,35 @@
             <i class="fas fa-{{ 'check-circle' if order.status == 'completed' else 'credit-card' if order.status in ['checkout_initiated', 'awaiting_payment'] else 'cog' if order.status == 'processing' else 'paper-plane' if order.status == 'links_sent' else 'exclamation-triangle' if order.status == 'refund_required' else 'times-circle' if order.status in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] else 'question-circle' }}"></i>
             {{ order.get_status_display() }}
         </h5>
-        {% if order.operator_comment %}
-            <hr>
-            <div class="alert {% if order.status == 'refund_required' %}alert-warning{% else %}alert-info{% endif %} mb-0">
-                <div class="d-flex align-items-start">
-                    <i class="fas {% if order.status == 'refund_required' %}fa-exclamation-triangle{% else %}fa-comment{% endif %} me-2 mt-1"></i>
-                    <div>
-                        <strong>{% if order.status == 'refund_required' %}Требуется возврат:{% else %}Комментарий оператора:{% endif %}</strong>
-                        <p class="mb-0 mt-1">{{ order.operator_comment }}</p>
-                    </div>
-                </div>
+{% if order.status == 'refund_required' and (order.refund_reason or order.operator_comment) %}
+    <hr>
+    <div class="alert alert-warning mb-0">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-exclamation-triangle me-2 mt-1"></i>
+            <div>
+                {% if order.refund_reason %}
+                    <strong>Причина возврата:</strong>
+                    <p class="mb-2 mt-1">{{ order.refund_reason }}</p>
+                {% endif %}
+                {% if order.operator_comment %}
+                    <strong>Комментарий оператора:</strong>
+                    <p class="mb-0 mt-1">{{ order.operator_comment }}</p>
+                {% endif %}
             </div>
-        {% endif %}
+        </div>
+    </div>
+{% elif order.operator_comment %}
+    <hr>
+    <div class="alert alert-info mb-0">
+        <div class="d-flex align-items-start">
+            <i class="fas fa-comment me-2 mt-1"></i>
+            <div>
+                <strong>Комментарий оператора:</strong>
+                <p class="mb-0 mt-1">{{ order.operator_comment }}</p>
+            </div>
+        </div>
+    </div>
+{% endif %}
     </div>
 
     <div class="row">
@@ -148,10 +165,19 @@
                     {% endif %}
                     
                     <!-- Operator Comment -->
+                    {% if order.refund_reason %}
+                    <div class="mb-3">
+                        <h6 class="text-warning"><i class="fas fa-clipboard-list me-1"></i>Причина возврата:</h6>
+                        <div class="alert alert-warning mb-0">
+                            <p class="mb-0">{{ order.refund_reason }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
                     {% if order.operator_comment %}
                     <div class="mb-3">
-                        <h6 class="text-warning"><i class="fas fa-user-cog me-1"></i>Комментарий оператора:</h6>
-                        <div class="alert alert-warning">
+                        <h6 class="text-info"><i class="fas fa-user-cog me-1"></i>Комментарий оператора:</h6>
+                        <div class="alert alert-info">
                             <p class="mb-0">{{ order.operator_comment }}</p>
                             {% if order.operator %}
                                 <small class="text-muted">Добавлено оператором: {{ order.operator.full_name }}</small>
@@ -161,7 +187,7 @@
                     {% endif %}
                     
                     
-                    {% if not order.comment and not order.operator_comment %}
+                    {% if not order.comment and not order.operator_comment and not order.refund_reason %}
                         <p class="text-muted mb-0">Комментарии отсутствуют</p>
                     {% endif %}
                 </div>

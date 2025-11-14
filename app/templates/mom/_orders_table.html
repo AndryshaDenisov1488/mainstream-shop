@@ -104,20 +104,20 @@
                                     {{ order.get_status_display() }}
                                 </span>
                                 {% if order.status == 'refund_required' %}
-                                    <small class="text-warning fw-semibold mt-1">
+                                    <small class="text-warning fw-semibold mt-1 d-block">
                                         <i class="fas fa-exclamation-triangle me-1"></i>
                                         Нужно оформить возврат
                                     </small>
                                     {% if order.refund_reason %}
-                                        <small class="text-muted">
-                                            Причина: {{ order.refund_reason[:80] }}{% if order.refund_reason|length > 80 %}…{% endif %}
+                                        <small class="text-muted d-block">
+                                            <i class="fas fa-clipboard-list me-1"></i>
+                                            Причина: {{ order.refund_reason[:120] }}{% if order.refund_reason|length > 120 %}…{% endif %}
                                         </small>
                                     {% endif %}
-                                    {% set refund_comment = order.refund_reason or order.operator_comment %}
-                                    {% if refund_comment %}
-                                        <small class="text-muted">
+                                    {% if order.operator_comment %}
+                                        <small class="text-muted d-block">
                                             <i class="fas fa-comment-dollar me-1"></i>
-                                            {{ refund_comment[:120] }}{% if refund_comment|length > 120 %}…{% endif %}
+                                            Комментарий: {{ order.operator_comment[:120] }}{% if order.operator_comment|length > 120 %}…{% endif %}
                                         </small>
                                     {% endif %}
                                 {% elif order.status in ['completed_partial_refund', 'refunded_partial'] %}
