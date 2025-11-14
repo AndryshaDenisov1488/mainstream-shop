@@ -113,6 +113,13 @@
                                             Причина: {{ order.refund_reason[:80] }}{% if order.refund_reason|length > 80 %}…{% endif %}
                                         </small>
                                     {% endif %}
+                                    {% set refund_comment = order.refund_reason or order.operator_comment %}
+                                    {% if refund_comment %}
+                                        <small class="text-muted">
+                                            <i class="fas fa-comment-dollar me-1"></i>
+                                            {{ refund_comment[:120] }}{% if refund_comment|length > 120 %}…{% endif %}
+                                        </small>
+                                    {% endif %}
                                 {% elif order.status in ['completed_partial_refund', 'refunded_partial'] %}
                                     <small class="text-info mt-1">
                                         <i class="fas fa-undo me-1"></i> Возврат произведен
