@@ -21,8 +21,16 @@ def register_payment_routes(bp):
     def process_payment():
         """Process payment and create order after successful payment"""
         try:
-            # Get cart from session
+            from time import time
+            CART_TIMEOUT_SECONDS = 15 * 60
+
+            # Get cart from session (respect timeout)
             cart = session.get('cart', {})
+            last_touched = session.get('cart_touched_at', 0)
+            if cart and last_touched and (time() - last_touched) > CART_TIMEOUT_SECONDS:
+                cart = {}
+                session.pop('cart', None)
+                session.pop('cart_touched_at', None)
             
             if not cart:
                 flash('Ваша корзина пуста', 'error')
@@ -330,6 +338,7 @@ def register_payment_routes(bp):
             
             # Clear cart and session data
             session.pop('cart', None)
+            session.pop('cart_touched_at', None)
             session.pop('pending_order_id', None)
             
             # Send order confirmation email

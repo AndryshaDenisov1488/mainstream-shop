@@ -169,11 +169,31 @@ Email: {data.get('email')}
         current_app.logger.error(f'Contact form error: {str(e)}')
         return jsonify({'success': False, 'message': 'Ошибка отправки сообщения'}), 500
 
+from time import time
+
+CART_TIMEOUT_SECONDS = 15 * 60  # 15 минут
+
+def _maybe_expire_cart():
+    """Удаляем корзину, если она не трогалась больше 15 минут."""
+    cart = session.get('cart')
+    if not cart:
+        return {}
+
+    last_touched = session.get('cart_touched_at', 0)
+    if last_touched and (time() - last_touched) > CART_TIMEOUT_SECONDS:
+        session.pop('cart', None)
+        session.pop('cart_touched_at', None)
+        return {}
+
+    # обновляем метку активности, если корзина ещё жива
+    session['cart_touched_at'] = time()
+    session.modified = True
+    return cart
+
 @bp.route('/cart')
 def cart():
     """Shopping cart page"""
-    # Get cart from session
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     
     # Get cart items with full details
     cart_items = []
@@ -216,8 +236,7 @@ def add_to_cart():
     if not athlete_id or not video_type_id:
         return jsonify({'success': False, 'error': 'Неверные параметры'})
     
-    # Get cart from session
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     item_key = f"{athlete_id}_{video_type_id}"
     
     if item_key in cart:
@@ -226,6 +245,7 @@ def add_to_cart():
         cart[item_key] = quantity
     
     session['cart'] = cart
+    session['cart_touched_at'] = time()
     session.modified = True  # Mark session as modified
     
     # Calculate total items in cart
@@ -245,8 +265,7 @@ def remove_from_cart():
     if not item_id:
         return jsonify({'success': False, 'error': 'Неверные параметры'})
     
-    # Get cart from session
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     
     if item_id in cart:
         del cart[item_id]
@@ -277,8 +296,7 @@ def update_cart():
     if quantity <= 0:
         return remove_from_cart()
     
-    # Get cart from session
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     cart[item_id] = quantity
     session['cart'] = cart
     
@@ -294,7 +312,7 @@ def update_cart():
 @bp.route('/api/cart/count')
 def get_cart_count():
     """Get total number of items in cart"""
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     total_items = sum(cart.values())
     
     return jsonify({
@@ -306,7 +324,7 @@ def get_cart_count():
 def checkout():
     """Checkout page"""
     # Get cart from session
-    cart = session.get('cart', {})
+    cart = _maybe_expire_cart()
     
     # Get cart from session
     
