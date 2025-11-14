@@ -9,12 +9,38 @@ from app.utils.decorators import admin_or_mom_required, role_required
 from app.utils.cloudpayments import CloudPaymentsAPI
 from app.utils.email import send_order_confirmation_email
 from app.utils.datetime_utils import moscow_now_naive
+import copy
 import json
 import logging
 import base64
 import requests
+import random
+import time
+from sqlalchemy.exc import OperationalError
 
 logger = logging.getLogger(__name__)
+def _execute_db_operation_with_retry(operation_fn, context: str):
+    """Execute a DB write operation with retry logic for sqlite 'database is locked' errors."""
+    max_retries = 5
+    retry_delay = 0.1
+
+    for attempt in range(max_retries):
+        try:
+            operation_fn()
+            db.session.commit()
+            return
+        except OperationalError as exc:
+            db.session.rollback()
+            if 'database is locked' in str(exc).lower() and attempt < max_retries - 1:
+                wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                logger.warning(
+                    f"Database locked while executing '{context}'. "
+                    f"Retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})"
+                )
+                time.sleep(wait_time)
+            else:
+                logger.error(f"DB operation '{context}' failed after {attempt + 1} attempts: {exc}")
+                raise
 
 OPERATOR_MANAGEABLE_STATUSES = (
     'processing',
@@ -98,11 +124,17 @@ def create_payment():
                 'error': f'Ошибка CloudPayments: {str(cp_error)}'
             }), 500
         
-        # Update order status to awaiting payment
-        order.status = 'awaiting_payment'
-        order.payment_method = payment_method
-        
-        db.session.commit()
+        def _set_awaiting_payment_status():
+            fresh_order = Order.query.get(order.id)
+            if not fresh_order:
+                raise ValueError('Order not found during status update')
+            fresh_order.status = 'awaiting_payment'
+            fresh_order.payment_method = payment_method
+
+        _execute_db_operation_with_retry(
+            _set_awaiting_payment_status,
+            'api.create_payment.awaiting_payment'
+        )
         
         return jsonify({
             'success': True,
@@ -172,27 +204,32 @@ def process_payment():
                 # Payment successful
                 transaction_id = result.get('TransactionId')
                 
-                # Create payment record
-                payment = Payment(
-                    order_id=order.id,
-                    cp_transaction_id=transaction_id,
-                    amount=amount,
-                    currency=currency,
-                    status='authorized',
-                    method=payment_method,
-                    email=email,
-                    raw_payload=result
+                payment_payload = {
+                    'order_id': order.id,
+                    'cp_transaction_id': transaction_id,
+                    'amount': float(amount),
+                    'currency': currency,
+                    'status': 'authorized',
+                    'method': payment_method,
+                    'email': email,
+                    'raw_payload': result
+                }
+
+                def _persist_payment_and_update_order():
+                    fresh_order = Order.query.get(order.id)
+                    if not fresh_order:
+                        raise ValueError('Order not found during payment persistence')
+                    payment_record = Payment(**payment_payload)
+                    db.session.add(payment_record)
+                    fresh_order.status = 'paid'
+                    fresh_order.paid_amount = float(amount)
+                    fresh_order.payment_intent_id = transaction_id
+                    fresh_order.payment_method = payment_method
+
+                _execute_db_operation_with_retry(
+                    _persist_payment_and_update_order,
+                    'api.process_payment.persist'
                 )
-                
-                db.session.add(payment)
-                
-                # Update order status
-                order.status = 'paid'
-                order.paid_amount = amount
-                order.payment_intent_id = transaction_id
-                order.payment_method = payment_method
-                
-                db.session.commit()
                 
                 logger.info(f'Payment successful for order {order.order_number}, transaction {transaction_id}')
                 
@@ -597,41 +634,63 @@ def send_video_links_api(order_id):
         if not video_links:
             return jsonify({'success': False, 'error': 'Необходимо указать хотя бы одну ссылку на видео'}), 400
         
-        # Update order with video links and customer info
-        order.video_links = video_links
-        order.contact_email = customer_email
-        
-        # Parse customer name if provided
+        final_video_links = copy.deepcopy(video_links)
+        final_contact_email = customer_email
+        final_first_name = order.contact_first_name
+        final_last_name = order.contact_last_name
+
         if customer_name:
             name_parts = customer_name.strip().split(' ')
             if len(name_parts) >= 2:
-                order.contact_last_name = name_parts[0]
-                order.contact_first_name = ' '.join(name_parts[1:])
+                final_last_name = name_parts[0]
+                final_first_name = ' '.join(name_parts[1:])
             elif len(name_parts) == 1:
-                order.contact_first_name = name_parts[0]
-        
-        # Set status based on refund requirement
+                final_first_name = name_parts[0]
+
+        base_operator_comment = order.operator_comment or ''
+        partial_flag = '[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]'
+        final_refund_reason = None
+
         if partial_refund:
-            # Для частичного возврата оставляем статус links_sent, но добавляем флаг в operator_comment
-            order.status = 'links_sent'
-            order.operator_comment = (order.operator_comment or '') + ('\n[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]' if order.operator_comment else '[ТРЕБУЕТСЯ ЧАСТИЧНЫЙ ВОЗВРАТ]')
+            if base_operator_comment:
+                if partial_flag not in base_operator_comment:
+                    base_operator_comment = f'{base_operator_comment}\n{partial_flag}'
+            else:
+                base_operator_comment = partial_flag
             if refund_comment:
-                order.refund_reason = refund_comment
+                final_refund_reason = refund_comment
         else:
-            order.status = 'links_sent'
-        
-        # Save operator comment if provided (separate from refund reason)
+            final_refund_reason = None
+
         if message:
-            order.operator_comment = message
-        
-        
-        order.processed_at = moscow_now_naive()
-        
-        # If no operator assigned, assign current operator
-        if not order.operator_id:
-            order.operator_id = current_user.id
-        
-        db.session.commit()
+            final_operator_comment = message
+        else:
+            final_operator_comment = base_operator_comment
+
+        processed_at_value = moscow_now_naive()
+        final_operator_id = order.operator_id or current_user.id
+
+        def _apply_video_links_update():
+            fresh_order = Order.query.get(order.id)
+            if not fresh_order:
+                raise ValueError('Order not found during send links update')
+            fresh_order.video_links = final_video_links
+            fresh_order.contact_email = final_contact_email
+            fresh_order.contact_first_name = final_first_name
+            fresh_order.contact_last_name = final_last_name
+            fresh_order.status = 'links_sent'
+            fresh_order.operator_comment = final_operator_comment
+            fresh_order.refund_reason = final_refund_reason
+            fresh_order.processed_at = processed_at_value
+            if not fresh_order.operator_id and final_operator_id:
+                fresh_order.operator_id = final_operator_id
+
+        _execute_db_operation_with_retry(
+            _apply_video_links_update,
+            'api.send_video_links.update_order'
+        )
+
+        db.session.refresh(order)
         
         # Send email with links
         try:
@@ -800,128 +859,107 @@ def capture_payment(order_id):
                 'error': f'Сумма ({capture_amount}) не может превышать сумму заказа ({order.total_amount})'
             }), 400
         
-        # Если платеж уже подтвержден, просто обновляем статус заказа (подтверждение получения денег)
+        audit_entries = []
+        new_order_status = order.status
+        new_paid_amount = order.paid_amount
+        new_payment_amount_override = None
+
         if is_already_confirmed:
-            order.paid_amount = capture_amount
+            new_paid_amount = capture_amount
             if capture_amount < float(order.total_amount):
-                order.status = 'completed_partial_refund'
+                new_order_status = 'completed_partial_refund'
             else:
-                order.status = 'completed'
-            
-            # Log confirmation of receipt (для уже подтвержденных платежей)
-            AuditLog.create_log(
-                user_id=current_user.id,
-                action='MOM_CONFIRMED_RECEIPT',
-                resource_type='Order',
-                resource_id=str(order.id),
-                details={
+                new_order_status = 'completed'
+
+            audit_entries.append({
+                'action': 'MOM_CONFIRMED_RECEIPT',
+                'details': {
                     'confirmed_amount': capture_amount,
                     'total_amount': float(order.total_amount),
                     'transaction_id': payment.cp_transaction_id,
                     'payment_method': order.payment_method
-                },
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent'),
-                commit=False
-            )
+                }
+            })
         else:
-            # Платеж авторизован - нужно сделать capture через CloudPayments API
             cp_api = CloudPaymentsAPI()
-            
             if order.payment_method == 'card':
-                # Determine if this is partial or full capture
                 is_partial_capture = capture_amount < float(order.total_amount)
-                
+
                 if is_partial_capture:
-                    # ✅ ЧАСТИЧНЫЙ ЗАХВАТ
-                    # При вызове confirm_payment с указанием суммы, CloudPayments:
-                    # 1. Захватывает указанную сумму (capture_amount)
-                    # 2. АВТОМАТИЧЕСКИ отменяет (void) остаток (total_amount - capture_amount)
-                    # 3. Возвращает остаток клиенту автоматически
-                    # Это стандартное поведение двухстадийных платежей в CloudPayments API
                     confirm_result = cp_api.confirm_payment(payment.cp_transaction_id, capture_amount)
                     if not confirm_result.get('success'):
                         return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
-                    
-                    # ✅ ВАЖНО: Остаток уже автоматически возвращен CloudPayments
-                    # Обновляем статус платежа и заказа
-                    order.paid_amount = capture_amount
-                    order.status = 'completed_partial_refund'  # ✅ Всегда частичный возврат при частичном захвате
-                    
-                    # Обновляем сумму платежа на захваченную сумму
-                    payment.amount = capture_amount
-                    
-                    # Log partial capture
-                    AuditLog.create_log(
-                        user_id=current_user.id,
-                        action='MOM_CAPTURED_PARTIAL',
-                        resource_type='Order',
-                        resource_id=str(order.id),
-                        details={
+                    new_order_status = 'completed_partial_refund'
+                    new_paid_amount = capture_amount
+                    new_payment_amount_override = capture_amount
+                    audit_entries.append({
+                        'action': 'MOM_CAPTURED_PARTIAL',
+                        'details': {
                             'captured_amount': capture_amount,
                             'refunded_amount': float(order.total_amount) - capture_amount,
                             'total_amount': float(order.total_amount),
                             'transaction_id': payment.cp_transaction_id,
                             'note': f'Принято {capture_amount}₽, остаток {float(order.total_amount) - capture_amount}₽ автоматически возвращен'
-                        },
-                        ip_address=request.remote_addr,
-                        user_agent=request.headers.get('User-Agent'),
-                        commit=False  # ✅ Коммитим вместе с основными изменениями
-                    )
+                        }
+                    })
                 else:
-                    # ✅ ПОЛНЫЙ ЗАХВАТ
-                    confirm_result = cp_api.confirm_payment(payment.cp_transaction_id)  # Без amount = полный
+                    confirm_result = cp_api.confirm_payment(payment.cp_transaction_id)
                     if not confirm_result.get('success'):
                         return jsonify({'success': False, 'error': f'Ошибка подтверждения платежа: {confirm_result.get("error")}'}), 500
-                    
-                    order.paid_amount = capture_amount
-                    order.status = 'completed'  # ✅ Полный захват
-                    
-                    # Log full capture
-                    AuditLog.create_log(
-                        user_id=current_user.id,
-                        action='MOM_CAPTURED_FULL',
-                        resource_type='Order',
-                        resource_id=str(order.id),
-                        details={
+                    new_order_status = 'completed'
+                    new_paid_amount = capture_amount
+                    audit_entries.append({
+                        'action': 'MOM_CAPTURED_FULL',
+                        'details': {
                             'captured_amount': capture_amount,
                             'transaction_id': payment.cp_transaction_id
-                        },
-                        ip_address=request.remote_addr,
-                        user_agent=request.headers.get('User-Agent'),
-                        commit=False  # ✅ Коммитим вместе с основными изменениями
-                    )
+                        }
+                    })
             else:
-                # For SBP, payments are already confirmed, just update status
-                order.paid_amount = capture_amount
+                new_paid_amount = capture_amount
                 if capture_amount < float(order.total_amount):
-                    order.status = 'completed_partial_refund'
+                    new_order_status = 'completed_partial_refund'
                 else:
-                    order.status = 'completed'
-                
-                # Log SBP capture
-                AuditLog.create_log(
-                    user_id=current_user.id,
-                    action='MOM_CAPTURED_SBP',
-                    resource_type='Order',
-                    resource_id=str(order.id),
-                    details={
+                    new_order_status = 'completed'
+                audit_entries.append({
+                    'action': 'MOM_CAPTURED_SBP',
+                    'details': {
                         'captured_amount': capture_amount,
                         'payment_method': 'sbp'
-                    },
+                    }
+                })
+
+        confirmed_at_value = moscow_now_naive()
+
+        def _apply_capture_changes():
+            fresh_order = Order.query.get(order.id)
+            fresh_payment = Payment.query.get(payment.id)
+            if not fresh_order or not fresh_payment:
+                raise ValueError('Order or payment not found during capture persistence')
+            fresh_order.status = new_order_status
+            fresh_order.paid_amount = new_paid_amount
+            fresh_payment.status = 'confirmed'
+            fresh_payment.mom_confirmed = True
+            fresh_payment.confirmed_at = confirmed_at_value
+            fresh_payment.confirmed_by = current_user.id
+            if new_payment_amount_override is not None:
+                fresh_payment.amount = new_payment_amount_override
+            for entry in audit_entries:
+                AuditLog.create_log(
+                    user_id=current_user.id,
+                    action=entry['action'],
+                    resource_type='Order',
+                    resource_id=str(order.id),
+                    details=entry['details'],
                     ip_address=request.remote_addr,
                     user_agent=request.headers.get('User-Agent'),
                     commit=False
                 )
-        
-        # Update payment status (если еще не confirmed)
-        if not is_already_confirmed:
-            payment.status = 'confirmed'
-        payment.mom_confirmed = True
-        payment.confirmed_at = moscow_now_naive()
-        payment.confirmed_by = current_user.id
-        
-        db.session.commit()  # ✅ Коммитим все вместе: order, payment, audit_log
+
+        _execute_db_operation_with_retry(
+            _apply_capture_changes,
+            'api.capture_payment.persist'
+        )
         
         return jsonify({
             'success': True,
@@ -994,52 +1032,61 @@ def refund_payment(order_id):
             return jsonify({'success': False, 'error': f'Ошибка возврата: {refund_result.get("error")}'}), 500
         
         # ✅ Определяем тип возврата и обновляем статусы
-        # Сохраняем сумму до обновления для логов
         original_paid_amount = float(order.paid_amount or 0)
         is_full_refund = refund_amount >= original_paid_amount
-        
+
         if is_full_refund:
-            # ✅ ПОЛНЫЙ ВОЗВРАТ - заказ отменяется
-            order.status = 'refunded_full'
-            payment.status = 'refunded_full'
-            order.paid_amount = 0
-            
-            AuditLog.create_log(
-                user_id=current_user.id,
-                action='MOM_REFUNDED_FULL',
-                resource_type='Order',
-                resource_id=str(order.id),
-                details={
+            new_order_status = 'refunded_full'
+            new_payment_status = 'refunded_full'
+            new_paid_amount = 0
+            audit_entries = [{
+                'user_id': current_user.id,
+                'action': 'MOM_REFUNDED_FULL',
+                'details': {
                     'refund_amount': original_paid_amount,
                     'transaction_id': payment.cp_transaction_id
-                },
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent'),
-                commit=False  # ✅ Коммитим вместе с изменениями
-            )
+                }
+            }]
         else:
-            # ✅ ЧАСТИЧНЫЙ ВОЗВРАТ - заказ завершается с частичным возвратом
-            order.status = 'completed_partial_refund'  # ✅ ПРАВИЛЬНЫЙ СТАТУС
-            payment.status = 'refunded_partial'
+            new_order_status = 'completed_partial_refund'
+            new_payment_status = 'refunded_partial'
             remaining_amount = original_paid_amount - refund_amount
-            order.paid_amount = remaining_amount  # ✅ Обновляем сумму
-        
-            AuditLog.create_log(
-                user_id=current_user.id,
-                action='MOM_REFUNDED_PARTIAL',
-                resource_type='Order',
-                resource_id=str(order.id),
-                details={
+            new_paid_amount = remaining_amount
+            audit_entries = [{
+                'user_id': current_user.id,
+                'action': 'MOM_REFUNDED_PARTIAL',
+                'details': {
                     'refund_amount': refund_amount,
                     'remaining_amount': remaining_amount,
                     'transaction_id': payment.cp_transaction_id
-                },
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent'),
-                commit=False  # ✅ Коммитим вместе с изменениями
-            )
-        
-        db.session.commit()  # ✅ Коммитим все вместе
+                }
+            }]
+
+        def _apply_refund_changes():
+            fresh_order = Order.query.get(order.id)
+            fresh_payment = Payment.query.get(payment.id)
+            if not fresh_order or not fresh_payment:
+                raise ValueError('Order or payment not found during refund persistence')
+            fresh_order.status = new_order_status
+            fresh_order.paid_amount = new_paid_amount
+            fresh_payment.status = new_payment_status
+
+            for entry in audit_entries:
+                AuditLog.create_log(
+                    user_id=entry['user_id'],
+                    action=entry['action'],
+                    resource_type='Order',
+                    resource_id=str(order.id),
+                    details=entry['details'],
+                    ip_address=request.remote_addr,
+                    user_agent=request.headers.get('User-Agent'),
+                    commit=False
+                )
+
+        _execute_db_operation_with_retry(
+            _apply_refund_changes,
+            'api.refund_payment.persist'
+        )
         
         return jsonify({
             'success': True,
@@ -1063,25 +1110,36 @@ def cancel_order(order_id):
         data = request.get_json()
         cancellation_reason = data.get('reason', 'Отменен администратором')
         
-        # Update order status
-        order.status = 'cancelled_manual'
-        order.cancellation_reason = cancellation_reason
-        
-        # Try to void payment if it exists and is authorized
+        void_succeeded = False
+        authorized_payment_id = None
         if order.payment_intent_id:
             payment = order.payments.filter_by(
                 cp_transaction_id=order.payment_intent_id,
                 status='authorized'
             ).first()
-            
             if payment:
                 cp_api = CloudPaymentsAPI()
                 void_result = cp_api.void_payment(order.payment_intent_id)
                 if void_result.get('success'):
-                    payment.status = 'voided'
+                    void_succeeded = True
+                    authorized_payment_id = payment.id
                     logger.info(f'Payment {order.payment_intent_id} voided for cancelled order {order.id}')
-        
-        db.session.commit()
+
+        def _apply_cancellation():
+            fresh_order = Order.query.get(order.id)
+            if not fresh_order:
+                raise ValueError('Order not found during cancellation')
+            fresh_order.status = 'cancelled_manual'
+            fresh_order.cancellation_reason = cancellation_reason
+            if void_succeeded and authorized_payment_id:
+                fresh_payment = Payment.query.get(authorized_payment_id)
+                if fresh_payment:
+                    fresh_payment.status = 'voided'
+
+        _execute_db_operation_with_retry(
+            _apply_cancellation,
+            'api.cancel_order.persist'
+        )
         
         # Log cancellation
         AuditLog.create_log(
@@ -1132,22 +1190,38 @@ def create_payment_intent():
         
         # Update order status and set payment expiration
         from datetime import timedelta
-        order.status = 'awaiting_payment'
-        order.payment_method = payment_method
-        order.payment_expires_at = moscow_now_naive() + timedelta(minutes=15)
-        
-        db.session.commit()
+        payment_expiration = moscow_now_naive() + timedelta(minutes=15)
+
+        def _mark_order_awaiting_payment():
+            fresh_order = Order.query.get(order.id)
+            if not fresh_order:
+                raise ValueError('Order not found during payment intent creation')
+            fresh_order.status = 'awaiting_payment'
+            fresh_order.payment_method = payment_method
+            fresh_order.payment_expires_at = payment_expiration
+
+        _execute_db_operation_with_retry(
+            _mark_order_awaiting_payment,
+            'api.create_payment_intent.awaiting_payment'
+        )
         
         # Create payment widget data
         cp_api = CloudPaymentsAPI()
         payment_data = cp_api.create_payment_widget_data(order, payment_method)
         
         if not payment_data:
-            # Rollback order status
-            order.status = 'checkout_initiated'
-            order.payment_method = None
-            order.payment_expires_at = None
-            db.session.commit()
+            def _rollback_payment_intent_state():
+                fresh_order = Order.query.get(order.id)
+                if not fresh_order:
+                    return
+                fresh_order.status = 'checkout_initiated'
+                fresh_order.payment_method = None
+                fresh_order.payment_expires_at = None
+
+            _execute_db_operation_with_retry(
+                _rollback_payment_intent_state,
+                'api.create_payment_intent.rollback'
+            )
             return jsonify({'success': False, 'error': 'Failed to create payment intent'}), 500
         
         # Log payment intent creation
