@@ -109,7 +109,8 @@
                     <h5 class="mb-0">Все заказы ({{ orders.total }} найдено)</h5>
                 </div>
                 <div class="card-body">
-                    {% include 'mom/_orders_table.html' with orders=orders, video_types_dict=video_types_dict, unread_counts=unread_counts, total_counts=total_counts, show_chat_column=True %}
+                    {% set show_chat_column = True %}
+                    {% include 'mom/_orders_table.html' %}
 
                     <!-- Pagination -->
                     {% if orders.pages > 1 %}
