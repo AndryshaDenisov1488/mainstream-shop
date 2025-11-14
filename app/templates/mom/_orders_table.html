@@ -1,0 +1,288 @@
+{% set show_chat_column = show_chat_column if show_chat_column is defined else False %}
+{% set unread_map = unread_counts if unread_counts is defined else {} %}
+{% set total_map = total_counts if total_counts is defined else {} %}
+
+<div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Дата</th>
+                <th>Клиент</th>
+                <th>Контакты</th>
+                <th>Турнир</th>
+                <th>Спортсмен</th>
+                <th>Тип видео</th>
+                <th>Сумма</th>
+                <th>Статус</th>
+                <th>Оператор</th>
+                <th>Оплата</th>
+                <th>Быстрые действия</th>
+                <th>Действия</th>
+                {% if show_chat_column %}
+                    <th>Сообщения</th>
+                {% endif %}
+            </tr>
+        </thead>
+        <tbody>
+            {% if orders.items %}
+                {% for order in orders.items %}
+                    {% set highlight_row = order.status == 'refund_required' %}
+                    <tr class="{% if highlight_row %}table-warning{% endif %}">
+                        <td>#{{ order.id }}</td>
+                        <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else 'Не указано' }}</td>
+                        <td>
+                            {% if order.contact_first_name and order.contact_last_name %}
+                                {{ order.contact_last_name }} {{ order.contact_first_name }}
+                            {% elif order.customer %}
+                                {{ order.customer.full_name }}
+                            {% else %}
+                                {{ order.contact_email }}
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="small">
+                                <div>{{ order.contact_email or 'Не указан' }}</div>
+                                <div>
+                                    {{ order.contact_phone or 'Телефон не указан' }}
+                                    {% if order.contact_phone %}
+                                        {% set wa_phone = order.contact_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') %}
+                                        <a href="https://wa.me/{{ wa_phone }}"
+                                           target="_blank"
+                                           class="btn btn-success btn-sm ms-1"
+                                           title="Написать в WhatsApp"
+                                           style="padding: 0.125rem 0.25rem; font-size: 0.7rem;">
+                                            <i class="fab fa-whatsapp"></i>
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>{{ order.event.name if order.event else 'Неизвестный турнир' }}</td>
+                        <td>{{ order.athlete.name if order.athlete else 'Неизвестный спортсмен' }}</td>
+                        <td>
+                            {% if order.video_types %}
+                                {% for video_type_id in order.video_types %}
+                                    {% if video_types_dict and video_types_dict.get(video_type_id|string) %}
+                                        <span class="badge bg-info small me-1">{{ video_types_dict[video_type_id|string].name }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning small me-1">Неизвестный тип</span>
+                                    {% endif %}
+                                {% endfor %}
+                            {% else %}
+                                <span class="text-muted">Не указан</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.status == 'completed_partial_refund' and order.paid_amount %}
+                                <div class="d-flex flex-column">
+                                    <strong>{{ "%.2f"|format(order.paid_amount) }} ₽</strong>
+                                    <small class="text-warning">
+                                        <i class="fas fa-arrow-down"></i> Возвращено: {{ "%.2f"|format(order.total_amount - order.paid_amount) }} ₽
+                                    </small>
+                                    <small class="text-muted">из {{ "%.2f"|format(order.total_amount) }} ₽</small>
+                                </div>
+                            {% elif order.status == 'refunded_full' %}
+                                <div class="d-flex flex-column">
+                                    <span class="text-danger"><s>{{ "%.2f"|format(order.total_amount) }} ₽</s></span>
+                                    <small class="text-danger">
+                                        <i class="fas fa-undo"></i> Полный возврат
+                                    </small>
+                                </div>
+                            {% else %}
+                                {{ "%.2f"|format(order.total_amount) }} ₽
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex flex-column">
+                                <span class="badge bg-{{ order.get_status_badge_class() }}"
+                                      style="cursor: pointer;"
+                                      data-order-id="{{ order.id }}"
+                                      data-order-status="{{ order.status }}"
+                                      data-order-number="{{ order.generated_order_number }}">
+                                    {{ order.get_status_display() }}
+                                </span>
+                                {% if order.status == 'refund_required' %}
+                                    <small class="text-warning fw-semibold mt-1">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Нужно оформить возврат
+                                    </small>
+                                    {% if order.refund_reason %}
+                                        <small class="text-muted">
+                                            Причина: {{ order.refund_reason[:80] }}{% if order.refund_reason|length > 80 %}…{% endif %}
+                                        </small>
+                                    {% endif %}
+                                {% elif order.status in ['completed_partial_refund', 'refunded_partial'] %}
+                                    <small class="text-info mt-1">
+                                        <i class="fas fa-undo me-1"></i> Возврат произведен
+                                    </small>
+                                {% endif %}
+                                {% if order.operator_comment and order.status != 'refund_required' %}
+                                    <small class="text-muted mt-1">
+                                        <i class="fas fa-comment-dots me-1"></i>
+                                        {{ order.operator_comment[:80] }}{% if order.operator_comment|length > 80 %}…{% endif %}
+                                    </small>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td>
+                            {% if order.operator %}
+                                {{ order.operator.full_name or order.operator.email }}
+                            {% else %}
+                                <span class="text-muted">Не назначен</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.payments %}
+                                {% set confirmed_payments = order.payments|selectattr('status', 'equalto', 'confirmed')|list %}
+                                {% set refunded_payments = order.payments|selectattr('status', 'in', ['refunded_partial', 'refunded_full'])|list %}
+                                {% for payment in confirmed_payments %}
+                                    <div class="d-flex flex-column mb-2">
+                                        <span class="badge bg-success small mb-1">Подтвержден</span>
+                                        <small class="text-success"><strong>{{ "%.2f"|format(payment.amount) }} ₽</strong></small>
+                                        {% if payment.cp_transaction_id %}
+                                            <small class="text-muted">{{ payment.cp_transaction_id[:8] }}...</small>
+                                        {% endif %}
+                                    </div>
+                                {% endfor %}
+                                {% for payment in refunded_payments %}
+                                    <div class="d-flex flex-column mb-2">
+                                        <span class="badge bg-danger small mb-1">Возвращено</span>
+                                        <small class="text-danger">
+                                            <i class="fas fa-undo"></i> {{ "%.2f"|format(payment.amount) }} ₽
+                                        </small>
+                                    </div>
+                                {% endfor %}
+                                {% if not confirmed_payments and not refunded_payments %}
+                                    {% for payment in order.payments %}
+                                        <div class="d-flex flex-column">
+                                            <span class="badge bg-{{ 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'secondary' }} small mb-1">
+                                                {{ 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else payment.status }}
+                                            </span>
+                                            <small class="text-muted">{{ "%.2f"|format(payment.amount) }} ₽</small>
+                                            {% if payment.cp_transaction_id %}
+                                                <small class="text-muted">{{ payment.cp_transaction_id[:8] }}...</small>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                {% endif %}
+                            {% else %}
+                                <div class="d-flex flex-column">
+                                    <span class="badge bg-secondary small mb-1">Не оплачен</span>
+                                    <small class="text-muted">{{ "%.2f"|format(order.total_amount) }} ₽</small>
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if order.can_be_captured_by_mom() %}
+                                <button class="btn btn-sm btn-success confirm-payment-btn"
+                                        data-order-id="{{ order.id }}"
+                                        data-order-number="{{ order.generated_order_number }}"
+                                        data-order-amount="{{ order.total_amount }}"
+                                        title="Принять деньги">
+                                    <i class="fas fa-money-bill-wave"></i>
+                                </button>
+                            {% elif order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
+                                <button class="btn btn-sm btn-outline-primary send-links-btn"
+                                        data-order-id="{{ order.id }}"
+                                        data-order-number="{{ order.generated_order_number }}"
+                                        data-client-email="{{ order.contact_email }}"
+                                        data-client-first-name="{{ order.contact_first_name or '' }}"
+                                        data-client-last-name="{{ order.contact_last_name or '' }}"
+                                        title="Отправить ссылки">
+                                    <i class="fas fa-link"></i>
+                                </button>
+                            {% else %}
+                                <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group" role="group">
+                                <a href="{{ url_for('mom.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary" title="Просмотр">
+                                    <i class="fas fa-eye"></i>
+                                </a>
+                                
+                                {% if order.status == 'paid' and order.payment_method == 'card' %}
+                                    <button class="btn btn-sm btn-info capture-payment-btn"
+                                            data-order-id="{{ order.id }}"
+                                            data-amount="{{ order.total_amount }}"
+                                            title="Частичный зачет">
+                                        <i class="fas fa-money-check-alt"></i>
+                                    </button>
+                                {% endif %}
+                                
+                                {% if order.status == 'paid' %}
+                                    <button class="btn btn-sm btn-warning refund-payment-btn"
+                                            data-order-id="{{ order.id }}"
+                                            data-amount="{{ order.paid_amount or order.total_amount }}"
+                                            title="Возврат">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                {% endif %}
+                                
+                                {% if order.status == 'refund_required' %}
+                                    <button class="btn btn-sm btn-warning process-refund-btn"
+                                            data-order-id="{{ order.id }}"
+                                            data-order-number="{{ order.generated_order_number }}"
+                                            data-order-amount="{{ order.total_amount }}"
+                                            title="Обработать возврат">
+                                        <i class="fas fa-undo"></i>
+                                    </button>
+                                {% endif %}
+                                
+                                {% if order.status == 'cancelled_manual' %}
+                                    <button class="btn btn-sm btn-danger refund-money-btn"
+                                            data-order-id="{{ order.id }}"
+                                            data-order-number="{{ order.generated_order_number }}"
+                                            data-order-amount="{{ order.total_amount }}"
+                                            title="Вернуть деньги">
+                                        <i class="fas fa-arrow-left"></i>
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% if show_chat_column %}
+                            <td>
+                                {% set unread = unread_map.get(order.id, 0) %}
+                                {% set total = total_map.get(order.id, 0) %}
+                                {% if total > 0 %}
+                                    {% if unread > 0 %}
+                                        <span class="badge bg-danger chat-trigger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;"
+                                              title="Непрочитанных: {{ unread }} из {{ total }}. Нажмите, чтобы открыть чат"
+                                              data-order-id="{{ order.id }}"
+                                              data-order-number="{{ order.generated_order_number }}">
+                                            <i class="fas fa-comments"></i> {{ total }}
+                                            <span class="badge bg-dark ms-1">{{ unread }}</span>
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary chat-trigger" style="font-size: 0.9em; padding: 0.35em 0.65em; cursor: pointer;"
+                                              title="Всего сообщений: {{ total }}. Нажмите, чтобы открыть чат"
+                                              data-order-id="{{ order.id }}"
+                                              data-order-number="{{ order.generated_order_number }}">
+                                            <i class="fas fa-comments"></i> {{ total }}
+                                        </span>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted chat-trigger" style="cursor: pointer;"
+                                          title="Нажмите, чтобы открыть чат"
+                                          data-order-id="{{ order.id }}"
+                                          data-order-number="{{ order.generated_order_number }}">
+                                        <i class="fas fa-comments"></i> 0
+                                    </span>
+                                {% endif %}
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="{{ 13 + (1 if show_chat_column else 0) }}" class="text-center text-muted py-4">
+                        <i class="fas fa-shopping-cart fa-2x mb-2"></i><br>
+                        Заказы не найдены
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+

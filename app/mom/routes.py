@@ -3,13 +3,51 @@ from flask_login import login_required, current_user
 from app.mom import bp
 from app.utils.decorators import role_required
 from app.models import Order, Event, User, VideoType, Payment, db
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
 from app.utils.order_status import expand_status_filter, get_status_filter_choices
 
 logger = logging.getLogger(__name__)
+
+
+def _get_chat_counts(order_items, current_user_id):
+    """Return unread and total chat message counts for order list."""
+    unread_counts = {}
+    total_counts = {}
+    order_ids = [order.id for order in order_items]
+
+    if not order_ids:
+        return unread_counts, total_counts
+
+    from app.models import OrderChat, ChatMessage
+
+    chats = OrderChat.query.filter(OrderChat.order_id.in_(order_ids)).all()
+    chat_dict = {chat.order_id: chat for chat in chats}
+    chat_ids = [chat.id for chat in chats]
+
+    message_counts_dict = {}
+    if chat_ids:
+        message_counts = db.session.query(
+            ChatMessage.chat_id,
+            func.count(ChatMessage.id).label('total')
+        ).filter(ChatMessage.chat_id.in_(chat_ids)).group_by(ChatMessage.chat_id).all()
+        message_counts_dict = {chat_id: total for chat_id, total in message_counts}
+
+    for order in order_items:
+        chat = chat_dict.get(order.id)
+        if chat:
+            try:
+                unread_counts[order.id] = chat.get_unread_count_for_user(current_user_id)
+            except Exception:
+                unread_counts[order.id] = 0
+            total_counts[order.id] = message_counts_dict.get(chat.id, 0)
+        else:
+            unread_counts[order.id] = 0
+            total_counts[order.id] = 0
+
+    return unread_counts, total_counts
 
 @bp.route('/dashboard')
 @login_required
@@ -59,40 +97,7 @@ def dashboard():
     )
     
     # Get chat message counts for each order
-    from app.models import OrderChat, ChatMessage
-    unread_counts = {}
-    total_counts = {}
-    order_ids = [order.id for order in orders.items]
-    if order_ids:
-        chats = OrderChat.query.filter(OrderChat.order_id.in_(order_ids)).all()
-        chat_dict = {chat.order_id: chat for chat in chats}
-        # Get total message counts for all chats
-        chat_ids = [chat.id for chat in chats]
-        if chat_ids:
-            from sqlalchemy import func
-            message_counts = db.session.query(
-                ChatMessage.chat_id,
-                func.count(ChatMessage.id).label('total')
-            ).filter(ChatMessage.chat_id.in_(chat_ids)).group_by(ChatMessage.chat_id).all()
-            message_counts_dict = {chat_id: total for chat_id, total in message_counts}
-        else:
-            message_counts_dict = {}
-        
-        for order in orders.items:
-            chat = chat_dict.get(order.id)
-            if chat:
-                try:
-                    unread_counts[order.id] = chat.get_unread_count_for_user(current_user.id)
-                    total_counts[order.id] = message_counts_dict.get(chat.id, 0)
-                except Exception:
-                    unread_counts[order.id] = 0
-                    total_counts[order.id] = 0
-            else:
-                unread_counts[order.id] = 0
-                total_counts[order.id] = 0
-    else:
-        unread_counts = {}
-        total_counts = {}
+    unread_counts, total_counts = _get_chat_counts(orders.items, current_user.id)
     
     # Get video types for display
     from app.models import VideoType
@@ -148,13 +153,17 @@ def orders():
     video_types = VideoType.query.all()
     video_types_dict = {str(vt.id): vt for vt in video_types}
     
+    unread_counts, total_counts = _get_chat_counts(orders.items, current_user.id)
+    
     return render_template(
         'mom/orders.html',
         orders=orders,
         status_filter=status_filter,
         status_choices=get_status_filter_choices(),
         search=search,
-        video_types_dict=video_types_dict
+        video_types_dict=video_types_dict,
+        unread_counts=unread_counts,
+        total_counts=total_counts
     )
 
 @bp.route('/pending-orders')

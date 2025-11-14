@@ -357,31 +357,6 @@ def order_success(order_id):
     
     return render_template('main/order_success.html', order=order)
 
-@bp.route('/track-order', methods=['GET', 'POST'])
-def track_order():
-    """Track order by email and order number"""
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip()
-        order_number = request.form.get('order_number', '').strip()
-        
-        if not email or not order_number:
-            flash('Пожалуйста, заполните все поля', 'error')
-            return render_template('main/track_order.html')
-        
-        # Find order by email and order number
-        order = Order.query.filter(
-            Order.contact_email == email,
-            Order.generated_order_number == order_number
-        ).first()
-        
-        if order:
-            return render_template('main/order_tracking.html', order=order)
-        else:
-            flash('Заказ не найден. Проверьте правильность введенных данных.', 'error')
-            return render_template('main/track_order.html')
-    
-    return render_template('main/track_order.html')
-
 @bp.route('/privacy-policy')
 def privacy_policy():
     """Privacy policy page"""

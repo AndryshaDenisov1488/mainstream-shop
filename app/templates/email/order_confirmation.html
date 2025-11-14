@@ -54,12 +54,6 @@
     <li><strong>Доставка</strong> - отправим ссылки на видео на ваш email</li>
 </ol>
 
-<p style="text-align: center;">
-    <a href="{{ url_for('main.track_order', _external=True) }}" class="button">
-        Отследить заказ
-    </a>
-</p>
-
 {% if order.comment %}
 <div class="highlight">
     <p><strong>Ваш комментарий:</strong> {{ order.comment }}</p>
