@@ -44,9 +44,10 @@
                             <div class="small">
                                 <div>{{ order.contact_email or 'Не указан' }}</div>
                                 <div>
-                                    {{ order.contact_phone or 'Телефон не указан' }}
-                                    {% if order.contact_phone %}
-                                        {% set wa_phone = order.contact_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') %}
+                                    {% set contact_phone = order.contact_phone %}
+                                    {{ contact_phone or 'Телефон не указан' }}
+                                    {% if contact_phone %}
+                                        {% set wa_phone = contact_phone.replace('+', '').replace(' ', '').replace('-', '').replace('(', '').replace(')', '') %}
                                         <a href="https://wa.me/{{ wa_phone }}"
                                            target="_blank"
                                            class="btn btn-success btn-sm ms-1"
