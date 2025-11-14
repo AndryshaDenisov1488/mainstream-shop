@@ -27,6 +27,12 @@
         <tbody>
             {% if orders.items %}
                 {% for order in orders.items %}
+                    {% set payment_list = order.payments|list %}
+                    {% set confirmed_payments = payment_list|selectattr('status', 'equalto', 'confirmed')|list %}
+                    {% set partial_refunds = payment_list|selectattr('status', 'equalto', 'refunded_partial')|list %}
+                    {% set full_refunds = payment_list|selectattr('status', 'equalto', 'refunded_full')|list %}
+                    {% set refunded_payments = partial_refunds + full_refunds %}
+                    {% set authorized_payments = payment_list|selectattr('status', 'equalto', 'authorized')|list %}
                     {% set highlight_row = order.status == 'refund_required' %}
                     <tr class="{% if highlight_row %}table-warning{% endif %}">
                         <td>#{{ order.id }}</td>
@@ -124,6 +130,11 @@
                                     <small class="text-info mt-1">
                                         <i class="fas fa-undo me-1"></i> Возврат произведен
                                     </small>
+                                {% elif order.refund_reason %}
+                                    <small class="text-warning mt-1 d-block">
+                                        <i class="fas fa-clipboard-list me-1"></i>
+                                        Причина возврата: {{ order.refund_reason[:120] }}{% if order.refund_reason|length > 120 %}…{% endif %}
+                                    </small>
                                 {% endif %}
                                 {% if order.operator_comment and order.status != 'refund_required' %}
                                     <small class="text-muted mt-1">
@@ -141,12 +152,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% set payment_list = order.payments|list %}
                             {% if payment_list %}
-                                {% set confirmed_payments = payment_list|selectattr('status', 'equalto', 'confirmed')|list %}
-                                {% set partial_refunds = payment_list|selectattr('status', 'equalto', 'refunded_partial')|list %}
-                                {% set full_refunds = payment_list|selectattr('status', 'equalto', 'refunded_full')|list %}
-                                {% set refunded_payments = partial_refunds + full_refunds %}
                                 {% for payment in confirmed_payments %}
                                     <div class="d-flex flex-column mb-2">
                                         <span class="badge bg-success small mb-1">Подтвержден</span>
@@ -185,7 +191,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if order.can_be_captured_by_mom() %}
+                            {% if order.can_be_captured_by_mom() and authorized_payments %}
                                 <button class="btn btn-sm btn-success confirm-payment-btn"
                                         data-order-id="{{ order.id }}"
                                         data-order-number="{{ order.generated_order_number }}"
