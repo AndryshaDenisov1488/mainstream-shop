@@ -3,7 +3,7 @@ from flask_login import login_required, current_user
 from app.mom import bp
 from app.utils.decorators import role_required
 from app.models import Order, Event, User, VideoType, Payment, db
-from sqlalchemy import desc, func
+from sqlalchemy import desc, func, or_
 from sqlalchemy.orm import joinedload
 from datetime import datetime
 import logging
@@ -49,6 +49,25 @@ def _get_chat_counts(order_items, current_user_id):
 
     return unread_counts, total_counts
 
+
+def _apply_order_search_filter(query, search_term: str):
+    """Apply consistent search filters to mom order queries."""
+    if not search_term:
+        return query
+    term = search_term.strip()
+    if not term:
+        return query
+    filters = [
+        Order.generated_order_number.contains(term),
+        Order.contact_email.contains(term),
+        Order.contact_phone.contains(term),
+    ]
+    try:
+        filters.append(Order.id == int(term))
+    except (ValueError, TypeError):
+        pass
+    return query.filter(or_(*filters))
+
 @bp.route('/dashboard')
 @login_required
 @role_required('MOM')
@@ -67,7 +86,7 @@ def dashboard():
     # Get all orders with pagination (like in orders page)
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', '', type=str)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     
     query = Order.query
     
@@ -75,12 +94,7 @@ def dashboard():
         normalized_statuses = expand_status_filter(status_filter) or [status_filter]
         query = query.filter(Order.status.in_(normalized_statuses))
     
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     
     # ✅ Eager loading для избежания N+1 запросов
     query = query.options(
@@ -121,7 +135,7 @@ def orders():
     """All orders for mom"""
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', '', type=str)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     
     query = Order.query
     
@@ -129,12 +143,7 @@ def orders():
         normalized_statuses = expand_status_filter(status_filter) or [status_filter]
         query = query.filter(Order.status.in_(normalized_statuses))
     
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     
     # ✅ Eager loading для избежания N+1 запросов
     query = query.options(
@@ -171,16 +180,11 @@ def orders():
 def pending_orders():
     """Pending orders for mom"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     
     query = Order.query.filter(Order.status.in_(['checkout_initiated', 'awaiting_payment']))
     
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False

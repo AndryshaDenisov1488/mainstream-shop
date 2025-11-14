@@ -1,14 +1,33 @@
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, abort
 from flask_login import login_required, current_user
 from app.operator import bp
 from app.utils.decorators import role_required
 from app.models import Order, Event, User, db, VideoType
-from sqlalchemy import desc, or_, and_
+from sqlalchemy import desc, or_, and_, select
 from sqlalchemy.orm import joinedload
 import logging
 from app.utils.order_status import expand_status_filter
+from app.utils.datetime_utils import moscow_now_naive
 
 logger = logging.getLogger(__name__)
+
+
+def _apply_order_search_filter(query, search_term: str):
+    """Apply common search filters for order listings."""
+    if not search_term:
+        return query
+    term = search_term.strip()
+    if not term:
+        return query
+    filters = [
+        Order.generated_order_number.contains(term),
+        Order.contact_email.contains(term),
+    ]
+    try:
+        filters.append(Order.id == int(term))
+    except (ValueError, TypeError):
+        pass
+    return query.filter(or_(*filters))
 
 OPERATOR_VISIBLE_STATUSES = [
     'paid',
@@ -56,7 +75,7 @@ def dashboard():
     # Get all orders with pagination
     page = request.args.get('page', 1, type=int)
     status_filter = request.args.get('status', '', type=str)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     
     query = Order.query.filter(
         or_(
@@ -70,12 +89,7 @@ def dashboard():
     if status_values:
         query = query.filter(Order.status.in_(status_values))
     
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     
     # ✅ Eager loading для избежания N+1 запросов
     query = query.options(
@@ -146,17 +160,12 @@ def dashboard():
 def new_orders():
     """New orders - only paid orders that need to be taken by operator"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     query = Order.query.filter(
         Order.status == 'paid',
         Order.operator_id.is_(None)
     )
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
@@ -170,7 +179,7 @@ def new_orders():
 def processing_orders():
     """Processing orders assigned to the current operator"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     
     # ✅ Eager loading для избежания N+1 запросов
     query = Order.query.filter(
@@ -183,12 +192,7 @@ def processing_orders():
         joinedload(Order.operator),
         joinedload(Order.customer)
     )
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
@@ -203,17 +207,12 @@ def processing_orders():
 def ready_orders():
     """Ready orders - orders prepared or with links already sent"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     query = Order.query.filter(
         Order.status.in_(OPERATOR_READY_STATUSES),
         Order.operator_id == current_user.id
     )
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
@@ -227,17 +226,12 @@ def ready_orders():
 def completed_orders():
     """Completed orders for operator"""
     page = request.args.get('page', 1, type=int)
-    search = request.args.get('search', '', type=str)
+    search = request.args.get('search', '', type=str).strip()
     query = Order.query.filter(
         Order.status.in_(['completed', 'completed_partial_refund']),
         Order.operator_id == current_user.id
     )
-    if search:
-        query = query.filter(
-            (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search)) |
-            (Order.id.cast(db.String).contains(search))
-        )
+    query = _apply_order_search_filter(query, search)
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
@@ -249,27 +243,37 @@ def completed_orders():
 @role_required('OPERATOR')
 def take_order(order_id):
     """Take order for processing"""
-    order = Order.query.get_or_404(order_id)
-    
-    if order.status != 'paid':
-        flash('Можно взять в работу только оплаченные заказы', 'error')
-        return redirect(url_for('operator.new_orders'))
-    
     try:
         import time
         import random
         from sqlalchemy.exc import OperationalError
         
-        order.status = 'processing'
-        order.operator_id = current_user.id
-        
-        # ✅ Retry логика для обработки "database is locked"
         max_retries = 5
         retry_delay = 0.1  # Start with 100ms
         
         for attempt in range(max_retries):
             try:
+                stmt = select(Order).where(Order.id == order_id).with_for_update()
+                order = db.session.scalar(stmt)
+                if not order:
+                    db.session.rollback()
+                    abort(404)
+                
+                if order.operator_id and order.operator_id != current_user.id:
+                    db.session.rollback()
+                    flash('Заказ уже взят другим оператором', 'error')
+                    return redirect(url_for('operator.new_orders'))
+                
+                if order.status != 'paid':
+                    db.session.rollback()
+                    flash('Можно взять в работу только оплаченные заказы', 'error')
+                    return redirect(url_for('operator.new_orders'))
+                
+                order.status = 'processing'
+                order.operator_id = current_user.id
+                order.processed_at = moscow_now_naive()
                 db.session.commit()
+                flash('Заказ взят в обработку', 'success')
                 break  # Success, exit retry loop
             except OperationalError as e:
                 if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
@@ -277,15 +281,12 @@ def take_order(order_id):
                     wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
                     logger.warning(f'Database locked in take_order, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
                     time.sleep(wait_time)
-                    # Re-apply changes after rollback
-                    order.status = 'processing'
-                    order.operator_id = current_user.id
                 else:
                     db.session.rollback()
                     logger.error(f'Error taking order after {attempt + 1} attempts: {str(e)}')
                     raise
-        
-        flash('Заказ взят в обработку', 'success')
+        else:
+            flash('Не удалось взять заказ в обработку. Попробуйте еще раз.', 'error')
     except Exception as e:
         db.session.rollback()
         logger.error(f'Error taking order: {str(e)}')
@@ -395,6 +396,19 @@ def upload_video_links(order_id):
             if not video_links:
                 flash('Необходимо указать хотя бы одну ссылку на видео', 'error')
                 return redirect(url_for('operator.upload_video_links', order_id=order_id))
+            
+            # Lock order row to avoid concurrent modifications
+            stmt = select(Order).where(Order.id == order_id).with_for_update()
+            locked_order = db.session.scalar(stmt)
+            if not locked_order:
+                db.session.rollback()
+                abort(404)
+            order = locked_order
+            
+            if order.operator_id and order.operator_id != current_user.id:
+                db.session.rollback()
+                flash('Заказ уже закреплен за другим оператором', 'error')
+                return redirect(url_for('operator.dashboard'))
             
             # Update order with video links
             import time

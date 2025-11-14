@@ -58,14 +58,6 @@ def login():
             user.last_login = moscow_now_naive()
             db.session.commit()
             
-            # Log login
-            AuditLog.create_log(
-                user_id=user.id,
-                action='LOGIN',
-                ip_address=request.remote_addr,
-                user_agent=request.headers.get('User-Agent')
-            )
-            
             # Redirect to appropriate dashboard
             next_page = request.args.get('next')
             if not next_page or not next_page.startswith('/'):

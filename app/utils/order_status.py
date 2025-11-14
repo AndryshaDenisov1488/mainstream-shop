@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Sequence
+from typing import Dict, List, Sequence, Tuple
 
 
 @dataclass(frozen=True)
@@ -71,6 +71,26 @@ STATUS_DEFINITIONS: Dict[str, OrderStatusMeta] = {
     ),
 }
 
+ALL_ORDER_STATUSES: Tuple[str, ...] = tuple(STATUS_DEFINITIONS.keys())
+
+STATUS_TRANSITIONS: Dict[str, List[str]] = {
+    "draft": ["checkout_initiated", "cancelled_unpaid"],
+    "checkout_initiated": ["awaiting_payment", "cancelled_unpaid"],
+    "awaiting_payment": ["paid", "cancelled_unpaid"],
+    "paid": ["processing", "refund_required", "cancelled_manual"],
+    "processing": ["awaiting_info", "ready", "links_sent", "refund_required", "cancelled_manual"],
+    "awaiting_info": ["processing", "ready", "links_sent", "refund_required", "cancelled_manual"],
+    "ready": ["links_sent", "refund_required", "cancelled_manual"],
+    "links_sent": ["completed", "refund_required", "cancelled_manual"],
+    "completed": ["completed_partial_refund", "refund_required"],
+    "completed_partial_refund": ["refund_required"],
+    "refund_required": ["completed_partial_refund", "refunded_partial", "refunded_full", "links_sent", "processing", "paid"],
+    "refunded_partial": [],
+    "refunded_full": [],
+    "cancelled_unpaid": [],
+    "cancelled_manual": [],
+}
+
 # Легаси-алиасы, чтобы старые фильтры/ссылки продолжали работать.
 LEGACY_STATUS_ALIASES: Dict[str, List[str]] = {
     "pending": ["paid"],
@@ -110,4 +130,21 @@ def get_status_filter_choices(include_cancelled_group: bool = True) -> List[Orde
     if include_cancelled_group:
         choices.append(OrderStatusMeta("cancelled", "Отменен (все)", "dark", category="cancelled"))
     return choices
+
+
+def get_allowed_status_transitions(code: str) -> List[str]:
+    """Return allowed status transitions for a given status code."""
+    return STATUS_TRANSITIONS.get(code, [])
+
+
+def is_valid_status_transition(old_status: str, new_status: str) -> bool:
+    """
+    Validate whether transition from old_status to new_status is allowed.
+    """
+    if not old_status or not new_status:
+        return False
+    if old_status == new_status:
+        return True
+    allowed = get_allowed_status_transitions(old_status)
+    return new_status in allowed
 

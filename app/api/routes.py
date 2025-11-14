@@ -9,6 +9,10 @@ from app.utils.decorators import admin_or_mom_required, role_required
 from app.utils.cloudpayments import CloudPaymentsAPI
 from app.utils.email import send_order_confirmation_email
 from app.utils.datetime_utils import moscow_now_naive
+from app.utils.order_status import (
+    ALL_ORDER_STATUSES,
+    is_valid_status_transition,
+)
 import copy
 import json
 import logging
@@ -41,6 +45,13 @@ def _execute_db_operation_with_retry(operation_fn, context: str):
             else:
                 logger.error(f"DB operation '{context}' failed after {attempt + 1} attempts: {exc}")
                 raise
+
+
+def _mask_internal_error(exc: Exception, fallback_message: str) -> str:
+    """Return safe error message for clients without exposing internals."""
+    if current_app.config.get('DEBUG'):
+        return f"{fallback_message}: {exc}"
+    return fallback_message
 
 OPERATOR_MANAGEABLE_STATUSES = (
     'processing',
@@ -284,6 +295,12 @@ def change_order_status(order_id):
         if new_status not in OPERATOR_MANAGEABLE_STATUSES:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
         
+        if not is_valid_status_transition(order.status, new_status):
+            return jsonify({
+                'success': False,
+                'error': f'Невозможен переход из статуса {order.status} в {new_status}'
+            }), 400
+        
         # Update order - save old status before changing
         old_status = order.status
         order.status = new_status
@@ -356,7 +373,10 @@ def change_order_status(order_id):
     except Exception as e:
         logger.error(f'Change order status error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': _mask_internal_error(e, 'Не удалось изменить статус заказа')
+        }), 500
 
 @bp.route('/order/<int:order_id>/operator-change-status', methods=['POST'])
 @login_required
@@ -378,9 +398,20 @@ def operator_change_order_status(order_id):
             return jsonify({'success': False, 'error': 'Status required'}), 400
         
         # Validate status
-        valid_statuses = ['draft', 'checkout_initiated', 'awaiting_payment', 'paid', 'processing', 'awaiting_info', 'refund_required', 'ready', 'links_sent', 'completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_partial', 'refunded_full']
-        if new_status not in valid_statuses:
+        if new_status not in ALL_ORDER_STATUSES:
             return jsonify({'success': False, 'error': 'Invalid status'}), 400
+        
+        if not is_valid_status_transition(order.status, new_status):
+            return jsonify({
+                'success': False,
+                'error': f'Невозможен переход из статуса {order.status} в {new_status}'
+            }), 400
+        
+        if order.operator_id and order.operator_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'error': 'Заказ закреплен за другим оператором'
+            }), 403
         
         # Update order - save old status before changing
         old_status = order.status
@@ -467,7 +498,10 @@ def operator_change_order_status(order_id):
     except Exception as e:
         logger.error(f'Operator change order status error: {str(e)}')
         db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': _mask_internal_error(e, 'Не удалось изменить статус заказа')
+        }), 500
 
 @bp.route('/order/<int:order_id>/info', methods=['GET'])
 @login_required
@@ -740,15 +774,12 @@ def send_video_links_api(order_id):
 
 @bp.route('/order/<int:order_id>/assign-operator', methods=['POST'])
 @login_required
+@role_required('ADMIN', 'MOM', 'OPERATOR')
 def assign_operator_api(order_id):
     """Assign operator to order (only for paid orders)"""
     try:
         from sqlalchemy import select
         from sqlalchemy.exc import OperationalError
-        
-        # Check if user has permission (admin, mom, or operator)
-        if not (current_user.role == 'ADMIN' or current_user.role == 'MOM' or current_user.role == 'OPERATOR'):
-            return jsonify({'success': False, 'error': 'Недостаточно прав'}), 403
         
         # ✅ ИСПОЛЬЗУЕМ SELECT FOR UPDATE для блокировки строки
         # Flask автоматически создает транзакцию для каждого request, поэтому
@@ -1549,7 +1580,10 @@ def update_order_comments(order_id):
     except Exception as e:
         db.session.rollback()
         logger.error(f'Update order comments error: {str(e)}')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({
+            'success': False,
+            'error': _mask_internal_error(e, 'Не удалось обновить комментарии к заказу')
+        }), 500
 
 def _add_status_change_message(order_id, new_status, comment, user_id):
     """Add system message to chat when status changes"""
