@@ -523,6 +523,18 @@ def statistics():
     for order in completed_orders:
         if not order.video_types:
             continue
+        
+        # ✅ Исключаем заказы с полным возвратом из расчета заработка
+        # Полный возврат означает отмену заказа - оператор не должен получать за это оплату
+        if order.status in ['refunded_full', 'refunded_partial']:
+            # Добавляем в список для отображения в таблице, но с нулевым заработком
+            orders_earnings.append({
+                'order': order,
+                'earnings': 0,
+                'sport_count': 0,
+                'tv_count': 0
+            })
+            continue
             
         order_earnings = 0
         sport_count = 0
