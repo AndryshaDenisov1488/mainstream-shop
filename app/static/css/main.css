@@ -130,6 +130,23 @@ h1, h2, h3, h4, h5, h6 {
     margin-bottom: 2rem;
 }
 
+/* Wider layout utility for dashboards */
+.layout-wide {
+    max-width: 1500px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+}
+
+@media (max-width: 1400px) {
+    .layout-wide {
+        max-width: 100%;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
 /* Features Section */
 .features {
     padding: 5rem 0;
