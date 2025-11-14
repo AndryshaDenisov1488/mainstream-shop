@@ -191,7 +191,8 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if order.can_be_captured_by_mom() %}
+                            {% set allow_capture = order.can_be_captured_by_mom() and order.status != 'completed_partial_refund' %}
+                            {% if allow_capture %}
                                 <button class="btn btn-sm btn-success confirm-payment-btn"
                                         data-order-id="{{ order.id }}"
                                         data-order-number="{{ order.generated_order_number }}"
