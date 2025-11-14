@@ -134,9 +134,12 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if order.payments %}
-                                {% set confirmed_payments = order.payments|selectattr('status', 'equalto', 'confirmed')|list %}
-                                {% set refunded_payments = order.payments|selectattr('status', 'in', ['refunded_partial', 'refunded_full'])|list %}
+                            {% set payment_list = order.payments|list %}
+                            {% if payment_list %}
+                                {% set confirmed_payments = payment_list|selectattr('status', 'equalto', 'confirmed')|list %}
+                                {% set partial_refunds = payment_list|selectattr('status', 'equalto', 'refunded_partial')|list %}
+                                {% set full_refunds = payment_list|selectattr('status', 'equalto', 'refunded_full')|list %}
+                                {% set refunded_payments = partial_refunds + full_refunds %}
                                 {% for payment in confirmed_payments %}
                                     <div class="d-flex flex-column mb-2">
                                         <span class="badge bg-success small mb-1">Подтвержден</span>
@@ -155,7 +158,7 @@
                                     </div>
                                 {% endfor %}
                                 {% if not confirmed_payments and not refunded_payments %}
-                                    {% for payment in order.payments %}
+                                    {% for payment in payment_list %}
                                         <div class="d-flex flex-column">
                                             <span class="badge bg-{{ 'warning' if payment.status == 'authorized' else 'danger' if payment.status in ['voided', 'failed'] else 'secondary' }} small mb-1">
                                                 {{ 'Авторизован' if payment.status == 'authorized' else 'Отменен' if payment.status in ['voided', 'failed'] else payment.status }}
