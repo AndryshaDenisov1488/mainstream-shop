@@ -295,9 +295,43 @@ def send_links(order_id):
         return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
     
     try:
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
+        # Update order status
+        if order.status == 'completed':
+            order.status = 'links_sent'
+        
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in send_links (mom), retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    if order.status == 'completed':
+                        order.status = 'links_sent'
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error updating order status in send_links after {attempt + 1} attempts: {str(e)}')
+                    raise
+        
+        # ✅ Отправляем email и уведомления ПОСЛЕ коммита (не блокирует транзакцию)
         # Send video links email to customer
-        from app.utils.email import send_video_links_email
-        send_video_links_email(order)
+        try:
+            from app.utils.email import send_video_links_email
+            send_video_links_email(order)
+        except Exception as e:
+            logger.error(f'Failed to send video links email: {e}')
         
         # Send Telegram notification with links (if user has telegram_id)
         try:
@@ -306,11 +340,6 @@ def send_links(order_id):
         except Exception as e:
             logger.warning(f'Failed to send Telegram notification with links: {e}')
             # Don't fail the whole operation if Telegram notification fails
-        
-        # Update order status
-        if order.status == 'completed':
-            order.status = 'links_sent'
-        db.session.commit()
         
         # Log action
         from app.models import AuditLog
@@ -326,6 +355,8 @@ def send_links(order_id):
         
         return jsonify({'success': True, 'message': 'Ссылки отправлены'})
     except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error in send_links (mom): {str(e)}')
         return jsonify({'success': False, 'error': str(e)})
 
 @bp.route('/orders/<int:order_id>/confirm-payment', methods=['POST'])
@@ -403,18 +434,47 @@ def refund_order(order_id):
         )
         
         if refund_result['success']:
+            import time
+            import random
+            from sqlalchemy.exc import OperationalError
+            
             # Update order status based on refund type
             if refund_result.get('refund_amount') and float(refund_result['refund_amount']) < float(payment.amount):
                 order.status = 'completed_partial_refund'
             else:
                 order.status = 'refunded_full'
-            db.session.commit()
+            
+            # ✅ Retry логика для обработки "database is locked"
+            max_retries = 5
+            retry_delay = 0.1  # Start with 100ms
+            
+            for attempt in range(max_retries):
+                try:
+                    db.session.commit()
+                    break  # Success, exit retry loop
+                except OperationalError as e:
+                    if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                        db.session.rollback()
+                        wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                        logger.warning(f'Database locked in refund_order (mom), retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                        time.sleep(wait_time)
+                        # Re-apply changes after rollback
+                        if refund_result.get('refund_amount') and float(refund_result['refund_amount']) < float(payment.amount):
+                            order.status = 'completed_partial_refund'
+                        else:
+                            order.status = 'refunded_full'
+                    else:
+                        db.session.rollback()
+                        logger.error(f'Error updating order status in refund_order after {attempt + 1} attempts: {str(e)}')
+                        raise
+            
             return jsonify({'success': True, 'message': 'Возврат выполнен'})
         else:
             return jsonify({'success': False, 'error': refund_result['error']})
             
     except Exception as e:
         db.session.rollback()
+        logger.error(f'Error in refund_order (mom): {str(e)}')
         return jsonify({'success': False, 'error': str(e)})
 
 @bp.route('/processing-orders')

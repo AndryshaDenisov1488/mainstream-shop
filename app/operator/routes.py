@@ -256,13 +256,39 @@ def take_order(order_id):
         return redirect(url_for('operator.new_orders'))
     
     try:
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
         order.status = 'processing'
         order.operator_id = current_user.id
-        db.session.commit()
+        
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in take_order, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    order.status = 'processing'
+                    order.operator_id = current_user.id
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error taking order after {attempt + 1} attempts: {str(e)}')
+                    raise
         
         flash('Заказ взят в обработку', 'success')
     except Exception as e:
         db.session.rollback()
+        logger.error(f'Error taking order: {str(e)}')
         flash('Ошибка при взятии заказа', 'error')
     
     return redirect(url_for('operator.new_orders'))
@@ -288,14 +314,40 @@ def complete_order(order_id):
         return redirect(url_for('operator.ready_orders'))
     
     try:
-        order.status = 'completed'
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
         from app.utils.datetime_utils import moscow_now_naive
+        
+        order.status = 'completed'
         order.processed_at = moscow_now_naive()
-        db.session.commit()
+        
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in complete_order, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    order.status = 'completed'
+                    order.processed_at = moscow_now_naive()
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error completing order after {attempt + 1} attempts: {str(e)}')
+                    raise
         
         flash('Заказ завершен', 'success')
     except Exception as e:
         db.session.rollback()
+        logger.error(f'Error completing order: {str(e)}')
         flash('Ошибка при завершении заказа', 'error')
     
     return redirect(url_for('operator.processing_orders'))
@@ -345,38 +397,72 @@ def upload_video_links(order_id):
                 return redirect(url_for('operator.upload_video_links', order_id=order_id))
             
             # Update order with video links
+            import time
+            import random
+            from sqlalchemy.exc import OperationalError
+            from app.utils.datetime_utils import moscow_now_naive
+            from app.models import OrderChat, ChatMessage
+            
             order.video_links = video_links
             order.status = 'links_sent'  # Mark as links sent
-            from app.utils.datetime_utils import moscow_now_naive
             order.processed_at = moscow_now_naive()
             
             # If no operator assigned, assign current operator
             if not order.operator_id:
                 order.operator_id = current_user.id
             
-            db.session.commit()
+            # Create or get chat before commit
+            chat = order.chat
+            if not chat:
+                chat = OrderChat(order_id=order_id)
+                db.session.add(chat)
             
-            # Add system message to chat
+            # ✅ Retry логика для обработки "database is locked"
+            max_retries = 5
+            retry_delay = 0.1  # Start with 100ms
+            
+            for attempt in range(max_retries):
+                try:
+                    db.session.commit()
+                    break  # Success, exit retry loop
+                except OperationalError as e:
+                    if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                        db.session.rollback()
+                        wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                        logger.warning(f'Database locked in upload_video_links, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                        time.sleep(wait_time)
+                        # Re-apply changes after rollback
+                        order.video_links = video_links
+                        order.status = 'links_sent'
+                        order.processed_at = moscow_now_naive()
+                        if not order.operator_id:
+                            order.operator_id = current_user.id
+                        chat = order.chat
+                        if not chat:
+                            chat = OrderChat(order_id=order_id)
+                            db.session.add(chat)
+                    else:
+                        db.session.rollback()
+                        logger.error(f'Error uploading video links after {attempt + 1} attempts: {str(e)}')
+                        raise
+            
+            # ✅ Отправка email и уведомлений ПОСЛЕ коммита (не блокирует транзакцию)
             try:
-                from app.models import OrderChat, ChatMessage
                 from app.utils.email import send_order_ready_notification
                 
-                # Create or get chat
-                chat = order.chat
-                if not chat:
-                    chat = OrderChat(order_id=order_id)
-                    db.session.add(chat)
+                # Add system message to chat (отдельная транзакция)
+                try:
+                    system_message = ChatMessage(
+                        chat_id=chat.id,
+                        sender_id=current_user.id,
+                        message="Ссылки на видео отправлены клиенту",
+                        message_type='system'
+                    )
+                    db.session.add(system_message)
                     db.session.commit()
-                
-                # Add system message
-                system_message = ChatMessage(
-                    chat_id=chat.id,
-                    sender_id=current_user.id,
-                    message="Ссылки на видео отправлены клиенту",
-                    message_type='system'
-                )
-                db.session.add(system_message)
-                db.session.commit()
+                except Exception as e:
+                    logger.warning(f"Failed to add system message to chat: {e}")
+                    db.session.rollback()
                 
                 # Send notification to mom/admin
                 send_order_ready_notification(order)
@@ -389,7 +475,7 @@ def upload_video_links(order_id):
                     logger.error(f"Failed to send video links via Telegram: {e}")
                     
             except Exception as e:
-                logger.error(f"Failed to add chat message or send notification: {e}")
+                logger.error(f"Failed to send notifications: {e}")
             
             flash('Ссылки на видео успешно отправлены клиенту!', 'success')
             return redirect(url_for('operator.order_detail', order_id=order_id))

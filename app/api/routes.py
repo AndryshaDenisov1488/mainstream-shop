@@ -230,6 +230,10 @@ def process_payment():
 def change_order_status(order_id):
     """Change order status"""
     try:
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
         order = Order.query.get_or_404(order_id)
         
         data = request.get_json()
@@ -252,17 +256,44 @@ def change_order_status(order_id):
         if new_status in ['completed', 'completed_partial_refund', 'cancelled_manual']:
             order.processed_at = moscow_now_naive()
         
-        # Если заказ отменяется, сохраняем причину и отправляем email
+        # Если заказ отменяется, сохраняем причину
         if new_status == 'cancelled_manual':
             order.cancellation_reason = operator_comment
-            # Отправляем email клиенту
+        
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in change_order_status, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    order.status = new_status
+                    if operator_comment:
+                        order.operator_comment = operator_comment
+                    if new_status in ['completed', 'completed_partial_refund', 'cancelled_manual']:
+                        order.processed_at = moscow_now_naive()
+                    if new_status == 'cancelled_manual':
+                        order.cancellation_reason = operator_comment
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error changing order status after {attempt + 1} attempts: {str(e)}')
+                    raise
+        
+        # ✅ Отправляем email ПОСЛЕ коммита (не блокирует транзакцию)
+        if new_status == 'cancelled_manual':
             try:
                 from app.utils.email import send_order_cancellation_email
                 send_order_cancellation_email(order, operator_comment)
             except Exception as e:
                 logger.error(f"Error sending cancellation email: {e}")
-        
-        db.session.commit()
         
         # Log action
         AuditLog.create_log(
@@ -296,6 +327,10 @@ def change_order_status(order_id):
 def operator_change_order_status(order_id):
     """Change order status by operator"""
     try:
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
         order = Order.query.get_or_404(order_id)
         
         data = request.get_json()
@@ -323,17 +358,46 @@ def operator_change_order_status(order_id):
         if new_status in ['completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'refunded_partial']:
             order.processed_at = moscow_now_naive()
         
-        # Если заказ отменяется, сохраняем причину и отправляем email
+        # Если заказ отменяется, сохраняем причину
         if new_status in ['cancelled_unpaid', 'cancelled_manual']:
             order.cancellation_reason = operator_comment
-            # Отправляем email клиенту
+        
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in operator_change_order_status, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    order.status = new_status
+                    if operator_comment:
+                        order.operator_comment = operator_comment
+                    if not order.operator_id:
+                        order.operator_id = current_user.id
+                    if new_status in ['completed', 'completed_partial_refund', 'cancelled_unpaid', 'cancelled_manual', 'refunded_full', 'refunded_partial']:
+                        order.processed_at = moscow_now_naive()
+                    if new_status in ['cancelled_unpaid', 'cancelled_manual']:
+                        order.cancellation_reason = operator_comment
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error changing order status by operator after {attempt + 1} attempts: {str(e)}')
+                    raise
+        
+        # ✅ Отправляем email ПОСЛЕ коммита (не блокирует транзакцию)
+        if new_status in ['cancelled_unpaid', 'cancelled_manual']:
             try:
                 from app.utils.email import send_order_cancellation_email
                 send_order_cancellation_email(order, operator_comment)
             except Exception as e:
                 logger.error(f"Error sending cancellation email: {e}")
-        
-        db.session.commit()
         
         # Add system message to chat
         try:
@@ -1328,6 +1392,10 @@ def create_order():
 def update_order_comments(order_id):
     """Update order comments and refund status"""
     try:
+        import time
+        import random
+        from sqlalchemy.exc import OperationalError
+        
         order = Order.query.get_or_404(order_id)
         
         data = request.get_json()
@@ -1339,6 +1407,7 @@ def update_order_comments(order_id):
         order.operator_comment = operator_comment
         
         # Update refund status and reason
+        old_status = order.status
         if partial_refund:
             order.status = 'refund_required'
             order.refund_reason = refund_reason
@@ -1354,7 +1423,38 @@ def update_order_comments(order_id):
                     order.status = 'paid'  # ✅ Оплачен, но еще не взят оператором
             order.refund_reason = None
         
-        db.session.commit()
+        # ✅ Retry логика для обработки "database is locked"
+        max_retries = 5
+        retry_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            try:
+                db.session.commit()
+                break  # Success, exit retry loop
+            except OperationalError as e:
+                if 'database is locked' in str(e).lower() and attempt < max_retries - 1:
+                    db.session.rollback()
+                    wait_time = retry_delay * (2 ** attempt) + random.uniform(0, 0.1)
+                    logger.warning(f'Database locked in update_order_comments, retrying in {wait_time:.2f}s (attempt {attempt + 1}/{max_retries})')
+                    time.sleep(wait_time)
+                    # Re-apply changes after rollback
+                    order.operator_comment = operator_comment
+                    if partial_refund:
+                        order.status = 'refund_required'
+                        order.refund_reason = refund_reason
+                    else:
+                        if order.status == 'refund_required':
+                            if order.video_links:
+                                order.status = 'links_sent'
+                            elif order.operator_id:
+                                order.status = 'processing'
+                            else:
+                                order.status = 'paid'
+                        order.refund_reason = None
+                else:
+                    db.session.rollback()
+                    logger.error(f'Error updating order comments after {attempt + 1} attempts: {str(e)}')
+                    raise
         
         # Log action
         AuditLog.create_log(
@@ -1362,7 +1462,7 @@ def update_order_comments(order_id):
             action='ORDER_COMMENTS_UPDATE',
             resource_type='Order',
             resource_id=str(order.id),
-            details={'operator_comment': operator_comment, 'partial_refund': partial_refund, 'refund_reason': refund_reason},
+            details={'operator_comment': operator_comment, 'partial_refund': partial_refund, 'refund_reason': refund_reason, 'old_status': old_status, 'new_status': order.status},
             ip_address=request.remote_addr,
             user_agent=request.headers.get('User-Agent')
         )
