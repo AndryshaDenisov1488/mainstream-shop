@@ -11,6 +11,18 @@
         </a>
     </div>
 
+    <form class="row g-3 mb-4" method="get">
+        <div class="col-md-6">
+            <input type="text" class="form-control" name="search" value="{{ search | default('') }}" placeholder="Поиск по номеру заказа, email или ID">
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-1"></i> Найти</button>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('operator.completed_orders') }}" class="btn btn-outline-secondary w-100"><i class="fas fa-times me-1"></i> Сбросить</a>
+        </div>
+    </form>
+
     <div class="card shadow mb-4">
         <div class="card-header">
             <h5 class="mb-0">Выполненные заказы ({{ orders.total }} найдено)</h5>
@@ -53,7 +65,7 @@
                 <ul class="pagination justify-content-center">
                     {% if orders.has_prev %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('operator.completed_orders', page=orders.prev_num) }}">Предыдущая</a>
+                        <a class="page-link" href="{{ url_for('operator.completed_orders', page=orders.prev_num, search=search) }}">Предыдущая</a>
                     </li>
                     {% endif %}
                     {% for page_num in orders.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
@@ -61,7 +73,7 @@
                             {% if orders.page == page_num %}
                             <li class="page-item active"><a class="page-link" href="#">{{ page_num }}</a></li>
                             {% else %}
-                            <li class="page-item"><a class="page-link" href="{{ url_for('operator.completed_orders', page=page_num) }}">{{ page_num }}</a></li>
+                            <li class="page-item"><a class="page-link" href="{{ url_for('operator.completed_orders', page=page_num, search=search) }}">{{ page_num }}</a></li>
                             {% endif %}
                         {% else %}
                         <li class="page-item disabled"><a class="page-link" href="#">...</a></li>
@@ -69,7 +81,7 @@
                     {% endfor %}
                     {% if orders.has_next %}
                     <li class="page-item">
-                        <a class="page-link" href="{{ url_for('operator.completed_orders', page=orders.next_num) }}">Следующая</a>
+                        <a class="page-link" href="{{ url_for('operator.completed_orders', page=orders.next_num, search=search) }}">Следующая</a>
                     </li>
                     {% endif %}
                 </ul>

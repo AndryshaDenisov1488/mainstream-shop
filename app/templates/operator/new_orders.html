@@ -14,6 +14,18 @@
         </div>
     </div>
 
+    <form class="row g-3 mb-4" method="get">
+        <div class="col-md-6">
+            <input type="text" class="form-control" name="search" value="{{ search | default('') }}" placeholder="Поиск по номеру заказа, email или ID">
+        </div>
+        <div class="col-md-3">
+            <button type="submit" class="btn btn-primary w-100"><i class="fas fa-search me-1"></i> Найти</button>
+        </div>
+        <div class="col-md-3">
+            <a href="{{ url_for('operator.new_orders') }}" class="btn btn-outline-secondary w-100"><i class="fas fa-times me-1"></i> Сбросить</a>
+        </div>
+    </form>
+
     <!-- Orders Table -->
     <div class="card">
         <div class="card-header">
@@ -78,7 +90,7 @@
                 <ul class="pagination justify-content-center">
                     {% if orders.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('operator.new_orders', page=orders.prev_num) }}">Предыдущая</a>
+                            <a class="page-link" href="{{ url_for('operator.new_orders', page=orders.prev_num, search=search) }}">Предыдущая</a>
                         </li>
                     {% endif %}
                     
@@ -86,7 +98,7 @@
                         {% if page_num %}
                             {% if page_num != orders.page %}
                                 <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('operator.new_orders', page=page_num) }}">{{ page_num }}</a>
+                                    <a class="page-link" href="{{ url_for('operator.new_orders', page=page_num, search=search) }}">{{ page_num }}</a>
                                 </li>
                             {% else %}
                                 <li class="page-item active">
@@ -102,7 +114,7 @@
                     
                     {% if orders.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('operator.new_orders', page=orders.next_num) }}">Следующая</a>
+                            <a class="page-link" href="{{ url_for('operator.new_orders', page=orders.next_num, search=search) }}">Следующая</a>
                         </li>
                     {% endif %}
                 </ul>

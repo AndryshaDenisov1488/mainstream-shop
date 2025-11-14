@@ -107,7 +107,7 @@
             </div>
 
             <!-- Video Links Section -->
-            <div class="card mb-4">
+            <div class="card mb-4" id="send-links">
                 <div class="card-header">
                     <h5 class="mb-0"><i class="fas fa-link me-2"></i>Ссылки на видео</h5>
                 </div>
@@ -157,7 +157,15 @@
                         {% else %}
                             <p class="text-muted">Типы видео не указаны</p>
                         {% endif %}
-
+                        <div class="mb-3">
+                            <label for="messageInline" class="form-label">Сообщение клиенту (опционально):</label>
+                            <textarea class="form-control" id="messageInline" name="message" rows="3"
+                                      placeholder="Напишите сопроводительное сообщение для клиента"
+                                      {% if order.status in operator_locked_statuses %}disabled{% endif %}>{{ order.operator_comment or '' }}</textarea>
+                        </div>
+                        <p class="small text-muted">
+                            Для частичного возврата отметьте переключатель в блоке «Комментарии оператора» ниже и опишите причину возврата перед отправкой ссылок.
+                        </p>
 
                         <button type="button" class="btn btn-primary" onclick="sendVideoLinks()"
                                 {% if order.status in operator_locked_statuses %}disabled{% endif %}>
@@ -452,14 +460,14 @@
 // Define sendVideoLinks function first to avoid ReferenceError
 function sendVideoLinks() {
     // Определяем, какая форма используется - модальная или на странице
-    const modal = document.getElementById('sendLinksModal');
-    const isModalOpen = modal && modal.classList.contains('show');
+    const modalElement = document.getElementById('sendLinksModal');
+    const isModalOpen = modalElement && modalElement.classList.contains('show');
     
     let form, orderId;
     
     if (isModalOpen) {
         // Используем модальную форму
-        form = modal.querySelector('#sendLinksForm');
+        form = modalElement.querySelector('#sendLinksForm');
         orderId = document.getElementById('modalOrderId')?.value;
     } else {
         // Используем форму на странице
@@ -518,16 +526,22 @@ function sendVideoLinks() {
         return;
     }
     
-    // Get refund data from the modal
-    const partialRefundCheckbox = document.getElementById('partialRefundCheckbox') || modal?.querySelector('#partialRefundCheckbox');
+    // Get refund data depending on context
+    const partialRefundCheckbox = isModalOpen
+        ? modalElement.querySelector('#partialRefundCheckbox')
+        : document.getElementById('refundStatusCheckbox');
     const partialRefund = partialRefundCheckbox ? partialRefundCheckbox.checked : false;
     
-    // Get operator comment from the input field
-    const messageInput = document.getElementById('message') || form.querySelector('#message');
+    // Get operator comment / message field
+    const messageInput = isModalOpen
+        ? modalElement.querySelector('#message')
+        : document.getElementById('messageInline');
     const message = messageInput ? messageInput.value.trim() : '';
     
-    // Get refund reason from the input field
-    const refundCommentInput = document.getElementById('refundComment') || modal?.querySelector('#refundComment');
+    // Get refund reason from the relevant field
+    const refundCommentInput = isModalOpen
+        ? modalElement.querySelector('#refundComment')
+        : document.getElementById('refundReasonInput');
     const refundComment = refundCommentInput ? refundCommentInput.value.trim() : '';
     
     // If it's a refund case but no refund reason provided
@@ -565,9 +579,9 @@ function sendVideoLinks() {
         console.log('Response data:', data);
         if (data.success) {
             alert('Ссылки отправлены успешно!');
-            const modal = bootstrap.Modal.getInstance(document.getElementById('sendLinksModal'));
-            if (modal) {
-                modal.hide();
+            const modalInstance = bootstrap.Modal.getInstance(document.getElementById('sendLinksModal'));
+            if (modalInstance) {
+                modalInstance.hide();
             }
             // Update display without reloading the page
             updateCommentsDisplay(message, refundComment, partialRefund);

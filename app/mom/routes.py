@@ -282,16 +282,17 @@ def event_detail(event_id):
     event = Event.query.get_or_404(event_id)
     return render_template('mom/event_detail.html', event=event)
 
-    @bp.route('/orders/<int:order_id>/send-links', methods=['POST'])
+
+@bp.route('/orders/<int:order_id>/send-links', methods=['POST'])
 @login_required
 @role_required('MOM')
 def send_links(order_id):
     """Send video links to customer"""
     order = Order.query.get_or_404(order_id)
     
-        allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
-        if order.status not in allowed_statuses:
-            return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
+    allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
+    if order.status not in allowed_statuses:
+        return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
     
     try:
         # Send video links email to customer
@@ -344,9 +345,9 @@ def resend_links(order_id):
     order = Order.query.get_or_404(order_id)
     data = request.get_json()
     
-        allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
-        if order.status not in allowed_statuses:
-            return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
+    allowed_statuses = ['completed', 'links_sent', 'completed_partial_refund', 'refund_required']
+    if order.status not in allowed_statuses:
+        return jsonify({'success': False, 'error': 'Ссылки можно отправить только после выполнения заказа'})
     
     email = data.get('email')
     message = data.get('message', '')

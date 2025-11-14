@@ -28,9 +28,11 @@ OPERATOR_VISIBLE_STATUSES = [
 OPERATOR_ACTIVE_STATUSES = [
     'processing',
     'awaiting_info',
+]
+
+OPERATOR_READY_STATUSES = [
     'ready',
     'links_sent',
-    'refund_required',
 ]
 
 @bp.route('/dashboard')
@@ -47,7 +49,8 @@ def dashboard():
     
     # В обработке - заказы в работе у операторов
     processing_orders = Order.query.filter(
-        Order.status.in_(['processing', 'ready', 'links_sent'])
+        Order.status.in_(['processing', 'awaiting_info', 'ready']),
+        Order.operator_id == current_user.id
     ).count()
     
     # Get all orders with pagination
@@ -70,7 +73,8 @@ def dashboard():
     if search:
         query = query.filter(
             (Order.generated_order_number.contains(search)) |
-            (Order.contact_email.contains(search))
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
         )
     
     # ✅ Eager loading для избежания N+1 запросов
@@ -142,14 +146,22 @@ def dashboard():
 def new_orders():
     """New orders - only paid orders that need to be taken by operator"""
     page = request.args.get('page', 1, type=int)
-    orders = Order.query.filter(
+    search = request.args.get('search', '', type=str)
+    query = Order.query.filter(
         Order.status == 'paid',
         Order.operator_id.is_(None)
-    ).order_by(desc(Order.created_at)).paginate(
+    )
+    if search:
+        query = query.filter(
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
+        )
+    orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
-    return render_template('operator/new_orders.html', orders=orders)
+    return render_template('operator/new_orders.html', orders=orders, search=search)
 
 
 @bp.route('/processing-orders')
@@ -158,6 +170,7 @@ def new_orders():
 def processing_orders():
     """Processing orders assigned to the current operator"""
     page = request.args.get('page', 1, type=int)
+    search = request.args.get('search', '', type=str)
     
     # ✅ Eager loading для избежания N+1 запросов
     query = Order.query.filter(
@@ -170,28 +183,42 @@ def processing_orders():
         joinedload(Order.operator),
         joinedload(Order.customer)
     )
+    if search:
+        query = query.filter(
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
+        )
     
     orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
-    return render_template('operator/processing_orders.html', orders=orders)
+    return render_template('operator/processing_orders.html', orders=orders, search=search)
 
 
 @bp.route('/ready-orders')
 @login_required
 @role_required('OPERATOR')
 def ready_orders():
-    """Ready orders - orders with links sent"""
+    """Ready orders - orders prepared or with links already sent"""
     page = request.args.get('page', 1, type=int)
-    orders = Order.query.filter(
-        Order.status == 'links_sent',
+    search = request.args.get('search', '', type=str)
+    query = Order.query.filter(
+        Order.status.in_(OPERATOR_READY_STATUSES),
         Order.operator_id == current_user.id
-    ).order_by(desc(Order.created_at)).paginate(
+    )
+    if search:
+        query = query.filter(
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
+        )
+    orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
-    return render_template('operator/ready_orders.html', orders=orders)
+    return render_template('operator/ready_orders.html', orders=orders, search=search)
 
 
 @bp.route('/completed-orders')
@@ -200,14 +227,22 @@ def ready_orders():
 def completed_orders():
     """Completed orders for operator"""
     page = request.args.get('page', 1, type=int)
-    orders = Order.query.filter(
+    search = request.args.get('search', '', type=str)
+    query = Order.query.filter(
         Order.status.in_(['completed', 'completed_partial_refund']),
         Order.operator_id == current_user.id
-    ).order_by(desc(Order.created_at)).paginate(
+    )
+    if search:
+        query = query.filter(
+            (Order.generated_order_number.contains(search)) |
+            (Order.contact_email.contains(search)) |
+            (Order.id.cast(db.String).contains(search))
+        )
+    orders = query.order_by(desc(Order.created_at)).paginate(
         page=page, per_page=20, error_out=False
     )
     
-    return render_template('operator/completed_orders.html', orders=orders)
+    return render_template('operator/completed_orders.html', orders=orders, search=search)
 
 @bp.route('/orders/<int:order_id>/take')
 @login_required
@@ -244,8 +279,18 @@ def complete_order(order_id):
         flash('У вас нет прав на этот заказ', 'error')
         return redirect(url_for('operator.ready_orders'))
     
+    if order.status != 'links_sent':
+        flash('Завершить можно только заказ со статусом "Ссылки отправлены"', 'error')
+        return redirect(url_for('operator.ready_orders'))
+    
+    if not order.video_links:
+        flash('Нельзя завершить заказ, пока не добавлены ссылки на видео', 'error')
+        return redirect(url_for('operator.ready_orders'))
+    
     try:
         order.status = 'completed'
+        from app.utils.datetime_utils import moscow_now_naive
+        order.processed_at = moscow_now_naive()
         db.session.commit()
         
         flash('Заказ завершен', 'success')
