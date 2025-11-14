@@ -191,12 +191,13 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if order.can_be_captured_by_mom() and authorized_payments %}
+                            {% if order.can_be_captured_by_mom() %}
                                 <button class="btn btn-sm btn-success confirm-payment-btn"
                                         data-order-id="{{ order.id }}"
                                         data-order-number="{{ order.generated_order_number }}"
                                         data-order-amount="{{ order.total_amount }}"
-                                        title="Принять деньги">
+                                        data-has-authorized="{{ 1 if authorized_payments else 0 }}"
+                                        title="{% if authorized_payments %}Принять деньги{% else %}Принять деньги (авторизация отсутствует — будет записано вручную){% endif %}">
                                     <i class="fas fa-money-bill-wave"></i>
                                 </button>
                             {% elif order.status not in ['cancelled_unpaid', 'cancelled_manual', 'refunded_full'] %}
