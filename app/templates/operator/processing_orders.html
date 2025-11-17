@@ -59,9 +59,18 @@
                             <td>{{ "%.2f"|format(order.total_amount) }} ₽</td>
                             <td>{{ order.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
                             <td>
-                                <a href="{{ url_for('operator.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
-                                    <i class="fas fa-eye"></i> Просмотр
-                                </a>
+                                <div class="d-flex gap-2 flex-wrap">
+                                    <a href="{{ url_for('operator.order_detail', order_id=order.id) }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-eye"></i> Просмотр
+                                    </a>
+                                    {% if order.status in ['processing', 'awaiting_info'] %}
+                                        <form method="post" action="{{ url_for('operator.mark_ready', order_id=order.id) }}" class="d-inline">
+                                            <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Отметить заказ {{ order.generated_order_number or ('#' ~ order.id) }} как готовый к отправке?');">
+                                                <i class="fas fa-check"></i> Готов
+                                            </button>
+                                        </form>
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

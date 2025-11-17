@@ -201,6 +201,34 @@ def processing_orders():
     return render_template('operator/processing_orders.html', orders=orders, search=search)
 
 
+@bp.route('/orders/<int:order_id>/mark-ready', methods=['POST'])
+@login_required
+@role_required('OPERATOR')
+def mark_ready(order_id: int):
+    """Mark an order as ready for sending (operator shortcut action)."""
+    order = Order.query.get_or_404(order_id)
+
+    if order.operator_id != current_user.id:
+        flash('У вас нет доступа к этому заказу', 'error')
+        return redirect(url_for('operator.processing_orders'))
+
+    if order.status not in OPERATOR_ACTIVE_STATUSES:
+        flash('Отметить готовым можно только заказы в обработке', 'error')
+        return redirect(url_for('operator.processing_orders'))
+
+    try:
+        order.status = 'ready'
+        order.processed_at = moscow_now_naive()
+        db.session.commit()
+        flash('Заказ отмечен как готовый к отправке', 'success')
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f'Error marking order {order_id} ready: {str(e)}')
+        flash('Ошибка при обновлении статуса заказа', 'error')
+
+    return redirect(url_for('operator.processing_orders'))
+
+
 @bp.route('/ready-orders')
 @login_required
 @role_required('OPERATOR')
